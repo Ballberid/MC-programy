@@ -11,6 +11,8 @@ for i=1, 16 do
     turtle.placeDown()
     break
   else
-    sprava = "empty"  shell.run("send.lua", sprava)
+    if i == 16 then
+      sprava = "empty"  shell.run("send.lua", sprava)
+    end
   end
 end
