@@ -5,6 +5,7 @@ local subory = {
  { meno = "fill.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/fill.lua"},
  { meno = "refuel.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/refuel.lua"},
  { meno = "unload.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/unload.lua"},
+ { meno = "parcela.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/parcela.lua"},
 }
 
 for _, subor in ipairs(subory) do
