@@ -114,15 +114,18 @@ for h=1, heigth do
       sprava = "tBack"  shell.run("send.lua", sprava)
       turtle.back()
     end
-    sprava = "new.line"  shell.run("send.lua", sprava)
-    sprava = "tRight"  shell.run("send.lua", sprava)
-    turtle.turnRight()
-    sprava = "tDig"  shell.run("send.lua", sprava)
-    turtle.dig()
-    sprava = "tForw"  shell.run("send.lua", sprava)
-    turtle.forward()
-    sprava = "tLeft"  shell.run("send.lua", sprava)
-    turtle.turnLeft()
+    x = 0
+    if h < heigth then
+      sprava = "new.line"  shell.run("send.lua", sprava)
+      sprava = "tRight"  shell.run("send.lua", sprava)
+      turtle.turnRight()
+      sprava = "tDig"  shell.run("send.lua", sprava)
+      turtle.dig()
+      sprava = "tForw"  shell.run("send.lua", sprava)
+      turtle.forward()
+      sprava = "tLeft"  shell.run("send.lua", sprava)
+      turtle.turnLeft()
+    end
   end
   sprava = "new.layer"  shell.run("send.lua", sprava)
   shell.run("GoHome.lua", x, y, 0)
