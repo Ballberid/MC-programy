@@ -15,6 +15,9 @@ for i=1, 16 do
     sprava = "no emp.pos"  shell.run("send.lua", sprava)
     sprava = "tRight"  shell.run("send.lua", sprava)
     turtle.turnRight()
+    sprava = "try unload"  shell.run("send.lua", sprava)
     shell.run("unload.lua")
+    sprava = "try refuel"  shell.run("send.lua", sprava)
+    shell.run("refuel.lua")
   end
 end
