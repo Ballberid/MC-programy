@@ -25,4 +25,4 @@ for ix=1, x do
   turtle.forward()
 end
 
-sprava = "HomePos"  shell.run("send.lua", sprava)
+sprava = "WorkPos"  shell.run("send.lua", sprava)
