@@ -21,17 +21,16 @@ function FindEmptyPos()
       shell.run("unload.lua")
       sprava = "tLeft"  shell.run("send.lua", sprava)
       turtle.turnLeft()
-      sprava = "try refuel"  shell.run("send.lua", sprava)
+      sprava = "try.refuel"  shell.run("send.lua", sprava)
       FindEmptyPos()
       return
     end
   end
 end
 
-local select_item = turtle.getItemDetail()
-
 function GetFuel()
   sprava = "fn:gt.fuel"  shell.run("send.lua", sprava)
+  local select_item = turtle.getItemDetail()
   if select_item == nill then
     sprava = "tSuck"  shell.run("send.lua", sprava)
     turtle.suck()
