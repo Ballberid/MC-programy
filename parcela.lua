@@ -130,6 +130,8 @@ for h=1, heigth do
   sprava = "new.layer"  shell.run("send.lua", sprava)
   shell.run("GoHome.lua", x, y, 0)
   if h < tonumber(heigth) then
+    sprava = "tDigUp"  shell.run("send.lua", sprava)
+    turtle.digUp()
     sprava = "tUp"  shell.run("send.lua", sprava)
     turtle.up()
   end
