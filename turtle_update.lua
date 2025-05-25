@@ -3,7 +3,7 @@ local subory = {
  { meno = "GoBack.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/GoBack.lua"},
  { meno = "send.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/send.lua"},
  { meno = "fill.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/fill.lua"},
- { meno = "refuel.lua", url = ""},
+ { meno = "refuel.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/refuel.lua"},
 }
 
 for _, subor in ipairs(subory) do
