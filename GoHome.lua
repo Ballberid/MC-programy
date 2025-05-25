@@ -24,3 +24,5 @@ for iz=1, z do
   sprava = "iz:"..iz.."/down"  shell.run("send.lua", sprava)
   turtle.down()
 end
+
+sprava = "HomePos"  shell.run("send.lua", sprava)
