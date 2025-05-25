@@ -14,10 +14,10 @@ function FindEmptyPos()
       break
     end
     if i == 16 and item ~= nill then
-      sprava = "no emp.pos"  shell.run("send.lua", sprava)
+      sprava = "no.emp.pos"  shell.run("send.lua", sprava)
       sprava = "tRight"  shell.run("send.lua", sprava)
       turtle.turnRight()
-      sprava = "try unload"  shell.run("send.lua", sprava)
+      sprava = "try.unload"  shell.run("send.lua", sprava)
       shell.run("unload.lua")
       sprava = "tLeft"  shell.run("send.lua", sprava)
       turtle.turnLeft()
@@ -37,7 +37,7 @@ function GetFuel()
     select_item = turtle.getItemDetail()
     if select_item and select_item.name ~= fuel1 then
       if select_item and select_item.name ~= fuel2 then
-        sprava = "fl.not find"  shell.run("send.lua", sprava)
+        sprava = "fl.not.find"  shell.run("send.lua", sprava)
         local answer = " "
         while answer ~= ano do
           print("Prosim doplnte palivo do truhly a potvrdte /ano/")
@@ -50,7 +50,7 @@ function GetFuel()
     end
   end
   if select_item and select_item.name == fuel1 or select_item and select_item.name == fuel2 then
-    sprava = "find fl."  shell.run("send.lua", sprava)
+    sprava = "find.fl."  shell.run("send.lua", sprava)
     sprava = "tRight"  shell.run("send.lua", sprava)
     turtle.turnRight()
     turtle.refuel(20)
@@ -60,5 +60,7 @@ end
 sprava = "tLeft"  shell.run("send.lua", sprava)
 turtle.turnLeft()
 
+sprava = "pr.1"  shell.run("send.lua", sprava)
 FindEmptyPos()
+sprava = "pr.2"  shell.run("send.lua", sprava)
 GetFuel()
