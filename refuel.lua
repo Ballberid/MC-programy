@@ -39,7 +39,7 @@ function GetFuel()
       if select_item and select_item.name ~= fuel2 then
         sprava = "fl.not.find"  shell.run("send.lua", sprava)
         local answer = " "
-        while answer ~= ano do
+        while answer ~= "ano" do
           print("Prosim doplnte palivo do truhly a potvrdte /ano/")
           answer = read()
           sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
