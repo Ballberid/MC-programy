@@ -93,6 +93,7 @@ for h=1, heigth do
     y = w -1
     sprava = "y:"..y
     CheckFuel()
+    CheckIfFull()
     for l=1, length do
       sprava = "for.l:"..l  shell.run("send.lua", sprava)
       x = l - 1
@@ -101,7 +102,6 @@ for h=1, heigth do
         sprava = "det.hole"  shell.run("send.lua", sprava)
         shell.run("fill.lua", blok)
       end
-      CheckIfFull()
       sprava = "tDig"  shell.run("send.lua", sprava)
       turtle.dig()
       sprava = "tFor"  shell.run("send.lua", sprava)
