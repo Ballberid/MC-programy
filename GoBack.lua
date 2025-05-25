@@ -13,5 +13,5 @@ end
 turtle.turnLeft()
 
 for ix=1, x do
-  turtle.back()
+  turtle.forward()
 end
