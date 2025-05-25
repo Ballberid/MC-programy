@@ -1,4 +1,10 @@
 local x, y, z = ...
+local sprava = " "
+
+sprava = "GoBack"
+shell.run(send sprava)
+sprava = "x:"..x.."y:"..y.."z:"..z
+shell.run(send sprava)
 
 for iz=1, z do
   turtle.down()
