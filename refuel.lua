@@ -46,6 +46,7 @@ function GetFuel()
               sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
               turtle.suck()
               GetFuel()
+              return
             else
               print("Nespravna odpoved")
           end
