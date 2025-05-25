@@ -129,9 +129,13 @@ for h=1, heigth do
   end
   sprava = "new.layer"  shell.run("send.lua", sprava)
   shell.run("GoHome.lua", x, y, 0)
-  sprava = "tUp"  shell.run("send.lua", sprava)
-  turtle.up()
+  if h < tonumber(heigth) then
+    sprava = "tUp"  shell.run("send.lua", sprava)
+    turtle.up()
+  end
 end
+
+y = 0
 
 sprava = "END"  shell.run("send.lua", sprava)
 shell.run("GoHome.lua", x, y, z)
