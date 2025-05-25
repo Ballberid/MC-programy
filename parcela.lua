@@ -98,7 +98,7 @@ for h=1, heigth do
       sprava = "for.l:"..l  shell.run("send.lua", sprava)
       x = l - 1
       sprava = "x:"..x  shell.run("send.lua", sprava)
-      if turtle.detectDown() == false and v < 2 then
+      if turtle.detectDown() == false and h < 2 then
         sprava = "det.hole"  shell.run("send.lua", sprava)
         shell.run("fill.lua", blok)
       end
