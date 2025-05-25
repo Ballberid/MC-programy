@@ -134,3 +134,4 @@ for h=1, heigth do
 end
 
 sprava = "END"  shell.run("send.lua", sprava)
+shell.run("GoHome.lua", x, y, z)
