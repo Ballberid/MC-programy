@@ -42,10 +42,10 @@ function GetFuel()
         while answer ~= "ano" do
           print("Prosim doplnte palivo do truhly a potvrdte /ano/")
           answer = read()
+        end
           sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
           turtle.suck()
           GetFuel()
-        end
       end
     end
   end
