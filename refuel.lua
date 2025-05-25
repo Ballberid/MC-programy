@@ -60,6 +60,7 @@ function GetFuel()
     turtle.turnRight()
     turtle.refuel(20)
   else
+    sprava = "bad.fl."  shell.run("send.lua", sprava)
     FindEmptyPos()
     GetFuel()
     return
