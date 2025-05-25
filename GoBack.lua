@@ -5,7 +5,7 @@ sprava = "GoBack"  shell.run("send.lua", sprava)
 sprava = "x:"..x.."y:"..y.."z:"..z  shell.run("send.lua", sprava)
 
 for iz=1, z do
-  sprava = "iz:"..iz.." down")  shell.run("send.lua", sprava)
+  sprava = "iz:"..iz.." down"  shell.run("send.lua", sprava)
   turtle.down()
 end
 
