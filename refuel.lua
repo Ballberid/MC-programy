@@ -23,6 +23,7 @@ function FindEmptyPos()
       turtle.turnLeft()
       sprava = "try refuel"  shell.run("send.lua", sprava)
       FindEmptyPos()
+      return
     end
   end
 end
