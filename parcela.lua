@@ -91,7 +91,7 @@ for h=1, heigth do
   for w=1, width do
     sprava = "for.w:"..w  shell.run("send.lua", sprava)
     y = w -1
-    sprava = "y:"..y
+    sprava = "y:"..y  shell.run("send.lua", sprava)
     CheckFuel()
     CheckIfFull()
     for l=1, length do
