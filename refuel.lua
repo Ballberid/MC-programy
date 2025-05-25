@@ -32,6 +32,12 @@ local select_item = turtle.getItemDetail()
 function GetAnswer()
   print("Prosim doplnte palivo do truhly a potvrdte /ano/")
   answer = read()
+  if answer == "ano" then
+    sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
+    turtle.suck()
+    GetFuel()
+  else
+    GetAnswer()
 end
 
 function GetFuel()
@@ -45,12 +51,6 @@ function GetFuel()
         sprava = "fl.not.find"  shell.run("send.lua", sprava)
         local answer = " "
         GetAnswer()
-        if answer == "ano" then
-          sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
-          turtle.suck()
-          GetFuel()
-        else
-          GetAnswer()
         end
       end
     end
