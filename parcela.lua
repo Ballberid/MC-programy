@@ -1,338 +1,133 @@
-rednet.open("left")
-local ciel_id = 2
 local sprava = " "
-function send(text)
-  rednet.send(ciel_id,text)
-  rednet.send(3,text)
-end
-
-local sleepTime = 3
-function sleep()
-  os.sleep(sleepTime)
-end
 
 print("Zadaj dlzku parcely: ")
-local dlzka = read()-1
-send("dlzka "..dlzka)
+local length = read() - 1
+sprava = "dlzka:"..length  shell.run("send.lua", sprava)
 print("Zadaj sirku parcely: ")
-local sirka = read()
-send("sirka"..sirka)
+local width = read()
+sprava = "sirka:"..width  shell.run("send.lua", sprava)
 print("Zadaj vysku parcely: ")
-local vyska = read()
-send("vyska "..vyska)
+local heigth = read()
+sprava = "vyska:"..heigth  shell.run("send.lua", sprava)
 
-local dirt = "minecraft:dirt"
-local coal = "minecraft:coal"
-local charcoal = "minecraft:charcoal"
-local hladany_blok = dirt
-local smer = "vpred"
-local dx = 0
-local sx = 0
-local vx = 0
+local blok = "minecraft:dirt"
+local x = 0
+local y = 0
+local z = 0
 
-function findDirt()
-  send("fn:findDirt")
-  for i=1, 16 do
-    local item = turtle.getItemDetail(i)
-    if item and item.name == hladany_blok then
-      turtle.select(i)
-      send("slot:"..i)
-      send("break")
-      break
-    end
+function GoRefuel()
+  sprava = "fn:GoRef."  shell.run("send.lua", sprava)
+  shell.run("GoHome.lua", x, y, z)
+  shell.run("refuel.lua")
+  if turtle.getFuelLevel() > ((x + y + z) * 2) then
+    sprava = "have.fuel"  shell.run("send.lua", sprava)
+    shell.run("GoBack.lua", x, y, z)
+  else
+    sprava = "dont.fuel"  shell.run("send.lua", sprava)
+    shell.run("refuel.lua")
+    shell.run("GoBack", x, y, z)
   end
 end
 
-function GoRefuel()
-  send("fn:GoRefuel")
-  send("HOME")
-  send(dx..","..sx..","..vx..","..smer)
-  GoHome(dx,sx,vx,smer)
-  send("Vyloz")
-  Vylozit()
-  send("Zober Pal.")
-  ZoberPalivo()
-  send("Back")
-  send(dx..","..sx..","..vx..","..smer)
-  GoBack(dx,sx,vx,smer)
-end
-
-function ZoberPalivo()
-  send("fn:ZoberPal.")
-  turtle.turnLeft()
-  sleep()
-  turtle.select(1)
-  turtle.suck()
-  turtle.turnRight()
-  sleep()
-end
-
 function FindAndRefuel()
-  send("fn:Refuel")
+  sprava = "fn:findFuel"  shell.run("send.lua", sprava)
   for i=1, 16 do
     local item = turtle.getItemDetail(i)
     if item and item.name == coal or item and item.name == charcoal then
+      sprava = "inv.fuel"  shell.run("send.lua", sprava)
       turtle.select(i)
-      turtle.refuel(10)
-      send("refuel")
-      send("break")
+      turtle.refuel(20)
       break
     end
     if i == 16 then
       if item and item.name ~= coal or item and item.name ~= charcoal or item == nill then
-        print("Neni palivo!!!")
-        send("Neni palivo")
-        send("GoRefuel")
+        sprava = "inv.no.fuel"  shell.run("send.lua", sprava)
         GoRefuel()
       end
     end
   end
 end
 
-function KontrolaPaliva(dx,sx,vx,smer)
-  local vzdialenost = (dx+sx+vx)+5
-  send("fn:kon.pal.")
-  send("dis:"..vzdialenost)
-  if turtle.getFuelLevel() < vzdialenost then
-    print("Malo paliva")
-    send("Malo paliva")
-    send("FindAndRefuel")
+function CheckFuel()
+  sprava = "fn:ck.fuel"  shell.run("send.lua", sprava)
+  local dist = ((x * 2 ) + (y + z + 5))
+  sprava = "dist:"..dist  shell.run("send.lua", sprava)
+  if turtle.getFuelLevel() < dist then
+    sprava = "low.fuel:"..turtle.getFuelLevel()  shell.run("send.lua", sprava)
     FindAndRefuel()
-  else
   end
 end
 
-function GoHome(dx,sx,vx,smer)
-  send("fn:GoHome")
-  send(dx..","..sx..","..vx..","..smer)
-  if vx >= 1 then
-    send("vx>1 vx:"..vx)
-    for i=1, vx do
-      send("v:"..i.." down")
-      turtle.down()
-      sleep()
-    end
-  end
-  if smer == "vpred" then
-    send("if:vpred:"..smer)
-    for i=1, dx do
-      send("d:"..i.." back")
-      turtle.back()
-      sleep()
-    end
-    if sx > 1 then
-      send("sx>1 turnLeft")
-      turtle.turnLeft()
-      sleep()
-      fort i=1, sx do
-        send("s:"..i.." forw")
-        turtle.forward()
-        sleep()
+function GoUnload()
+  sprava = "fn:GoUnload"  shell.run("send.lua", sprava)
+  shell.run("GoHome.lua", x, y, z)
+  shell.run("unload.lua")
+  shell.run("GoBack.lua", x, y, z)
+end
+
+function CheckIfFull()
+  sprava = "fn:ck.if.full"  shell.run("send.lua", sprava)
+  local item = turtle.getItemDetail()
+  if item ~= nill then
+    for i=1, 16 do
+      turtle.select(i)
+      item = turtle.getItemDetail(i)
+      if item == nill then
+        sprava = "not.full"  shell.run("send.lua", sprava)
+        break
       end
-      send("turnRight")
-      turtle.turnRight()
-      sleep()
-    end
-  elseif smer == "vzad" then
-    send("elif:vzad:"..smer)
-    send("turnRight")
-    turtle.turnRight()
-    sleep()
-    for i=1, sx do
-      send("s:"..i.." forw")
-      turtle.forward()
-      sleep()
-    end
-    send("turnLeft")
-    turtle.turnLeft()
-    sleep()
-    for i=1, dx do
-      send("d:"..i.." forw")
-      turtle.forward()
-      sleep()
-    end
-    send("ot.180")
-    turtle.turnRight()
-    sleep()
-    turtle.turnRight()
-    sleep()
-  end
-end
-
-function Vylozit()
-  send("fn:Vylozit")
-  send("ot.180")
-  turtle.turnLeft()
-  sleep()
-  turtle.turnLeft()
-  sleep()
-  for slot=1, 16 do
-    turtle.select(slot)
-    local item = turtle.getItemDetail(slot)
-    if item and item.name ~= coal then
-      if item and item.name ~= charcoal then
-        turtle.drop()
+      if i == 16 and item ~= nill then
+        sprava = "inv.full"  shell.run("send.lua", sprava)
+        GoUnload()
       end
     end
   end
-  send("vylozene")
-  send("ot.180")
-  turtle.turnLeft()
-  sleep()
-  turtle.turnLeft()
-  sleep()
 end
 
-function KontrolaPlnosti()
-  send("fn:kon.pln.")
-  for i=1, 16 do
-    if turtle.select(i) == nill then
-      break
-    elseif i == 16 and turtle.select(i) ~= nill then
-      send("inv.fuel:0")
-      send("HOME")
-      send(dx..","..sx..","..vx..","..smer)
-      GoHome(dx,sx,vx,smer)
-      send("Vylozit")
-      Vylozit()
-      send("Back")
-      send(dx..","..sx..","..vx..","..smer)
-      GoBack(dx,sx,vx,smer)
-    end
-  end
-end
-
-function GoBack(dx,sx,vx,smer)
-  send("fn:GoBack")
-  send(dx..","..sx..","..vx..","..smer)
-  if vx >= 1 then
-    send("vx>1 vx:"..vx)
-    for i=1, vx do
-      send("v:"..i..i" up")
-      turtle.up()
-      sleep()
-    end
-  end
-  if smer == "vpred" then
-    send("if:vpred:"..smer)
-    send("turnRight")
-    turtle.turnRight()
-    sleep()
-    for i=1, sx do
-      send("s:"..i.." forw")
-      turtle.forward()
-      sleep()
-    end
-    send("turnLeft")
-    turtle.turnLeft()
-    sleep()
-    for i=1, dx do
-      send("d:"..i.." forw")
-      turtle.forward()
-      sleep()
-    end
-  elseif smer == "vzad" then
-    send("elif:vzad:"..smer)
-    for i=1, dx do
-      send("d:"..i.." forw")
-      turtle.forward()
-      sleep()
-    end
-    send("turnRight")
-    turtle.turnRight()
-    sleep()
-    for i=1, sx do
-      send("s:"..i.." forw")
-      turtle.forward()
-      sleep()
-    end
-    send("turnRight")
-    trutle.turnRight()
-    sleep()
-  end
-end
-
-FindAndRefuel()
-for v=1, vyska do
-  vx = v - 1
-  send("for vyska")
-  send("vx "..vx)
-  for s=1, sirka do
-    sx = s - 1
-    send("for sirka")
-    send("sx "..sx)
-    for d=1, dlzka do
-      send("for dlzka"..smer)
-      if smer == "vpred" then
-        dx = d-1
-        send("(if)smer :"..smer)
-        send("dx "..dx)
-      elseif smer == "vzad" then
-        dx = dlzka-(d-1)
-        send("(elif)smer :"..smer)
-      end
-      send("kon.pal.:")
-      send(dx..","..sx..","..vx..","..smer)
-      KontrolaPaliva(dx,sx,vx,smer)
-      send("kon.pln.")
-      KontrolaPlnosti()
+for h=1, heigth do
+  sprava = "for.h:"..h  shell.run("send.lua", sprava)
+  z = h - 1
+  sprava = "z:"..z  shell.run("send.lua", sprava)
+  for w=1, width do
+    sprava = "for.w:"..w  shell.run("send.lua", sprava)
+    y = w -1
+    sprava = "y:"..y
+    CheckFuel()
+    for l=1, length do
+      sprava = "for.l:"..l  shell.run("send.lua", sprava)
+      x = l - 1
+      sprava = "x:"..x  shell.run("send.lua", sprava)
       if turtle.detectDown() == false and v < 2 then
-        send("diera")
-        send("findDirt")
-        findDirt()
-        turtle.placeDown()
-        send("place dirt")
+        sprava = "det.hole"  shell.run("send.lua", sprava)
+        shell.run("fill.lua", blok)
       end
-      send("dig")
+      CheckIfFull()
+      sprava = "tDig"  shell.run("send.lua", sprava)
       turtle.dig()
-      send("forward")
+      sprava = "tFor"  shell.run("send.lua", sprava)
       turtle.forward()
-      sleep()
     end
-    send("kon.pal.")
-    send(dx..","..sx..","..vx..","..smer)
-    KontrolaPaliva(dx,sx,vx,smer)
-    send("kon.pln.")
-    KontrolaPlnosti()
-    if smer == "vpred" then
-      send("otocka")
-      send("smer: "..smer)
-      turtle.turnRight()
-      sleep()
-      turtle.dig()
-      turtle.forward()
-      sleep()
-      turtle.turnRight()
-      sleep()
-      smer = "vzad"
-      send("zmena smeru")
-      send(smer)
-    elseif smer == "vzad" then
-      send("otocka")
-      send("smer: "..smer)
-      turtle.turnLeft()
-      sleep()
-      turtle.dig()
-      turtle.forward()
-      sleep()
-      turtle.turnLeft()
-      sleep()
-      smer = "vpred"
-      send("zmena smeru")
-      send(smer)
+    for lb=1, length do
+      sprava = "for.lb:"..lb  shell.run("send.lua", sprava)
+      x = length - (lb - 1)
+      sprava = "x:"..x  shell.run("send.lua", sprava)
+      sprava = "tBack"  shell.run("send.lua", sprava)
+      turtle.back()
     end
+    sprava = "new.line"  shell.run("send.lua", sprava)
+    sprava = "tRight"  shell.run("send.lua", sprava)
+    turtle.turnRight()
+    sprava = "tDig"  shell.run("send.lua", sprava)
+    turtle.dig()
+    sprava = "tForw"  shell.run("send.lua", sprava)
+    turtle.forward()
+    sprava = "tLeft"  shell.run("send.lua", sprava)
+    turtle.turnLeft()
   end
-  if v > 1 then
-    send("v>1:"..v)
-    send("HOME:")
-    send(dx..","..sx..","..vx..","..smer)
-    Gohome(dx,sx,0,smer)
-    turtle.up()
-    sleep()
-    send("up")
-  end
+  sprava = "new.layer"  shell.run("send.lua", sprava)
+  shell.run("GoHome.lua", x, y, 0)
+  sprava = "tUp"  shell.run("send.lua", sprava)
+  turtle.up()
 end
-send("cykl.END")
-send("HOME:")
-send(dx..","..sx..","..vx..","..smer)
-GoHome(dx,sx,vx,smer)
+
+sprava = "END"  shell.run("send.lua", sprava)
