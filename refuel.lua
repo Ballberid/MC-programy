@@ -40,8 +40,8 @@ function GetFuel()
     sprava = "tSuck"  shell.run("send.lua", sprava)
     turtle.suck()
     select_item = turtle.getItemDetail()
-    if select_item and select_item.name ~= fuel1 then
-      if select_item and select_item.name ~= fuel2 then
+    if select_item and select_item.name ~= fuel1 or select_item == nill then
+      if select_item and select_item.name ~= fuel2 or select_item == nill then
         sprava = "fl.not.find"  shell.run("send.lua", sprava)
         local answer = " "
         if answer == "ano" then
@@ -65,7 +65,5 @@ end
 sprava = "tLeft"  shell.run("send.lua", sprava)
 turtle.turnLeft()
 
-sprava = "pr.1"  shell.run("send.lua", sprava)
 FindEmptyPos()
-sprava = "pr.2"  shell.run("send.lua", sprava)
 GetFuel()
