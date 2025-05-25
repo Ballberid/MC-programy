@@ -4,5 +4,5 @@ local ID2 = 3
 
 rednet.open("left")
 
-rednet.send(ID1, text)
-rednet.send(ID2, text)
+rednet.send(ID1, sprava)
+rednet.send(ID2, sprava)
