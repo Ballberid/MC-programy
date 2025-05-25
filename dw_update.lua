@@ -4,7 +4,7 @@ local r = http.get(url)
 if r then
   local obsah = r.readAll()
   r.close()
-  local f = fs.open("update.lua, "w")
+  local f = fs.open("update.lua", "w")
     f.write(obsah)
     f.close()
     print("Update programu update.lua dokonceny.")
