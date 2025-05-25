@@ -115,7 +115,7 @@ for h=1, heigth do
       turtle.back()
     end
     x = 0
-    if h < heigth then
+    if w < width then
       sprava = "new.line"  shell.run("send.lua", sprava)
       sprava = "tRight"  shell.run("send.lua", sprava)
       turtle.turnRight()
