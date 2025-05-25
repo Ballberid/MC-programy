@@ -29,17 +29,6 @@ end
 
 local select_item = turtle.getItemDetail()
 
-function GetAnswer()
-  print("Prosim doplnte palivo do truhly a potvrdte /ano/")
-  answer = read()
-  if answer == "ano" then
-    sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
-    turtle.suck()
-    GetFuel()
-  else
-    GetAnswer()
-end
-
 function GetFuel()
   sprava = "fn:gt.fuel"  shell.run("send.lua", sprava)
   if select_item == nill then
@@ -50,7 +39,16 @@ function GetFuel()
       if select_item and select_item.name ~= fuel2 or select_item == nill then
         sprava = "fl.not.find"  shell.run("send.lua", sprava)
         local answer = " "
-        GetAnswer()
+        while answer ~= "ano" do
+            print("Prosim doplnte palivo do truhly a potvrdte /ano/")
+            answer = read()
+            if answer == "ano" then
+              sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
+              turtle.suck()
+              GetFuel()
+            else
+              print("Nespravna odpoved")
+          end
         end
       end
     end
