@@ -18,4 +18,4 @@ for _, subor in ipairs(subory) do
   end
 end
 
-Print("Aktualizacia dokoncena.")
+print("Aktualizacia dokoncena.")
