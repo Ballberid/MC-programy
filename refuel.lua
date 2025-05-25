@@ -48,7 +48,7 @@ function GetFuel()
         end
       end
     end
-  elseif select_item and select_item.name == fuel1 or select_item and select_item.name == fuel2 then
+  if select_item and select_item.name == fuel1 or select_item and select_item.name == fuel2 then
     sprava = "find fl."  shell.run("send.lua", sprava)
     sprava = "tRight"  shell.run("send.lua", sprava)
     turtle.turnRight()
