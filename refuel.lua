@@ -44,6 +44,7 @@ function GetFuel()
       if select_item and select_item.name ~= fuel2 or select_item == nill then
         sprava = "fl.not.find"  shell.run("send.lua", sprava)
         local answer = " "
+        GetAnswer()
         if answer == "ano" then
           sprava = "/ano/tSuck"  shell.run("send.lua", sprava)
           turtle.suck()
