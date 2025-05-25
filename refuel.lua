@@ -38,7 +38,7 @@ function GetFuel()
     turtle.suck()
     select_item = turtle.getItemDetail()
     if select_item and select_item.name ~= fuel1 then
-      if select_item and select_item.name ~fuel2 then
+      if select_item and select_item.name ~= fuel2 then
         sprava = "fl.not find"  shell.run("send.lua", sprava)
         local answer = " "
         while answer ~= ano do
