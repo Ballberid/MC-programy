@@ -3,8 +3,6 @@ local fuel1 = "minecraft:coal"
 local fuel2 = "minecraft:charcoal"
 
 sprava = "refuel"  shell.run("send.lua", sprava)
-sprava = "tLeft"  shell.run("send.lua", sprava)
-turtle.turnLeft()
 
 function FindEmptyPos()
   sprava = "fn:emp.pos"  shell.run("send.lua", sprava)
@@ -55,3 +53,9 @@ function GetFuel()
     turtle.refuel(20)
   end
 end
+
+sprava = "tLeft"  shell.run("send.lua", sprava)
+turtle.turnLeft()
+
+FindEmptyPos()
+GetFuel()
