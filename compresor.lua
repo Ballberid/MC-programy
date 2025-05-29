@@ -1,7 +1,7 @@
-local compressor = peripheral.fing(pneumaticcraft:advanced_liquid_compressor)
+local compressor = peripheral.wrap("back")
 
 if not compressor then
-  error("Compressor nie je pripojeny!")
+  print("Compressor nie je pripojeny!")
 end
 
 while true do
