@@ -1,4 +1,4 @@
-local compressor = peripheral.fing(pneumaticcraft:advanced_liquid_compressor) -- uprav podľa umiestnenia
+local compressor = peripheral.fing(pneumaticcraft:advanced_liquid_compressor)
 
 if not compressor then
   error("Compressor nie je pripojeny!")
@@ -15,5 +15,5 @@ while true do
     print("Tlak nad 19 bar – vypinam vystup")
   end
 
-  sleep(1)  -- čakaj 1 sekundu
+  sleep(1)
 end
