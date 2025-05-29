@@ -2,7 +2,7 @@ local compressor = peripheral.wrap("back")
 local output = false
 local mon = peripheral.wrap("top")
 mon.setTextScale(0.5)
-mon.setCursorPos(1,3)
+mon.setCursorPos(1,5)
 mon.clear()
 
 if not compressor then
@@ -17,9 +17,9 @@ while true do
   local pressure = compressor.getPressure()
   local press = round2(pressure)
   mon.clear()
-  mon.setCursorPos(1,3)
+  mon.setCursorPos(1,5)
   mon.write("press:")
-  mon.setCursorPos(7,3)
+  mon.setCursorPos(7,5)
   mon.write(press)
 
   if pressure < 18 and output == false then
