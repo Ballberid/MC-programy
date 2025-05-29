@@ -9,10 +9,10 @@ while true do
 
   if pressure < 18 then
     redstone.setOutput("left", true)
-    print("Tlak pod 18 bar – zapinam vystup")
+    print("Tlak pod 18 bar -> zapinam vystup")
   elseif pressure > 19 then
     redstone.setOutput("left", false)
-    print("Tlak nad 19 bar – vypinam vystup")
+    print("Tlak nad 19 bar -> vypinam vystup")
   end
 
   sleep(1)
