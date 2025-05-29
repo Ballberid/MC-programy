@@ -8,10 +8,10 @@ while true do
   local pressure = compressor.getPressure()
 
   if pressure < 18 then
-    redstone.setOutput("down", true)
-    print("Tlak pod 18 bar – zapinam vxstup")
+    redstone.setOutput("left", true)
+    print("Tlak pod 18 bar – zapinam vystup")
   elseif pressure > 19 then
-    redstone.setOutput("down", false)
+    redstone.setOutput("left", false)
     print("Tlak nad 19 bar – vypinam vystup")
   end
 
