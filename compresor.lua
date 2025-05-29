@@ -1,4 +1,4 @@
-local compressor = peripheral.wrap("right") -- uprav podľa umiestnenia
+local compressor = peripheral.fing(pneumaticcraft:advanced_liquid_compressor) -- uprav podľa umiestnenia
 
 if not compressor then
   error("Compressor nie je pripojeny!")
