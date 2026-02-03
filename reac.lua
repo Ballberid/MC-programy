@@ -70,7 +70,7 @@ local function log()  --zobrazenie dat
     term.setCursorPos(log_pos,i)
     print("        ")
     term.setCursorPos(log_pos,i)
-    print(data.val .. " " .. data.suffix)
+    print(data.val() .. " " .. data.suffix)
   end
 end
 
