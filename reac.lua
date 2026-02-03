@@ -1,4 +1,4 @@
-local reac = "fissionReactorLogicAdapter_1"
+local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local ref_interval = 0.5  --refresh interval
 local log_init = true
 
@@ -9,9 +9,9 @@ local max_heat_coolant = 40  --maximalna hodnota horuceho sodiku
 
 local log_pos = 20
 local log_data = {
-  { label = "Temp", val = temp, suffix = "°C"}
-  { label = "Coolant", val = coolant, suffix = "%"}
-  { label = "Heat Coolant", val = heat_coolant, suffix = "%"}
+  { label = "Temp", val = temp, suffix = "°C"},
+  { label = "Coolant", val = coolant, suffix = "%"},
+  { label = "Heat Coolant", val = heat_coolant, suffix = "%"},
 }
 term.clear()
 
