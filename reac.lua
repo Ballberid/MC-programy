@@ -7,12 +7,6 @@ local lim = 5  --limit zmeny teploty
 local min_coolant = 10  --minimalna hodnota sodiku
 local max_heat_coolant = 40  --maximalna hodnota horuceho sodiku
 
-local log_pos = 20
-local log_data = {
-  { label = "Temp", val = temp, suffix = "°C"},
-  { label = "Coolant", val = coolant, suffix = "%"},
-  { label = "Heat Coolant", val = heat_coolant, suffix = "%"},
-}
 term.clear()
 
 local function round(x, dec)  --zaokruhlenie hodnoty
@@ -24,11 +18,11 @@ local function temp()  --teplota reactoru
   return round(t,2)
 end
 local function coolant()  --mnozstvo sodiku v %
-  local c = reac.getCoolantFilledPercentage()
+  local c = reac.getCoolantFilledPercentage()*100
   return round(c,3)
 end
 local function heat_coolant() --mnozstvo horuceho sodiku v %
-  local c = reac.getHeatedCoolantFilledPercentage()
+  local c = reac.getHeatedCoolantFilledPercentage()*100
   return round(c,3)
 end
 
@@ -36,11 +30,11 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
   local scram = false
   local con = ""
   
-  if coolant() <= min_coolant() then  --malo coolantu
+  if coolant() <= min_coolant then  --malo coolantu
     con = con .. "low coolant | "
     scram = true
   end
-  if heat_coolant() >= max_heat_coolant() then  --vela heat coolantu
+  if heat_coolant() >= max_heat_coolant then  --vela heat coolantu
     con = con .. "heat coolant limit | "
     scram = true
   end
@@ -53,6 +47,15 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
 
   return false
 end
+
+
+
+local log_pos = 20
+local log_data = {
+  { label = "Temp", val = temp, suffix = "°C"},
+  { label = "Coolant", val = coolant, suffix = "%"},
+  { label = "Heat Coolant", val = heat_coolant, suffix = "%"},
+}
 
 local function log()  --zobrazenie dat
   if log_init == true then  --prvotne nastavenie
