@@ -51,6 +51,7 @@ end
 
 
 local log_pos = 20
+local log_clean = "    "
 local log_data = {
   { label = "Temp", val = temp, suffix = "°C"},
   { label = "Coolant", val = coolant, suffix = "%"},
@@ -68,9 +69,7 @@ local function log()  --zobrazenie dat
 
   for i, data in ipairs(log_data) do  --data
     term.setCursorPos(log_pos,i)
-    print("        ")
-    term.setCursorPos(log_pos,i)
-    print(data.val() .. " " .. data.suffix)
+    print(data.val() .. " " .. data.suffix .. log_clean)
   end
 end
 
