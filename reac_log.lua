@@ -83,6 +83,19 @@ local function b_steam_max()
   local result = round(c,1) .. rate
   return result
 end
+--turbine const methods
+local function t_steam_max()
+  local v = turb.getSteamCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
+local function t_energy_max()
+  local v = turb.getMaxEnergy()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --const
 --reactor
 local r_burn_max = 0
@@ -95,6 +108,9 @@ local b_wat_max = 0
 local b_cool_max = 0
 local b_heat_max = 0
 local b_stm_max = 0
+--turbina
+local t_stm_max = 0
+local t_en_max = 0
 local function load_const()
   --reac
   r_burn_max = r_burn_rate_max()
@@ -107,6 +123,9 @@ local function load_const()
   b_cool_max = b_coolant_max()
   b_heat_max = b_heated_max()
   b_stm_max = b_steam_max()
+  --turb
+  t_stm_max = t_steam_max()
+  t_en_max = t_energy_max()
 end
 
 --reactor
@@ -218,14 +237,27 @@ local function b_stm_perc()
 end
 --turbina
 local function t_steam()
-  local s = turb.getSteamFilledPercentage()
-  return round(s,2)
+  local v = turb.getSteam().amount
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. t_stm_max
+  return result
 end
 local function t_energy()
-  local e = turb.getEnergyFilledPercentage()
-  return round(e,2)
+  local v = turb.getEnergy()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. t_en_max
+  return result
 end
 
+local function t_stm_perc()
+  local v = turb.getSteamFilledPercentage()*100
+  return round(v,1)
+end
+local function t_en_perc()
+  local v = turb.getEnergyFilledPercentage()*100
+  return round(v,1)
+end
+----------------------
 local log_offset_x = 10  --nazvy
 local log_offset_y = 2
 local log_p1_x = 1  --stranky
@@ -283,8 +315,12 @@ local turb_pos_y = 20
 local turb_steam_pos = 1
 local turb_en_pos = 2
 local turb_log_1 = {
-  { label = "Steam", pos = turb_steam_pos, val = t_steam, suffix = "%", last_len = 0},
-  { label = "Energy", pos = turb_en_pos, val = t_energy, suffix = "%", last_len = 0},
+  { label = "Steam", pos = turb_steam_pos, val = t_steam, suffix = "mB", last_len = 0},
+  { label = "Energy", pos = turb_en_pos, val = t_energy, suffix = "FE", last_len = 0},
+}
+local turb_log_2 = {
+  { label = "Steam %", pos = turb_steam_pos, val = t_stm_perc, suffix = "%", last_len = 0},
+  { label = "Energy %", pos = turb_en_pos, val = t_en_perc, suffix = "%", last_len = 0},
 }
 
 local function log_basic_text()
@@ -396,6 +432,7 @@ local function log_boil_data()
 end
 local function log_turb_data()
   log_data(turb_log_1, turb_pos_x, turb_pos_y, 1)
+  log_data(turb_log_2, turb_pos_x, turb_pos_y, 2)
 end
 
 local function log()  --zobrazenie dat
