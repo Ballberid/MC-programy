@@ -236,6 +236,10 @@ local function b_rate()
   local result = round(c,1) .. rate .. " / " .. b_rt_max
   return result
 end
+local function b_temp()
+  local v = boil.getTemperature()-273.15
+  return round(v,2)
+end
 
 local function b_wat_perc()
   local v = boil.getWaterFilledPercentage()*100
@@ -254,8 +258,8 @@ local function b_stm_perc()
   return round(v,1)
 end
 local function b_rt_perc()
-  local v = (boil.getBoilRate()/boil.getBoilCapacity)*100
-  return round(v,1)
+  local v = (boil.getBoilRate()/boil.getBoilCapacity())*100
+  return round(v,2)
 end
 --turbina
 local function t_steam()
@@ -324,12 +328,14 @@ local boil_cool_pos = 2
 local boil_heat_pos = 3
 local boil_steam_pos = 4
 local boil_rate_pos = 5
+local boil_temp_pos = 6
 local boil_log_1 = {
   { label = "Water", pos = boil_wat_pos, val = b_water, suffix = "mB", last_len = 0},
   { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "mB", last_len = 0},
   { label = "Heated", pos = boil_heat_pos, val = b_heated, suffix = "mB", last_len = 0},
   { label = "Steam", pos = boil_steam_pos, val = b_steam, suffix = "mB", last_len = 0},
   { label = "Boil", pos = boil_rate_pos, val = b_rate, suffix = "mB/t", last_len = 0},
+  { label = "Temp", pos = boil_temp_pos, val = b_temp, suffix = "°C", last_len = 0},
 }
 local boil_log_2 = {
   { label = "Water %", pos = boil_wat_pos, val = b_wat_perc, suffix = "%", last_len = 0},
