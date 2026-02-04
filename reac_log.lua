@@ -113,7 +113,7 @@ local function log()  --zobrazenie dat
     mon.setTextScale(log_scale_data)
     for i, data in ipairs(reac_log) do
       local p = (reac_pos_y + log_offset + (i-1))
-      mon.setCursorPos(log_pos_p1, p)
+      mon.setCursorPos(log_p1_x, p)
       mon.write(data.label .. ":")
     end
     --boiler log init
