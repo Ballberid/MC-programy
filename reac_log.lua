@@ -52,16 +52,24 @@ local function r_waste_max()
   local result = round(c,1) .. rate
   return result
 end
+local function r_fuel_max()
+  local v = reac.getFuelCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --const
 local r_burn_max = 0
 local r_cool_max = 0
 local r_heat_max = 0
 local r_wast_max = 0
+local r_fl_max = 0
 local function load_const()
   r_burn_max = r_burn_rate_max()
   r_cool_max = r_coolant_max()
   r_heat_max = r_heated_max()
   r_wast_max = r_waste_max()
+  r_fl_max = r_fuel_max()
 end
 
 --reactor
@@ -96,13 +104,14 @@ end
 local function r_waste()  --mnozstvo waste
   local v = reac.getWaste().amount
   local c, rate = reduce(v)
-  return round(w,2)
   local result = round(c,1) .. rate .. " / " .. r_wast_max
   return result
 end
 local function r_fuel()  --mnozstvo paliva
-  local f = reac.getFuelFilledPercentage()*100
-  return round(f,2)
+  local v = reac.getFuel().amount
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. r_fl_max
+  return result
 end
 local function r_status()  --status reactoru
   return reac.getStatus()
@@ -116,8 +125,12 @@ local function r_cool_perc()
   local v = reac.getCoolantFilledPercentage()*100
   return round(v,1)
 end
-local function r_waste_perc()
+local function r_wast_perc()
   local v = reac.getWasteFilledPercentage()*100
+  return round(v,1)
+end
+local function r_fl_perc()
+  local v = reac.getFuelFilledPercentage()*100
   return round(v,1)
 end
 --boiler
@@ -170,13 +183,14 @@ local reac_log_1 = {
   { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C", last_len = 0},
   { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "mB", last_len = 0},
   { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "mB", last_len = 0},
-  { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%", last_len = 0},
-  { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%", last_len = 0},
+  { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "mB", last_len = 0},
+  { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "mB", last_len = 0},
 }
 local reac_log_2 = {
   { label = "Burn %", pos = reac_burn_pos, val = r_burn_perc, suffix = "%", last_len = 0},
   { label = "Cool %", pos = reac_cool_pos, val = r_cool_perc, suffix = "%", last_len = 0},
   { label = "Wast %", pos = reac_wast_pos, val = r_wast_perc, suffix = "%", last_len = 0},
+  { label = "Fuel %", pos = reac_fuel_pos, val = r_fl_perc, suffix = "%", last_len = 0},
 }
 
 local boil_pos_x = log_p2_x
