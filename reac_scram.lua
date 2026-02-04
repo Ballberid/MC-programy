@@ -70,7 +70,7 @@ local function scram_protocol()
     scram = true
   end
   --boil
-  if b_water() <= b_min_water then
+  if b_water() <= b_water_min then
     con = con .. "b.water" .. " | "
     scram = true
   end
