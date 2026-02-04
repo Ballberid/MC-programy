@@ -90,6 +90,16 @@ local function r_set_burn(step, dir)
   reac.setBurnRate(rate)
 end
 
+local function log(step, dir)
+  local ndir = false
+  if dir == true then
+    ndir = 1
+  else
+    ndir = 0
+  end
+  print("step: " .. step .. " | dir: " .. ndir)
+end
+
 local function reac_controll()
   local step = 0
   local dir = true
@@ -110,7 +120,7 @@ local function reac_controll()
 
   --set burn rate
   r_set_burn(step, dir)
-  print("step: " .. step .. " | dir: " .. dir)
+  log(step, dir)
 end
 --main loop
 local function main()
