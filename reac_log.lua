@@ -209,7 +209,7 @@ local function r_eficiency()
 end
 
 local function r_burn_perc()
-  local v = (reac.getBurnRate() / r_burn_max)*100
+  local v = ((reac.getBurnRate() or 0)/ r_burn_max)*100
   return round(v,1)
 end
 local function r_cool_perc()
@@ -281,7 +281,7 @@ local function b_stm_perc()
   return round(v,1)
 end
 local function b_rt_perc()
-  local v = (boil.getBoilRate()/boil.getBoilCapacity())*100
+  local v = ((boil.getBoilRate() or 0) / (boil.getBoilCapacity() or 0))*100
   return round(v,2)
 end
 --turbina
@@ -323,11 +323,11 @@ local function t_en_perc()
   return round(v,1)
 end
 local function t_fl_perc()
-  local v = (turb.getFlowRate() / turb.getMaxFlowRate())*100
+  local v = ((turb.getFlowRate() or 0) / (turb.getMaxFlowRate() or 0))*100
   return round(v,1)
 end
 local function t_prod_perc()
-  local v = (turb.getProductionRate() / turb.getMaxProduction())*100
+  local v = ((turb.getProductionRate() or 0) / (turb.getMaxProduction() or 0))*100
   return round(v,1)
 end
 ----------------------
