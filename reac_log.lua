@@ -529,11 +529,25 @@ local function log()  --zobrazenie dat
   log_turb_data()
 end
 
+
+local function main()
+  while true do --loop
+    log()
+    sleep(ref_interval)
+  end
+end
+
 --zaciatok kodu
 log_initialize()
 load_const()
 
-while true do --loop
-  log()
-  sleep(ref_interval)
+while true do
+  local ok, err = pcall(main)
+
+  if not ok then
+    print("CHYBA:", err)
+    print("Restart za 3s...")
+    sleep(3)
+    os.reboot()
+  end
 end
