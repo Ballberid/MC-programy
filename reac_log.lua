@@ -36,10 +36,16 @@ local function r_coolant_max()
   local result = round(c,1) .. rate
   return result
 end
+local function r_burn_rate_max()
+  local v = reac.getMaxBurnRate()
+  return v
+end
 --const
+local r_burn_max = 0
 local r_cool_max = 0
 local function load_const()
   r_cool_max = r_coolant_max()
+  r_burn_max = r_burn_rate_max()
 end
 
 --reactor
@@ -53,7 +59,7 @@ local function r_stat()
   return val
 end
 local function r_burn_rate()  --burn rate
-  return reac.getBurnRate()
+  return reac.getBurnRate() .. " / " .. r_burn_max
 end
 local function r_temp()  --teplota reactoru
   local t = reac.getTemperature()-273.15
