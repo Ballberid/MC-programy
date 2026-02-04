@@ -143,13 +143,16 @@ local function burn_protocol() --ovladanie burn rate
   if r_temp() > (r_save_temp + r_temp_lim) then
     decrease = true
   end
+  if r_coolant() < (r_min_coolant*2) then
+    decrease = true
+  end
   if r_temp() < (r_save_temp - r_temp_lim) then
     increase = true
   end
   --vykonanie akcie
   if decrease == true then
     increase = false
-    reac.setBurnRate(r_burn_rate() - r_burn_step)
+    reac.setBurnRate(r_burn_rate() - r_burn_step*3)
   else if decrease == false and increase == true then
     reac.setBurnRate(r_burn_rate() + r_burn_step)
   end
