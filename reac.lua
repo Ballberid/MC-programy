@@ -24,7 +24,7 @@ local function r_coolant()  --mnozstvo sodiku v %
 end
 local function r_heated() --mnozstvo horuceho sodiku v %
   local h = reac.getHeatedCoolantFilledPercentage()*100
-  return round(c,3)
+  return round(h,3)
 end
 
 local function b_water()
