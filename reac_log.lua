@@ -112,6 +112,12 @@ local function t_flow_max()
   local result = round(c,1) .. rate
   return result
 end
+local function t_production_max()
+  local v = turb.getMaxProduction()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --const
 --reactor
 local r_burn_max = 0
@@ -129,6 +135,7 @@ local b_rt_max = 0
 local t_stm_max = 0
 local t_en_max = 0
 local t_fl_max = 0
+local t_prod_max = 0
 local function load_const()
   --reac
   r_burn_max = r_burn_rate_max()
@@ -146,6 +153,7 @@ local function load_const()
   t_stm_max = t_steam_max()
   t_en_max = t_energy_max()
   t_fl_max = t_flow_max()
+  t_prod_max = t_production_max()
 end
 
 --reactor
@@ -299,6 +307,12 @@ local function t_flow()
   local result = round(c,1) .. rate .. " / " .. t_fl_max
   return result
 end
+local function t_prod()
+  local v = turb.getProductionRate()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. t_prod_max
+  return result
+end
 
 local function t_stm_perc()
   local v = turb.getSteamFilledPercentage()*100
@@ -310,6 +324,10 @@ local function t_en_perc()
 end
 local function t_fl_perc()
   local v = (turb.getFlowRate() / turb.getMaxFlowRate())*100
+  return round(v,1)
+end
+local function t_prod_perc()
+  local v = (turb.getProductionRate() / turb.getMaxProduction())*100
   return round(v,1)
 end
 ----------------------
@@ -379,15 +397,18 @@ local turb_pos_y = 20
 local turb_steam_pos = 1
 local turb_flow_pos = 2
 local turb_en_pos = 3
+local turb_prod_pos = 4
 local turb_log_1 = {
   { label = "Steam", pos = turb_steam_pos, val = t_steam, suffix = "mB", last_len = 0},
   { label = "Flow", pos = turb_flow_pos, val = t_flow, suffix = "mB/t", last_len = 0},
   { label = "Energy", pos = turb_en_pos, val = t_energy, suffix = "FE", last_len = 0},
+  { label = "Produc.", pos = turb_prod_pos, val = t_prod, suffix = "FE", last_len = 0},
 }
 local turb_log_2 = {
   { label = "Steam %", pos = turb_steam_pos, val = t_stm_perc, suffix = "%", last_len = 0},
   { label = "Flow %", pos = turb_flow_pos, val = t_fl_perc, suffix = "%", last_len = 0},
   { label = "Energy %", pos = turb_en_pos, val = t_en_perc, suffix = "%", last_len = 0},
+  { label = "Produc. %", pos = turb_prod_pos, val = t_prod_perc, suffix = "%", last_len = 0},
 }
 
 local function log_basic_text()
