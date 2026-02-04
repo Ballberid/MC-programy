@@ -17,13 +17,13 @@ local function reduce(x)
   local val = 0
   local rate = 0
   
-  if x < (1*10^2) then
+  if x < (1*10^3) then
     val = x
     rate = ""
-  elseif x < (1*10^5) then
+  elseif x < (1*10^6) then
     val = x / (1*10^3)
     rate = "K"
-  elseif x < (1*10^8) then
+  elseif x < (1*10^9) then
     val = x / (1*10^6)
     rate = "M"
   end
@@ -48,7 +48,7 @@ local function r_temp()  --teplota reactoru
   return round(t,2)
 end
 local function r_coolant()  --mnozstvo sodiku v %
-  local v = reac.getCoolant().amount/1000  --mB to B
+  local v = reac.getCoolant().amount  --mB to B
   local c, rate = reduce(v)
   local result = round(c,2) .. rate
   return result
@@ -117,7 +117,7 @@ local reac_log_1 = {
   { label = "Status", pos = reac_stat_pos, val = r_stat, suffix = "", last_len = 0},
   { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t", last_len = 0},
   { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C", last_len = 0},
-  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "B", last_len = 0},
+  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "mB", last_len = 0},
   { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%", last_len = 0},
   { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%", last_len = 0},
   { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%", last_len = 0},
