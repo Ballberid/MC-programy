@@ -84,7 +84,7 @@ local function b_steam_max()
   return result
 end
 local function b_rate_max()
-  local v = boil.getBoilRateCapacity()
+  local v = boil.getBoilCapacity()
   local c, rate = reduce(v)
   local result = round(c,1) .. rate
   return result
@@ -254,7 +254,7 @@ local function b_stm_perc()
   return round(v,1)
 end
 local function b_rt_perc()
-  local v = (boil.getBoilRate()/b_rt_max)*100
+  local v = (boil.getBoilRate()/boil.getBoilCapacity)*100
   return round(v,1)
 end
 --turbina
