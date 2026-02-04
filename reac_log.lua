@@ -39,7 +39,8 @@ local function r_temp()  --teplota reactoru
   return round(t,2)
 end
 local function r_coolant()  --mnozstvo sodiku v %
-  local v = reac.getCoolant()/1000 --mB to B
+  local v = reac.getCoolant()
+  v = v.amount/1000 --mB to B
   local c, rate = reduce(v)
   local result = round(c,2) .. rate
   return result
