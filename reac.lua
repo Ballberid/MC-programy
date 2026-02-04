@@ -97,7 +97,7 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
     con = con .. "r.waste | "
     scram = true
   end
-  if r_fuel <= r_min_fuel then
+  if r_fuel() <= r_min_fuel then
     con = con .. "r.fuel | "
     scram = true
   end
