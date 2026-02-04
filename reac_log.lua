@@ -185,13 +185,13 @@ local function log_data(table, pos_x, pos_y, type)
 end
 
 local function log_reac_data()
-  log_data(reac_log_1)
+  log_data(reac_log_1, reac_pos_x, reac_pos_y, 1)
 end
 local function log_boil_data()
-  log_data(boil_log_1)
+  log_data(boil_log_1, boil_pos_x, boil_pos_y, 1)
 end
 local function log_turb_data()
-  log_data(turb_log_1)
+  log_data(turb_log_1, turb_pos_x, turb_pos_y, 1)
 end
 
 local function log()  --zobrazenie dat
