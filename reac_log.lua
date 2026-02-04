@@ -88,8 +88,8 @@ local function r_status()  --status reactoru
 end
 
 local function r_burn_perc()
-  local v = (reac.getBurnRate() / r_burn_rate_max)*100
-  return v
+  local v = (reac.getBurnRate() / r_burn_max)*100
+  return round(v,1)
 end
 --boiler
 local function b_water()
