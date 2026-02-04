@@ -81,12 +81,12 @@ local log_offset_data = 17  --data
 local reac_pos_x = log_p1_x + log_offset_data
 local reac_pos_y = 1
 local reac_log = {
-  { label = "Burn-Rate", val = r_burn_rate, suffix = "mB/t"},
-  { label = "Temp", val = r_temp, suffix = "°C"},
-  { label = "Coolant", val = r_coolant, suffix = "%"},
-  { label = "Heated", val = r_heated, suffix = "%"},
-  { label = "Waste", val = r_waste, suffix = "%"},
-  { label = "Fuel", val = r_fuel, suffix = "%"},
+  { label = "Burn-Rate", type = 1, val = r_burn_rate, suffix = "mB/t"},
+  { label = "Temp", type = 1, val = r_temp, suffix = "°C"},
+  { label = "Coolant", type = 1, val = r_coolant, suffix = "%"},
+  { label = "Heated", type = 1, val = r_heated, suffix = "%"},
+  { label = "Waste", type = 1, val = r_waste, suffix = "%"},
+  { label = "Fuel", type = 2, val = r_fuel, suffix = "%"},
 }
 
 local boil_pos_x = log_p2_x + log_offset_data
@@ -128,9 +128,11 @@ end
 local function log_data_name()
         --reactor log init
     for i, data in ipairs(reac_log) do
+    if data.type == 1 then
       local p = (reac_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p1_x, p)
       mon.write(data.label .. ":")
+    end
     end
     --boiler log init
     for i, data in ipairs(boil_log) do
@@ -175,13 +177,17 @@ local function log_turb_data()
   end
 end
 
+local function log_data(table)
+  
+end
+
 local function log()  --zobrazenie dat
   if log_init == true then  --prvotne nastavenie
     log_initialize()
   end
-  log_reac_data()
-  log_boil_data()
-  log_turb_data()
+  --log_reac_data()
+  --log_boil_data()
+  --log_turb_data()
 end
 
 while true do  --loop
