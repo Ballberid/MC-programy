@@ -96,7 +96,7 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
   end
 
   --turbina
-  if t_energy >= t_max_energy then
+  if t_energy() >= t_max_energy then
     con = con .. "t.energy | "
     scram = true
   end
