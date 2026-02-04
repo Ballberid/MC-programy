@@ -72,7 +72,8 @@ local function t_energy()
 end
 
 local log_clean = "    "
-local log_offset = 3
+local log_offset_x = 10
+local log_offset_y = 2
 local log_p1_x = 1
 local log_p2_x = 25
 
@@ -106,10 +107,15 @@ local turb_log = {
 local function log()  --zobrazenie dat
   if log_init == true then  --prvotne nastavenie
     --reactor log init
-    mon.setCursorPos(log_p1_x, reac_pos_y)
+    local px = 1
+    local py = 1
+    
+    px = log_p1_x + log_offset_x
+    py = reac_pos_y + log_offset_y
+    mon.setCursorPos(px, py)
     mon.write("Reaktor")
     for i, data in ipairs(reac_log) do
-      local p = (reac_pos_y + log_offset + (i-1))
+      local p = (reac_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p1_x, p)
       mon.write(data.label .. ":")
     end
@@ -121,7 +127,7 @@ local function log()  --zobrazenie dat
   end
 
   for i, data in ipairs(reac_log) do  --reactor data
-    local p = (reac_pos_y + log_offset + (i-1))
+    local p = (reac_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(reac_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
