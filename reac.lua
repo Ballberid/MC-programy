@@ -37,6 +37,9 @@ local function r_heated() --mnozstvo horuceho sodiku v %
   local h = reac.getHeatedCoolantFilledPercentage()*100
   return round(h,3)
 end
+local function r_burnRate()  --burn rate
+  return reac.getBurnRate()
+end
 
 --boiler
 local function b_water()
@@ -116,6 +119,7 @@ end
 local log_pos = 20
 local log_clean = "    "
 local log_data = {
+  { label = "Reac Burn-Rate", val = r_burnRate, suffix = "mB/t"},
   { label = "Reac Temp", val = r_temp, suffix = "°C"},
   { label = "Reac Coolant", val = r_coolant, suffix = "%"},
   { label = "Reac Heated", val = r_heated, suffix = "%"},
