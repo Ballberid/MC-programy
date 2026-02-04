@@ -10,7 +10,7 @@ local r_coolant_min = 40  --minimalna hodnota sodiku
 local r_coolant_scram = 10
 local r_burn_step = 1 --velkost kroku nastavenia burn
 local r_burn_step_max = 2
-local r_burn_step_min = 0.1
+local r_burn_step_min = 0.01
 --boiler
 local b_water_min = 60  --minimalna hodnota vody
 local b_water_scram = 40
@@ -90,14 +90,14 @@ local function r_set_burn(step, dir)
   reac.setBurnRate(rate)
 end
 
-local function log(step, dir)
+local function log(step, dir, cond)
   local ndir = false
   if dir == true then
     ndir = 1
   else
     ndir = 0
   end
-  print("step: " .. step .. " | dir: " .. ndir)
+  print("step: " .. step .. " | dir: " .. ndir .. " | " .. cond)
 end
 
 local function reac_controll()
@@ -110,17 +110,20 @@ local function reac_controll()
   --coolant
   s, d = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
   step, dir = compare(step, dir, s, d)
+  log(step, dir, "cool")
   --temp
   s, d = calc_step(r_temp(), r_temp_min, r_temp_scram)
   step, dir = compare(step, dir, s, d)
+  log(step, dir, "temp")
   --boiler----
   --water
   s, d = calc_step(b_water(), b_water_min, b_water_scram)
   step, dir = compare(step, dir, s, d)
+  log(step, dir, "wat")
 
   --set burn rate
   r_set_burn(step, dir)
-  log(step, dir)
+  log(step, dir, "fin")
 end
 --main loop
 local function main()
@@ -132,4 +135,13 @@ local function main()
 end
 
 --zaciatok loopu
-main()
+while true do
+  local ok, err = pcall(main)
+
+  if not ok then
+    print("CHYBA:", err)
+    print("Restart za 3s...")
+    sleep(3)
+    os.reboot()
+  end
+end
