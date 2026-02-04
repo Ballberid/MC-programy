@@ -181,9 +181,15 @@ local function r_fuel()  --mnozstvo paliva
   local result = round(c,1) .. rate .. " / " .. r_fl_max
   return result
 end
+local function r_heat_rate()
+  local v = reac.getHeatingRate()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 local function r_eficiency()
   local v = reac.getBoilEfficiency()
-  return v
+  return round(v,2)
 end
 
 local function r_burn_perc()
@@ -305,7 +311,8 @@ local reac_cool_pos = 4
 local reac_heat_pos = 5
 local reac_wast_pos = 6
 local reac_fuel_pos = 7
-local reac_eficiency_pos = 8
+local reac_htrt_pos = 8
+local reac_eficiency_pos = 9
 local reac_log_1 = {
   { label = "Status", pos = reac_stat_pos, val = r_stat, suffix = "", last_len = 0},
   { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t", last_len = 0},
@@ -314,6 +321,7 @@ local reac_log_1 = {
   { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "mB", last_len = 0},
   { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "mB", last_len = 0},
   { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "mB", last_len = 0},
+  { label = "Heat rt.", pos = reac_htrt_pos, val = r_heat_rate, suffix = "mB/t", last_len = 0},
   { label = "Boil ef.", pos = reac_eficiency_pos, val = r_eficiency, suffix = "", last_len = 0},
 }
 local reac_log_2 = {
