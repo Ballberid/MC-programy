@@ -198,7 +198,7 @@ local function log_data(table, pos_x, pos_y, type)
     mon.setCursorPos(x, p)
     local text = data.val() .. " " .. data.suffix
     
-    if string.len(text) < data.last_len then
+    if string.len(text) < tonumber(data.last_len) then
       local clean = ""
       for i = 0, i <= data.last_len do
         clean = clean .. " "
