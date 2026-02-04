@@ -192,7 +192,7 @@ local function log()  --zobrazenie dat
 end
 
 while true do  --loop
-  log()
+  --log()
   if scram_protocol() then
     break
   end
