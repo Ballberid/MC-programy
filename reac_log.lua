@@ -76,33 +76,45 @@ local log_offset_x = 10  --nazvy
 local log_offset_y = 2
 local log_p1_x = 1  --stranky
 local log_p2_x = 40
-local log_offset_data = 17  --data
+local log_offset_data_1 = 17  --data
 
-local reac_pos_x = log_p1_x + log_offset_data
+local reac_pos_x = log_p1_x
 local reac_pos_y = 1
+local reac_burn_pos = 1
+local reac_temp_pos = 2
+local reac_cool_pos = 3
+local reac_heat_pos = 4
+local reac_wast_pos = 5
+local reac_fuel_pos = 6
 local reac_log_1 = {
-  { label = "Burn-Rate", type = 1, val = r_burn_rate, suffix = "mB/t"},
-  { label = "Temp", type = 1, val = r_temp, suffix = "°C"},
-  { label = "Coolant", type = 1, val = r_coolant, suffix = "%"},
-  { label = "Heated", type = 1, val = r_heated, suffix = "%"},
-  { label = "Waste", type = 1, val = r_waste, suffix = "%"},
-  { label = "Fuel", type = 1, val = r_fuel, suffix = "%"},
+  { label = "Burn-Rate", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t"},
+  { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C"},
+  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "%"},
+  { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%"},
+  { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%"},
+  { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%"},
 }
 
-local boil_pos_x = log_p2_x + log_offset_data
+local boil_pos_x = log_p2_x
 local boil_pos_y = 1
+local boil_wat_pos = 1
+local boil_cool_pos = 2
+local boil_heat_pos = 3
+local boil_steam_pos = 4
 local boil_log_1 = {
-  { label = "Water", val = b_water, suffix = "%"},
-  { label = "Coolant", val = b_coolant, suffix = "%"},
-  { label = "Heated", val = b_heated, suffix = "%"},
-  { label = "Steam", val = b_steam, suffix = "%"},
+  { label = "Water", pos = boil_wat_pos, val = b_water, suffix = "%"},
+  { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "%"},
+  { label = "Heated", pos = boil_heat_pos, val = b_heated, suffix = "%"},
+  { label = "Steam", pos = boil_steam_pos, val = b_steam, suffix = "%"},
 }
 
-local turb_pos_x = log_p2_x + log_offset_data
+local turb_pos_x = log_p2_x
 local turb_pos_y = 20
+local turb_steam_pos = 1
+local turb_en_pos = 2
 local turb_log_1 = {
-  { label = "Steam", val = t_steam, suffix = "%"},
-  { label = "Energy", val = t_energy, suffix = "%"},
+  { label = "Steam", pos = turb_steam_pos, val = t_steam, suffix = "%"},
+  { label = "Energy", pos = turb_en_pos, val = t_energy, suffix = "%"},
 }
 
 local function log_basic_text()
@@ -125,25 +137,24 @@ local function log_basic_text()
   mon.write("Turbina")
   
 end
+
 local function log_data_name()
         --reactor log init
     for i, data in ipairs(reac_log_1) do
-    if data.type == 1 then
-      local p = (reac_pos_y + log_offset_y + (i-1))
-      mon.setCursorPos(log_p1_x, p)
+      local p = (reac_pos_y + log_offset_y + (data.pos-1))
+      mon.setCursorPos(reac_pos_x, p)
       mon.write(data.label .. ":")
-    end
     end
     --boiler log init
     for i, data in ipairs(boil_log_1) do
-      local p = (boil_pos_y + log_offset_y + (i-1))
-      mon.setCursorPos(log_p2_x, p)
+      local p = (boil_pos_y + log_offset_y + (data.pos-1))
+      mon.setCursorPos(boil_pos_x, p)
       mon.write(data.label .. ":")
     end  
     --turbine log init
     for i, data in ipairs(turb_log_1) do
-      local p = (turb_pos_y + log_offset_y + (i-1))
-      mon.setCursorPos(log_p2_x, p)
+      local p = (turb_pos_y + log_offset_y + (data.pos-1))
+      mon.setCursorPos(turb_pos_x, p)
       mon.write(data.label .. ":")
     end  
 end
