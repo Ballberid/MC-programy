@@ -71,34 +71,54 @@ local function t_energy()
   return round(e,2)
 end
 
-local log_pos = 20
 local log_clean = "    "
-local log_data = {
+local log_offset = 4
+
+local reac_pos_x = 17
+local reac_pos_y = 1
+local reac_log = {
   { label = "Reac Burn-Rate", val = r_burn_rate, suffix = "mB/t"},
   { label = "Reac Temp", val = r_temp, suffix = "°C"},
   { label = "Reac Coolant", val = r_coolant, suffix = "%"},
   { label = "Reac Heated", val = r_heated, suffix = "%"},
   { label = "Reac Waste", val = r_waste, suffix = "%"},
   { label = "Reac Fuel", val = r_fuel, suffix = "%"},
+}
+
+local boil_pos_x = 37
+local boil_pos_y = 1
+local boil_log = {
   { label = "Boil Water", val = b_water, suffix = "%"},
   { label = "Boil Coolant", val = b_coolant, suffix = "%"},
   { label = "Boil Heated", val = b_heated, suffix = "%"},
   { label = "Boil Steam", val = b_steam, suffix = "%"},
+}
+
+local turb_pos_x = 37
+local turb_pos_y = 20
+local turb_log = {
   { label = "Turb Steam", val = t_steam, suffix = "%"},
   { label = "Turb Energy", val = t_energy, suffix = "%"},
 }
 
 local function log()  --zobrazenie dat
   if log_init == true then  --prvotne nastavenie
-    for i, data in ipairs(log_data) do
-      mon.setCursorPos(1,i)
+    --reactor log init
+    for i, data in ipairs(reac_log) do
+      local p = (reac_pos_y + log_offset + (i-1))
+      mon.setCursorPos(1, p)
       mon.write(data.label .. ":")
     end
+    --boiler log init
+    
+    --turbine log init
+    
     log_init = false
   end
 
-  for i, data in ipairs(log_data) do  --data
-    mon.setCursorPos(log_pos,i)
+  for i, data in ipairs(reac_log) do  --reactor data
+    local p = (reac_pos_y + log_offset + (i-1))
+    mon.setCursorPos(reac_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
 end
