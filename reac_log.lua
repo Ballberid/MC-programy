@@ -72,36 +72,37 @@ local function t_energy()
 end
 
 local log_clean = "    "
-local log_offset_x = 10
+local log_offset_x = 10  --nazvy
 local log_offset_y = 2
-local log_p1_x = 1
-local log_p2_x = 25
+local log_p1_x = 1  --stranky
+local log_p2_x = 30
+local log_offset_data = 17  --data
 
-local reac_pos_x = 17
+local reac_pos_x = log_p1_x + log_offset_data
 local reac_pos_y = 1
 local reac_log = {
-  { label = "Reac Burn-Rate", val = r_burn_rate, suffix = "mB/t"},
-  { label = "Reac Temp", val = r_temp, suffix = "°C"},
-  { label = "Reac Coolant", val = r_coolant, suffix = "%"},
-  { label = "Reac Heated", val = r_heated, suffix = "%"},
-  { label = "Reac Waste", val = r_waste, suffix = "%"},
-  { label = "Reac Fuel", val = r_fuel, suffix = "%"},
+  { label = "Burn-Rate", val = r_burn_rate, suffix = "mB/t"},
+  { label = "Temp", val = r_temp, suffix = "°C"},
+  { label = "Coolant", val = r_coolant, suffix = "%"},
+  { label = "Heated", val = r_heated, suffix = "%"},
+  { label = "Waste", val = r_waste, suffix = "%"},
+  { label = "Fuel", val = r_fuel, suffix = "%"},
 }
 
-local boil_pos_x = 37
+local boil_pos_x = log_p2_x + log_offset_data
 local boil_pos_y = 1
 local boil_log = {
-  { label = "Boil Water", val = b_water, suffix = "%"},
-  { label = "Boil Coolant", val = b_coolant, suffix = "%"},
-  { label = "Boil Heated", val = b_heated, suffix = "%"},
-  { label = "Boil Steam", val = b_steam, suffix = "%"},
+  { label = "Water", val = b_water, suffix = "%"},
+  { label = "Coolant", val = b_coolant, suffix = "%"},
+  { label = "Heated", val = b_heated, suffix = "%"},
+  { label = "Steam", val = b_steam, suffix = "%"},
 }
 
-local turb_pos_x = 37
+local turb_pos_x = log_p2_x + log_offset_data
 local turb_pos_y = 20
 local turb_log = {
-  { label = "Turb Steam", val = t_steam, suffix = "%"},
-  { label = "Turb Energy", val = t_energy, suffix = "%"},
+  { label = "Steam", val = t_steam, suffix = "%"},
+  { label = "Energy", val = t_energy, suffix = "%"},
 }
 
 local function log()  --zobrazenie dat
@@ -111,7 +112,7 @@ local function log()  --zobrazenie dat
     local py = 1
     
     px = log_p1_x + log_offset_x
-    py = reac_pos_y + log_offset_y
+    py = reac_pos_y
     mon.setCursorPos(px, py)
     mon.write("Reaktor")
     for i, data in ipairs(reac_log) do
@@ -121,7 +122,7 @@ local function log()  --zobrazenie dat
     end
     --boiler log init
     px = log_p2_x + log_offset_x
-    py = boil_pos_y + log_offset_y
+    py = boil_pos_y
     mon.setCursorPos(px, py)
     mon.write("Boiler")
     for i, data in ipairs(boil_log) do
@@ -131,7 +132,7 @@ local function log()  --zobrazenie dat
     end  
     --turbine log init
     px = log_p2_x + log_offset_x
-    py = turb_pos_y + log_offset_y
+    py = turb_pos_y
     mon.setCursorPos(px, py)
     mon.write("Turbina")
     for i, data in ipairs(turb_log) do
