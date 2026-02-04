@@ -105,12 +105,12 @@ local reac_heat_pos = 4
 local reac_wast_pos = 5
 local reac_fuel_pos = 6
 local reac_log_1 = {
-  { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t"},
-  { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C"},
-  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "B"},
-  { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%"},
-  { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%"},
-  { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%"},
+  { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t", last_len = 0},
+  { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C", last_len = 0},
+  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "B", last_len = 0},
+  { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%", last_len = 0},
+  { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%", last_len = 0},
+  { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%", last_len = 0},
 }
 
 local boil_pos_x = log_p2_x
@@ -120,10 +120,10 @@ local boil_cool_pos = 2
 local boil_heat_pos = 3
 local boil_steam_pos = 4
 local boil_log_1 = {
-  { label = "Water", pos = boil_wat_pos, val = b_water, suffix = "%"},
-  { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "%"},
-  { label = "Heated", pos = boil_heat_pos, val = b_heated, suffix = "%"},
-  { label = "Steam", pos = boil_steam_pos, val = b_steam, suffix = "%"},
+  { label = "Water", pos = boil_wat_pos, val = b_water, suffix = "%", last_len = 0},
+  { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "%", last_len = 0},
+  { label = "Heated", pos = boil_heat_pos, val = b_heated, suffix = "%", last_len = 0},
+  { label = "Steam", pos = boil_steam_pos, val = b_steam, suffix = "%", last_len = 0},
 }
 
 local turb_pos_x = log_p2_x
@@ -131,8 +131,8 @@ local turb_pos_y = 20
 local turb_steam_pos = 1
 local turb_en_pos = 2
 local turb_log_1 = {
-  { label = "Steam", pos = turb_steam_pos, val = t_steam, suffix = "%"},
-  { label = "Energy", pos = turb_en_pos, val = t_energy, suffix = "%"},
+  { label = "Steam", pos = turb_steam_pos, val = t_steam, suffix = "%", last_len = 0},
+  { label = "Energy", pos = turb_en_pos, val = t_energy, suffix = "%", last_len = 0},
 }
 
 local function log_basic_text()
@@ -197,6 +197,17 @@ local function log_data(table, pos_x, pos_y, type)
     local p = (pos_y + log_offset_y + (data.pos-1))
     mon.setCursorPos(x, p)
     local text = data.val() .. " " .. data.suffix
+    
+    if string.len(text) < data.last_len then
+      local clean = ""
+      for i = 0, i <= data.last_len do
+        clean = clean .. " "
+      end
+      mon.write(clean)
+      mon.setCursorPos(x, p)
+    end
+
+    data.last_len = string.len(text)
     mon.write(text)
   end
 end
