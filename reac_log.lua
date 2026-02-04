@@ -38,6 +38,7 @@ local function r_stat()
   else
     val = "OFFLINE"
   end
+  return val
 end
 local function r_burn_rate()  --burn rate
   return reac.getBurnRate()
