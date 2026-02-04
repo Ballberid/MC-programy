@@ -4,17 +4,19 @@ local turb = peripheral.wrap("turbineValve_0")
 
 local ref_interval = 0.5  --refresh interval
 local log_init = true
-
+--reactor
 local r_save_temp = 300  --target temp
 local r_lim = 5  --limit zmeny teploty
 local r_min_coolant = 10  --minimalna hodnota sodiku
 local r_max_heated = 40  --maximalna hodnota horuceho sodiku
-
-local b_min_water = 40
-local b_max_heated = 50
-local b_max_steam = 70
-
-local t_max_energy = 80
+local r_max_waste = 50 --maximalna hodnota waste
+local r_min_fuel = 5 --minimalna hodnota paliva
+--boiler
+local b_min_water = 40  --minimalna hodnota vody
+local b_max_heated = 50  --maximalna hodnota heated coolantu
+local b_max_steam = 70  --maximalna hodnota pary
+--turbina
+local t_max_energy = 80  --maximalna hodnota energie
 
 term.clear()
 
@@ -25,6 +27,9 @@ local function round(x, dec)  --zaokruhlenie hodnoty
 end
 
 --reactor
+local function r_burnRate()  --burn rate
+  return reac.getBurnRate()
+end
 local function r_temp()  --teplota reactoru
   local t = reac.getTemperature()-273.15
   return round(t,2)
@@ -33,12 +38,17 @@ local function r_coolant()  --mnozstvo sodiku v %
   local c = reac.getCoolantFilledPercentage()*100
   return round(c,3)
 end
-local function r_heated() --mnozstvo horuceho sodiku v %
+local function r_heated()  --mnozstvo horuceho sodiku v %
   local h = reac.getHeatedCoolantFilledPercentage()*100
   return round(h,3)
 end
-local function r_burnRate()  --burn rate
-  return reac.getBurnRate()
+local function r_waste()  --mnozstvo waste
+  local w = reac.getWasteFilledPercentage()*100
+  return round(w,2)
+end
+local function r_fuel()
+  local f = reac.getFuelFilledPercentage()*100
+  return round(f,2)
 end
 
 --boiler
@@ -83,6 +93,14 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
     con = con .. "r.heated | "
     scram = true
   end
+  if r_waste() >= r_max_waste then
+    con = con .. "r.waste | "
+    scram = true
+  end
+  if r_fuel <= r_min_fuel then
+    con = con .. "r.fuel | "
+    scram = true
+  end
   
   --boiler
   if b_water() <= b_min_water then
@@ -114,7 +132,8 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
   return false
 end
 
-
+local function burn_protocol() --ovladanie burn rate
+end
 
 local log_pos = 20
 local log_clean = "    "
@@ -123,6 +142,8 @@ local log_data = {
   { label = "Reac Temp", val = r_temp, suffix = "°C"},
   { label = "Reac Coolant", val = r_coolant, suffix = "%"},
   { label = "Reac Heated", val = r_heated, suffix = "%"},
+  { label = "Reac Waste", val = r_waste, suffix = "%"},
+  { label = "Reac Fuel", val = r_fuel, suffix = "%"},
   { label = "Boil Water", val = b_water, suffix = "%"},
   { label = "Boil Coolant", val = b_coolant, suffix = "%"},
   { label = "Boil Heated", val = b_heated, suffix = "%"},
