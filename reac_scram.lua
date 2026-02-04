@@ -3,6 +3,7 @@ local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 
 local interval = 0.1
+print("Scram rdy")
 --reactor
 local r_temp_max = 900
 local r_coolant_min = 10
