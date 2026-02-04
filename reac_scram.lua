@@ -2,7 +2,7 @@ local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 
-local interval = 0.5
+local interval = 0.1
 --reactor
 local r_temp_max = 900
 local r_coolant_min = 10
