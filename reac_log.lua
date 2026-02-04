@@ -91,6 +91,10 @@ local function r_burn_perc()
   local v = (reac.getBurnRate() / r_burn_max)*100
   return round(v,1)
 end
+local function r_cool_perc()
+  local v = reac.getCoolantPercentage()*100
+  return round(v,1)
+end
 --boiler
 local function b_water()
   local w = boil.getWaterFilledPercentage()*100
@@ -146,6 +150,7 @@ local reac_log_1 = {
 }
 local reac_log_2 = {
   { label = "Burn %", pos = reac_burn_pos, val = r_burn_perc, suffix = "%", last_len = 0},
+  { label = "Cool %", pos = reac_cool_pos, val = r_cool_perc, suffix = "%", last_len = 0},
 }
 
 local boil_pos_x = log_p2_x
