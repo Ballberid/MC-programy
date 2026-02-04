@@ -10,12 +10,21 @@ local r_lim = 5  --limit zmeny teploty
 local r_min_coolant = 10  --minimalna hodnota sodiku
 local r_max_heated = 40  --maximalna hodnota horuceho sodiku
 
+local b_min_water = 40
+local b_max_heated = 50
+local b_max_steam = 70
+
+local t_max_energy = 80
+
 term.clear()
 
+--basic
 local function round(x, dec)  --zaokruhlenie hodnoty
   local m = 10^dec
   return math.floor(x * m)/m
 end
+
+--reactor
 local function r_temp()  --teplota reactoru
   local t = reac.getTemperature()-273.15
   return round(t,2)
@@ -29,6 +38,7 @@ local function r_heated() --mnozstvo horuceho sodiku v %
   return round(h,3)
 end
 
+--boiler
 local function b_water()
   local w = boil.getWaterFilledPercentage()*100
   return round(w,3)
@@ -46,6 +56,7 @@ local function b_steam()
   return round(s,2)
 end
 
+--turbina
 local function t_steam()
   local s = turb.getSteamFilledPercentage()
   return round(s,2)
@@ -55,10 +66,12 @@ local function t_energy()
   return round(e,2)
 end
 
+--protokoly
 local function scram_protocol()  --kontrola ci ma vypnut reaktor
   local scram = false
   local con = ""
   
+  --reactor
   if r_coolant() <= r_min_coolant then  --malo coolantu
     con = con .. "r.coolant | "
     scram = true
@@ -67,8 +80,29 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
     con = con .. "r.heated | "
     scram = true
   end
+  
+  --boiler
+  if b_water() <= b_min_water then
+    con = con .. "b.water | "
+    scram = true
+  end
+  if b_heated() >= b_max_heated then
+    con = con .. "b.heated | "
+    scram = true
+  end
+  if b_steam() >= b_max_steam then
+    con = con .. "b.steam | "
+    scram = true
+  end
 
-  if scram == true then  --scram
+  --turbina
+  if t_energy >= t_max_energy then
+    con = con .. "t.energy | "
+    scram = true
+  end
+
+  --scram
+  if scram == true then
     reac.scram()
     print("Reactor bol odstaveny: " .. con)
     return true
