@@ -65,6 +65,12 @@ local function b_water_max()
   local result = round(c,1) .. rate
   return result
 end
+local function b_coolant_max()
+  local v = boil.getCooledCoolantCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --const
 --reactor
 local r_burn_max = 0
@@ -74,6 +80,7 @@ local r_wast_max = 0
 local r_fl_max = 0
 --boiler
 local b_wat_max = 0
+local b_cool_max = 0
 local function load_const()
   --reac
   r_burn_max = r_burn_rate_max()
@@ -83,6 +90,7 @@ local function load_const()
   r_fl_max = r_fuel_max()
   --boil
   b_wat_max = b_water_max()
+  b_cool_max = b_coolant_max()
 end
 
 --reactor
@@ -158,8 +166,10 @@ local function b_water()
   return result
 end
 local function b_coolant()
-  local c = boil.getCooledCoolantFilledPercentage()*100
-  return round(c,3)
+  local v = boil.getCooledCoolant().amount
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. b_cool_max
+  return result
 end
 local function b_heated()
   local h = boil.getHeatedCoolantFilledPercentage()*100
@@ -172,6 +182,10 @@ end
 
 local function b_wat_perc()
   local v = boil.getWaterFilledPercentage()*100
+  return round(v,1)
+end
+local function b_cool_perc()
+  local v = boil.getCooledCoolantFilledPercentage()*100
   return round(v,1)
 end
 --turbina
@@ -225,12 +239,13 @@ local boil_heat_pos = 3
 local boil_steam_pos = 4
 local boil_log_1 = {
   { label = "Water", pos = boil_wat_pos, val = b_water, suffix = "mB", last_len = 0},
-  { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "%", last_len = 0},
+  { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "mB", last_len = 0},
   { label = "Heated", pos = boil_heat_pos, val = b_heated, suffix = "%", last_len = 0},
   { label = "Steam", pos = boil_steam_pos, val = b_steam, suffix = "%", last_len = 0},
 }
-local boil_log_1 = {
+local boil_log_2 = {
   { label = "Water %", pos = boil_wat_pos, val = b_wat_perc, suffix = "%", last_len = 0},
+  { label = "Coolant %", pos = boil_cool_pos, val = b_cool_perc, suffix = "%", last_len = 0},
 }
 
 local turb_pos_x = log_p2_x
