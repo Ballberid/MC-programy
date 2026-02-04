@@ -149,9 +149,9 @@ local function burn_protocol() --ovladanie burn rate
   --vykonanie akcie
   if decrease == true then
     increase = false
-    reac.setBurnRate(r_burn_rate - r_burn_step)
+    reac.setBurnRate(r_burn_rate() - r_burn_step)
   else if decrease == false and increase == true then
-    reac.setBurnRate(r_burn_rate + r_burn_step)
+    reac.setBurnRate(r_burn_rate() + r_burn_step)
   end
   end
 end
