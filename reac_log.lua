@@ -17,13 +17,13 @@ local function reduce(x)
   local val = 0
   local rate = 0
   
-  if x < (1*10^3) then
+  if x < (1*10^2) then
     val = x
     rate = ""
-  elseif x < (1*10^6) then
+  elseif x < (1*10^5) then
     val = x / (1*10^3)
     rate = "K"
-  elseif x < (1*10^9) then
+  elseif x < (1*10^8) then
     val = x / (1*10^6)
     rate = "M"
   end
@@ -208,7 +208,7 @@ local function log_data(table, pos_x, pos_y, type)
     mon.setCursorPos(x, p)
     local text = data.val() .. " " .. data.suffix
 
-    local last = tonumber(data.last_len)
+    local last = tonumber(data.last_len)  --clean line
     if string.len(text) < data.last_len then
       local clean = ""
       for i = 1, data.last_len do
