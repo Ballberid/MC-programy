@@ -39,8 +39,7 @@ local function r_temp()  --teplota reactoru
   return round(t,2)
 end
 local function r_coolant()  --mnozstvo sodiku v %
-  local v = reac.getCoolant()
-  v = v.amount/1000 --mB to B
+  local v = reac.getCoolant().amount/1000  --mB to B
   local c, rate = reduce(v)
   local result = round(c,2) .. rate
   return result
@@ -198,10 +197,10 @@ local function log_data(table, pos_x, pos_y, type)
     mon.setCursorPos(x, p)
     local text = data.val() .. " " .. data.suffix
 
-    last = tonumber(data.last_len)
-    if string.len(text) < last then
+    local last = tonumber(data.last_len)
+    if string.len(text) < data.last_len then
       local clean = ""
-      for i = 0, i <= last do
+      for i = 1, data.last_len do
         clean = clean .. " "
       end
       mon.write(clean)
