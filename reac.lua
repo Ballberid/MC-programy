@@ -1,5 +1,5 @@
 local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
-local boil = peripheral.wrap("boilverValve_0")
+local boil = peripheral.wrap("boilerValve_0")
 local ref_interval = 0.5  --refresh interval
 local log_init = true
 
@@ -52,7 +52,7 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
     con = con .. "r.coolant | "
     scram = true
   end
-  if r_heat_coolant() >= r_max_heated then  --vela heat coolantu
+  if r_heated() >= r_max_heated then  --vela heat coolantu
     con = con .. "r.heated | "
     scram = true
   end
