@@ -4,7 +4,6 @@ local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_2")
 
 local ref_interval = 0.5  --refresh interval
-local log_init = true
 
 mon.setTextScale(0.5)
 mon.clear()
@@ -77,6 +76,7 @@ local log_offset_y = 2
 local log_p1_x = 1  --stranky
 local log_p2_x = 40
 local log_offset_data_1 = 17  --data
+local log_offset_data_2 = 25
 
 local reac_pos_x = log_p1_x
 local reac_pos_y = 1
@@ -162,46 +162,48 @@ end
 local function log_initialize()
   log_data_name()
   log_basic_text()
-  
-  log_init = false
+end
+
+local function type_offset(type)
+  local t = 0
+  if type == 1 then
+    t = log_offset_data_1
+  elseif type == 2 then
+    t = log_offset_data_2
+  end
+  return t
+end
+
+local function log_data(table, pos_x, pos_y, type)
+  local x = pos_x + type_offset(type)
+  for i, data in ipairs(table) do
+    local p = (pos_y + log_offset_y + (data.pos-1))
+    mon.setCursorPos(x, p)
+    local text = data.val() .. " " .. data.siffix .. log_clean)
+    mon.write(text)
+  end
 end
 
 local function log_reac_data()
-  for i, data in ipairs(reac_log_1) do  --reactor data
-    local p = (reac_pos_y + log_offset_y + (i-1))
-    mon.setCursorPos(reac_pos_x, p)
-    mon.write(data.val() .. " " .. data.suffix .. log_clean)
-  end
+  log_data(reac_log_1)
 end
 local function log_boil_data()
-  for i, data in ipairs(boil_log_1) do  --boiler data
-    local p = (boil_pos_y + log_offset_y + (i-1))
-    mon.setCursorPos(boil_pos_x, p)
-    mon.write(data.val() .. " " .. data.suffix .. log_clean)
-  end
+  log_data(boil_log_1)
 end
 local function log_turb_data()
-  for i, data in ipairs(turb_log_1) do  --turbine data
-    local p = (turb_pos_y + log_offset_y + (i-1))
-    mon.setCursorPos(turb_pos_x, p)
-    mon.write(data.val() .. " " .. data.suffix .. log_clean)
-  end
-end
-
-local function log_data(table)
-  
+  log_data(turb_log_1)
 end
 
 local function log()  --zobrazenie dat
-  if log_init == true then  --prvotne nastavenie
-    log_initialize()
-  end
-  --log_reac_data()
-  --log_boil_data()
-  --log_turb_data()
+  log_reac_data()
+  log_boil_data()
+  log_turb_data()
 end
 
-while true do  --loop
+--zaciatok kodu
+log_initialize()
+
+while true do --loop
   log()
   sleep(ref_interval)
 end
