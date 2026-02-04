@@ -228,15 +228,24 @@ end
 local function log_draw_lines()
   local w, h = mon.getSize()
   
-  for i = 1, w do
+  for i = 1, w do  --horna ciara
     mon.setCursorPos(i, reac_pos_y + (log_offset_y/2))
     mon.write("-")
   end
-  for i = 1, h do
+  for i = 1, h do  --stredova ciara
     mon.setCursorPos((log_p2_x-1), i)
     mon.write("|")
   end
+  for i = 1, (w-log_p2_x) do --ohranicenie turbiny (vrch)
+    mon.setCursorPos((log_p2_x+(i-1)), (turb_pos_y-1))
+    mon.write("-")
+  end
+  for i = 1, (w-log_p2_x) do --ohranicenie turbiny (spodok)
+    mon.setCursorPos((log_p2_x+(i-1)), (turb_pos_y+1))
+    mon.write("-")
+  end
 end
+
 local function log_initialize()
   log_basic_text()
   log_data_name()
