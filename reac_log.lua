@@ -46,14 +46,22 @@ local function r_heated_max()
   local result = round(c,1) .. rate
   return result
 end
+local function r_waste_max()
+  local v = reac.getWasteCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --const
 local r_burn_max = 0
 local r_cool_max = 0
 local r_heat_max = 0
+local r_wast_max = 0
 local function load_const()
   r_burn_max = r_burn_rate_max()
   r_cool_max = r_coolant_max()
   r_heat_max = r_heated_max()
+  r_wast_max = r_waste_max()
 end
 
 --reactor
@@ -86,8 +94,11 @@ local function r_heated()  --mnozstvo horuceho sodiku v %
   return result
 end
 local function r_waste()  --mnozstvo waste
-  local w = reac.getWasteFilledPercentage()*100
+  local v = reac.getWaste().amount
+  local c, rate = reduce(v)
   return round(w,2)
+  local result = round(c,1) .. rate .. " / " .. r_wast_max
+  return result
 end
 local function r_fuel()  --mnozstvo paliva
   local f = reac.getFuelFilledPercentage()*100
@@ -103,6 +114,10 @@ local function r_burn_perc()
 end
 local function r_cool_perc()
   local v = reac.getCoolantFilledPercentage()*100
+  return round(v,1)
+end
+local function r_waste_perc()
+  local v = reac.getWasteFilledPercentage()*100
   return round(v,1)
 end
 --boiler
@@ -161,6 +176,7 @@ local reac_log_1 = {
 local reac_log_2 = {
   { label = "Burn %", pos = reac_burn_pos, val = r_burn_perc, suffix = "%", last_len = 0},
   { label = "Cool %", pos = reac_cool_pos, val = r_cool_perc, suffix = "%", last_len = 0},
+  { label = "Wast %", pos = reac_wast_pos, val = r_wast_perc, suffix = "%", last_len = 0},
 }
 
 local boil_pos_x = log_p2_x
