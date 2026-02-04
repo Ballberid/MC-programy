@@ -225,10 +225,16 @@ local function log_data_name()
       mon.write(data.label .. ":")
     end  
 end
-
+local function log_draw_lines()
+  for i = 1, 120 do
+    mon.setCursorPos(i, reac_pos_y + (log_offset_y/2)
+    mon.write("_")
+  end
+end
 local function log_initialize()
   log_basic_text()
   log_data_name()
+  log_draw_lines()
 end
 
 local function type_offset(type)
