@@ -6,11 +6,12 @@ local ref_interval = 0.5  --refresh interval
 local log_init = true
 --reactor
 local r_save_temp = 300  --target temp
-local r_lim = 5  --limit zmeny teploty
+local r_temp_lim = 5  --limit zmeny teploty
 local r_min_coolant = 10  --minimalna hodnota sodiku
 local r_max_heated = 40  --maximalna hodnota horuceho sodiku
 local r_max_waste = 50 --maximalna hodnota waste
 local r_min_fuel = 5 --minimalna hodnota paliva
+local r_burn_step = 1 --velkost kroku nastavenia burn
 --boiler
 local b_min_water = 40  --minimalna hodnota vody
 local b_max_heated = 50  --maximalna hodnota heated coolantu
@@ -27,7 +28,7 @@ local function round(x, dec)  --zaokruhlenie hodnoty
 end
 
 --reactor
-local function r_burnRate()  --burn rate
+local function r_burn_rate()  --burn rate
   return reac.getBurnRate()
 end
 local function r_temp()  --teplota reactoru
@@ -46,9 +47,12 @@ local function r_waste()  --mnozstvo waste
   local w = reac.getWasteFilledPercentage()*100
   return round(w,2)
 end
-local function r_fuel()
+local function r_fuel()  --mnozstvo paliva
   local f = reac.getFuelFilledPercentage()*100
   return round(f,2)
+end
+local function r_status()  --status reactoru
+  return reac.getStatus()
 end
 
 --boiler
@@ -133,12 +137,29 @@ local function scram_protocol()  --kontrola ci ma vypnut reaktor
 end
 
 local function burn_protocol() --ovladanie burn rate
+  local increase = false
+  local decrease = false
+  --increase alebo decrease
+  if r_temp() > (r_save_temp + r_temp_lim) then
+    decrease = true
+  end
+  if r_temp() < (r_save_temp - r_temp_lim) then
+    increase = true
+  end
+  --vykonanie akcie
+  if decrease == true then
+    increase = false
+    reac.setBurnRate(r_burn_rate - r_burn_step)
+  else if decrease == false and increase == true then
+    reac.setBurnRate(r_burn_rate + r_burn_step)
+  end
+  
 end
 
 local log_pos = 20
 local log_clean = "    "
 local log_data = {
-  { label = "Reac Burn-Rate", val = r_burnRate, suffix = "mB/t"},
+  { label = "Reac Burn-Rate", val = r_burn_rate, suffix = "mB/t"},
   { label = "Reac Temp", val = r_temp, suffix = "°C"},
   { label = "Reac Coolant", val = r_coolant, suffix = "%"},
   { label = "Reac Heated", val = r_heated, suffix = "%"},
@@ -171,6 +192,9 @@ while true do  --loop
   log()
   if scram_protocol() then
     break
+  end
+  if r_status() then
+    burn_protocol()
   end
   sleep(ref_interval)
 end
