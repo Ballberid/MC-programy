@@ -153,7 +153,7 @@ local function burn_protocol() --ovladanie burn rate
   else if decrease == false and increase == true then
     reac.setBurnRate(r_burn_rate + r_burn_step)
   end
-  
+  end
 end
 
 local log_pos = 20
