@@ -75,7 +75,7 @@ local log_clean = "    "
 local log_offset_x = 10  --nazvy
 local log_offset_y = 2
 local log_p1_x = 1  --stranky
-local log_p2_x = 30
+local log_p2_x = 40
 local log_offset_data = 17  --data
 
 local reac_pos_x = log_p1_x + log_offset_data
@@ -105,43 +105,57 @@ local turb_log = {
   { label = "Energy", val = t_energy, suffix = "%"},
 }
 
-local function log()  --zobrazenie dat
-  if log_init == true then  --prvotne nastavenie
-    --reactor log init
-    local px = 1
-    local py = 1
-    
-    px = log_p1_x + log_offset_x
-    py = reac_pos_y
-    mon.setCursorPos(px, py)
-    mon.write("Reaktor")
+local function log_basic_text()
+  local px = 1
+  local py = 1
+  --reactor text
+  px = log_p1_x + log_offset_x
+  py = reac_pos_y
+  mon.setCursorPos(px, py)
+  mon.write("Reaktor")
+  --boiler text
+  px = log_p2_x + log_offset_x
+  py = boil_pos_y
+  mon.setCursorPos(px, py)
+  mon.write("Boiler")
+  --turbine text
+  px = log_p2_x + log_offset_x
+  py = turb_pos_y
+  mon.setCursorPos(px, py)
+  mon.write("Turbina")
+  
+end
+local function log_data_name()
+        --reactor log init
     for i, data in ipairs(reac_log) do
       local p = (reac_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p1_x, p)
       mon.write(data.label .. ":")
     end
     --boiler log init
-    px = log_p2_x + log_offset_x
-    py = boil_pos_y
-    mon.setCursorPos(px, py)
-    mon.write("Boiler")
     for i, data in ipairs(boil_log) do
       local p = (boil_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p2_x, p)
       mon.write(data.label .. ":")
     end  
     --turbine log init
-    px = log_p2_x + log_offset_x
-    py = turb_pos_y
-    mon.setCursorPos(px, py)
-    mon.write("Turbina")
     for i, data in ipairs(turb_log) do
       local p = (turb_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p2_x, p)
       mon.write(data.label .. ":")
     end  
-    
-    log_init = false
+end
+
+local function log_initialize()
+  log_data_name()
+  log_basic_text()
+  
+  log_init = false
+end
+
+local function log()  --zobrazenie dat
+  if log_init == true then  --prvotne nastavenie
+    log_initialize()
   end
 
   for i, data in ipairs(reac_log) do  --reactor data
