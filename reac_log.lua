@@ -120,8 +120,25 @@ local function log()  --zobrazenie dat
       mon.write(data.label .. ":")
     end
     --boiler log init
-    
+    px = log_p2_x + log_offset_x
+    py = boil_pos_y + log_offset_y
+    mon.setCursorPos(px, py)
+    mon.write("Boiler")
+    for i, data in ipairs(boil_log) do
+      local p = (boil_pos_y + log_offset_y + (i-1))
+      mon.setCursorPos(log_p2_x, p)
+      mon.write(data.label .. ":")
+    end  
     --turbine log init
+    px = log_p2_x + log_offset_x
+    py = turb_pos_y + log_offset_y
+    mon.setCursorPos(px, py)
+    mon.write("Turbina")
+    for i, data in ipairs(turb_log) do
+      local p = (turb_pos_y + log_offset_y + (i-1))
+      mon.setCursorPos(log_p2_x, p)
+      mon.write(data.label .. ":")
+    end  
     
     log_init = false
   end
