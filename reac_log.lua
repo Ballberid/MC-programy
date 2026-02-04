@@ -71,6 +71,18 @@ local function b_coolant_max()
   local result = round(c,1) .. rate
   return result
 end
+local function b_heated_max()
+  local v = boil.getHeatedCoolantCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
+local function b_steam_max()
+  local v = boil.getSteamCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --const
 --reactor
 local r_burn_max = 0
