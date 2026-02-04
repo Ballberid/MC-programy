@@ -93,6 +93,10 @@ end
 local function t_energy_max()
   local v = turb.getMaxEnergy()
   local c, rate = reduce(v)
+  if c > 1*10^3 then
+    c = c / 1000
+    rate = "G"
+  end
   local result = round(c,1) .. rate
   return result
 end
@@ -245,6 +249,10 @@ end
 local function t_energy()
   local v = turb.getEnergy()
   local c, rate = reduce(v)
+  if c > 1*10^3 then
+    c = c / 1000
+    rate = "G"
+  end
   local result = round(c,1) .. rate .. " / " .. t_en_max
   return result
 end
