@@ -80,18 +80,18 @@ local log_offset_data = 17  --data
 
 local reac_pos_x = log_p1_x + log_offset_data
 local reac_pos_y = 1
-local reac_log = {
+local reac_log_1 = {
   { label = "Burn-Rate", type = 1, val = r_burn_rate, suffix = "mB/t"},
   { label = "Temp", type = 1, val = r_temp, suffix = "°C"},
   { label = "Coolant", type = 1, val = r_coolant, suffix = "%"},
   { label = "Heated", type = 1, val = r_heated, suffix = "%"},
   { label = "Waste", type = 1, val = r_waste, suffix = "%"},
-  { label = "Fuel", type = 2, val = r_fuel, suffix = "%"},
+  { label = "Fuel", type = 1, val = r_fuel, suffix = "%"},
 }
 
 local boil_pos_x = log_p2_x + log_offset_data
 local boil_pos_y = 1
-local boil_log = {
+local boil_log_1 = {
   { label = "Water", val = b_water, suffix = "%"},
   { label = "Coolant", val = b_coolant, suffix = "%"},
   { label = "Heated", val = b_heated, suffix = "%"},
@@ -100,7 +100,7 @@ local boil_log = {
 
 local turb_pos_x = log_p2_x + log_offset_data
 local turb_pos_y = 20
-local turb_log = {
+local turb_log_1 = {
   { label = "Steam", val = t_steam, suffix = "%"},
   { label = "Energy", val = t_energy, suffix = "%"},
 }
@@ -127,7 +127,7 @@ local function log_basic_text()
 end
 local function log_data_name()
         --reactor log init
-    for i, data in ipairs(reac_log) do
+    for i, data in ipairs(reac_log_1) do
     if data.type == 1 then
       local p = (reac_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p1_x, p)
@@ -135,13 +135,13 @@ local function log_data_name()
     end
     end
     --boiler log init
-    for i, data in ipairs(boil_log) do
+    for i, data in ipairs(boil_log_1) do
       local p = (boil_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p2_x, p)
       mon.write(data.label .. ":")
     end  
     --turbine log init
-    for i, data in ipairs(turb_log) do
+    for i, data in ipairs(turb_log_1) do
       local p = (turb_pos_y + log_offset_y + (i-1))
       mon.setCursorPos(log_p2_x, p)
       mon.write(data.label .. ":")
@@ -156,21 +156,21 @@ local function log_initialize()
 end
 
 local function log_reac_data()
-  for i, data in ipairs(reac_log) do  --reactor data
+  for i, data in ipairs(reac_log_1) do  --reactor data
     local p = (reac_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(reac_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
 end
 local function log_boil_data()
-  for i, data in ipairs(boil_log) do  --boiler data
+  for i, data in ipairs(boil_log_1) do  --boiler data
     local p = (boil_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(boil_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
 end
 local function log_turb_data()
-  for i, data in ipairs(turb_log) do  --turbine data
+  for i, data in ipairs(turb_log_1) do  --turbine data
     local p = (turb_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(turb_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
