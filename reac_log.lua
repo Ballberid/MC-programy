@@ -30,22 +30,30 @@ local function reduce(x)
   return val, rate
 end
 --reactor const
+local function r_burn_rate_max()
+  local v = reac.getMaxBurnRate()
+  return v
+end
 local function r_coolant_max()
   local v = reac.getCoolantCapacity()
   local c, rate = reduce(v)
   local result = round(c,1) .. rate
   return result
 end
-local function r_burn_rate_max()
-  local v = reac.getMaxBurnRate()
-  return v
+local function r_heated_max()
+  local v = reac.getHeatedCoolantCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
 end
 --const
 local r_burn_max = 0
 local r_cool_max = 0
+local r_heat_max = 0
 local function load_const()
   r_cool_max = r_coolant_max()
   r_burn_max = r_burn_rate_max()
+  r_heat_max = r_heated_max()
 end
 
 --reactor
@@ -72,8 +80,10 @@ local function r_coolant()  --mnozstvo sodiku v %
   return result
 end
 local function r_heated()  --mnozstvo horuceho sodiku v %
-  local h = reac.getHeatedCoolantFilledPercentage()*100
-  return round(h,3)
+  local v = reac.getHeatedCoolant().amount
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. r_heat_max
+  return result
 end
 local function r_waste()  --mnozstvo waste
   local w = reac.getWasteFilledPercentage()*100
@@ -92,7 +102,7 @@ local function r_burn_perc()
   return round(v,1)
 end
 local function r_cool_perc()
-  local v = reac.getCoolantPercentage()*100
+  local v = reac.getCoolantFilledPercentage()*100
   return round(v,1)
 end
 --boiler
