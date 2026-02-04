@@ -4,8 +4,10 @@ local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_0")
 
 local ref_interval = 0.2  --refresh interval
+local log_init = true
 
-term.clear()
+mon.setTextScale(0.5)
+mon.clear()
 
 --basic
 local function round(x, dec)  --zaokruhlenie hodnoty
