@@ -59,16 +59,19 @@ local function calc_step(x, lim, scram)
   end
   return step, cond
 end
-local function compare(step, dir, s, d)
-  if d == true and dir == true then
-    if s < step then
+local function compare(in_step, in_dir, s, d)
+  local step = 0
+  local dir = false
+  
+  if d == true and in_dir == true then
+    if s < in_step then
       step = s
     end
-  elseif d == false and dir == true then
+  elseif d == false and in_dir == true then
     step = s
     dir = d
-  elseif d==false and dir == false then
-    if s > step then
+  elseif d == false and in_dir == false then
+    if s > in_step then
       step = s
     end
   end
