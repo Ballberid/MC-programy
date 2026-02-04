@@ -1,5 +1,7 @@
 local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
+local turb = peripheral.wrap("turbineValve_0")
+
 local ref_interval = 0.5  --refresh interval
 local log_init = true
 
@@ -44,6 +46,15 @@ local function b_steam()
   return round(s,2)
 end
 
+local function t_steam()
+  local s = turb.getSteamFilledPercentage()
+  return round(s,2)
+end
+local function t_energy()
+  local e = turb.getEnergyFilledPercentage()
+  return round(e,2)
+end
+
 local function scram_protocol()  --kontrola ci ma vypnut reaktor
   local scram = false
   local con = ""
@@ -78,6 +89,8 @@ local log_data = {
   { label = "Boil Coolant", val = b_coolant, suffix = "%"},
   { label = "Boil Heated", val = b_heated, suffix = "%"},
   { label = "Boil Steam", val = b_steam, suffix = "%"},
+  { label = "Turb Steam", val = t_steam, suffix = "%"},
+  { label = "Turb Energy", val = t_energy, suffix = "%"},
 }
 
 local function log()  --zobrazenie dat
