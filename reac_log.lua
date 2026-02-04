@@ -50,7 +50,7 @@ end
 local function r_coolant()  --mnozstvo sodiku v %
   local v = reac.getCoolant().amount  --mB to B
   local c, rate = reduce(v)
-  local result = round(c,2) .. rate
+  local result = round(c,1) .. rate
   return result
 end
 local function r_heated()  --mnozstvo horuceho sodiku v %
