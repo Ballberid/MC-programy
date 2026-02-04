@@ -226,9 +226,13 @@ local function log_data_name()
     end  
 end
 local function log_draw_lines()
-  for i = 1, 120 do
-    mon.setCursorPos(i, reac_pos_y + (log_offset_y/2)
-    mon.write("_")
+  for i = 1, 100 do
+    mon.setCursorPos(i, reac_pos_y + (log_offset_y/2))
+    mon.write("-")
+  end
+  for i = 1, 100 do
+    mon.setCursorPos((log_p2_x-1), i)
+    mon.write("|")
   end
 end
 local function log_initialize()
