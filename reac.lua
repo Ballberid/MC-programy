@@ -60,7 +60,7 @@ local function calc_step(x, lim, scram)
   return step, cond
 end
 local function compare(step, dir, s, d)
-    if d == true and dir == true then
+  if d == true and dir == true then
     if s < step then
       step = s
     end
@@ -72,6 +72,7 @@ local function compare(step, dir, s, d)
       step = s
     end
   end
+  return step, dir
 end
 
 local function r_set_burn(step, dir)
@@ -110,7 +111,9 @@ local function reac_controll()
 end
 --main loop
 local function main()
-  reac_controll()
+  if r_status() then
+    reac_controll()
+  end
   
   sleep(interval)
 end
