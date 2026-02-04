@@ -51,8 +51,8 @@ local r_burn_max = 0
 local r_cool_max = 0
 local r_heat_max = 0
 local function load_const()
-  r_cool_max = r_coolant_max()
   r_burn_max = r_burn_rate_max()
+  r_cool_max = r_coolant_max()
   r_heat_max = r_heated_max()
 end
 
@@ -154,7 +154,7 @@ local reac_log_1 = {
   { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t", last_len = 0},
   { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C", last_len = 0},
   { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "mB", last_len = 0},
-  { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%", last_len = 0},
+  { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "mB", last_len = 0},
   { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%", last_len = 0},
   { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%", last_len = 0},
 }
