@@ -87,6 +87,10 @@ local function r_status()  --status reactoru
   return reac.getStatus()
 end
 
+local function r_burn_perc()
+  local v = (r_burn_rate() / r_burn_rate_max)*100
+  return v
+end
 --boiler
 local function b_water()
   local w = boil.getWaterFilledPercentage()*100
@@ -120,7 +124,7 @@ local log_offset_y = 2
 local log_p1_x = 1  --stranky
 local log_p2_x = 40
 local log_offset_data_1 = 9  --data
-local log_offset_data_2 = 20
+local log_offset_data_2 = 30
 
 local reac_pos_x = log_p1_x
 local reac_pos_y = 1
@@ -139,6 +143,9 @@ local reac_log_1 = {
   { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%", last_len = 0},
   { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%", last_len = 0},
   { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%", last_len = 0},
+}
+local reac_log_2 = {
+  { label = "Burn %", pos = reac_burn_pos, val = r_burn_perc, suffix = "%", last_len = 0},
 }
 
 local boil_pos_x = log_p2_x
@@ -243,6 +250,7 @@ end
 
 local function log_reac_data()
   log_data(reac_log_1, reac_pos_x, reac_pos_y, 1)
+  log_data(reac_log_2, reac_pos_x, reac_pos_y, 2)
 end
 local function log_boil_data()
   log_data(boil_log_1, boil_pos_x, boil_pos_y, 1)
