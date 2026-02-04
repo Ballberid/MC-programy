@@ -31,6 +31,14 @@ local function reduce(x)
 end
 
 --reactor
+local function r_stat()
+  local val = "???"
+  if reac.getStatus() then
+    val = "ONLINE"
+  else
+    val = "OFFLINE"
+  end
+end
 local function r_burn_rate()  --burn rate
   return reac.getBurnRate()
 end
@@ -97,13 +105,15 @@ local log_offset_data_2 = 20
 
 local reac_pos_x = log_p1_x
 local reac_pos_y = 1
-local reac_burn_pos = 1
-local reac_temp_pos = 2
-local reac_cool_pos = 3
-local reac_heat_pos = 4
-local reac_wast_pos = 5
-local reac_fuel_pos = 6
+local reac_stat_pos = 1
+local reac_burn_pos = 2
+local reac_temp_pos = 3
+local reac_cool_pos = 4
+local reac_heat_pos = 5
+local reac_wast_pos = 6
+local reac_fuel_pos = 7
 local reac_log_1 = {
+  { label = "Status", pos = reac_stat_pos, val = r_stat, suffix = "", last_len = 0},
   { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t", last_len = 0},
   { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C", last_len = 0},
   { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "B", last_len = 0},
