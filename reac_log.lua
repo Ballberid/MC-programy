@@ -70,13 +70,12 @@ local function t_energy()
   return round(e,2)
 end
 
-local log_clean = "    "
 local log_offset_x = 10  --nazvy
 local log_offset_y = 2
 local log_p1_x = 1  --stranky
 local log_p2_x = 40
-local log_offset_data_1 = 17  --data
-local log_offset_data_2 = 25
+local log_offset_data_1 = 9  --data
+local log_offset_data_2 = 20
 
 local reac_pos_x = log_p1_x
 local reac_pos_y = 1
@@ -87,7 +86,7 @@ local reac_heat_pos = 4
 local reac_wast_pos = 5
 local reac_fuel_pos = 6
 local reac_log_1 = {
-  { label = "Burn-Rate", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t"},
+  { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t"},
   { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C"},
   { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "%"},
   { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%"},
@@ -137,7 +136,6 @@ local function log_basic_text()
   mon.write("Turbina")
   
 end
-
 local function log_data_name()
         --reactor log init
     for i, data in ipairs(reac_log_1) do
@@ -160,8 +158,8 @@ local function log_data_name()
 end
 
 local function log_initialize()
-  log_data_name()
   log_basic_text()
+  log_data_name()
 end
 
 local function type_offset(type)
@@ -179,7 +177,7 @@ local function log_data(table, pos_x, pos_y, type)
   for i, data in ipairs(table) do
     local p = (pos_y + log_offset_y + (data.pos-1))
     mon.setCursorPos(x, p)
-    local text = data.val() .. " " .. data.suffix .. log_clean
+    local text = data.val() .. " " .. data.suffix
     mon.write(text)
   end
 end
