@@ -149,6 +149,17 @@ local function log()  --zobrazenie dat
     mon.setCursorPos(reac_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
+  for i, data in ipairs(boil_log) do  --reactor data
+    local p = (boil_pos_y + log_offset_y + (i-1))
+    mon.setCursorPos(boil_pos_x, p)
+    mon.write(data.val() .. " " .. data.suffix .. log_clean)
+  end
+  for i, data in ipairs(turb_log) do  --reactor data
+    local p = (turb_pos_y + log_offset_y + (i-1))
+    mon.setCursorPos(turb_pos_x, p)
+    mon.write(data.val() .. " " .. data.suffix .. log_clean)
+  end
+  
 end
 
 while true do  --loop
