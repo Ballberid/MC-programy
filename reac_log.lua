@@ -29,6 +29,18 @@ local function reduce(x)
   end
   return val, rate
 end
+--reactor const
+local function r_coolant_max()
+  local v = reac.getCoolantCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
+--const
+local r_cool_max = 0
+local function load_const()
+  r_cool_max = r_coolant_max()
+end
 
 --reactor
 local function r_stat()
@@ -50,7 +62,7 @@ end
 local function r_coolant()  --mnozstvo sodiku v %
   local v = reac.getCoolant().amount  --mB to B
   local c, rate = reduce(v)
-  local result = round(c,1) .. rate
+  local result = round(c,1) .. rate .. " / " .. r_cool_max
   return result
 end
 local function r_heated()  --mnozstvo horuceho sodiku v %
@@ -241,6 +253,7 @@ end
 
 --zaciatok kodu
 log_initialize()
+load_const()
 
 while true do --loop
   log()
