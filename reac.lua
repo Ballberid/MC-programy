@@ -4,7 +4,7 @@ local turb = peripheral.wrap("turbineValve_0")
 
 local interval = 0.1  --refresh interval
 --reactor
-local r_temp_save = 300  --target temp
+local r_temp_min = 300  --target temp
 local r_temp_scram = 900
 local r_coolant_min = 40  --minimalna hodnota sodiku
 local r_coolant_scram = 10
