@@ -83,6 +83,12 @@ local function b_steam_max()
   local result = round(c,1) .. rate
   return result
 end
+local function b_rate_max()
+  local v = boil.getBoilRateCapacity()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate
+  return result
+end
 --turbine const methods
 local function t_steam_max()
   local v = turb.getSteamCapacity()
@@ -112,6 +118,7 @@ local b_wat_max = 0
 local b_cool_max = 0
 local b_heat_max = 0
 local b_stm_max = 0
+local b_rt_max = 0
 --turbina
 local t_stm_max = 0
 local t_en_max = 0
@@ -127,6 +134,7 @@ local function load_const()
   b_cool_max = b_coolant_max()
   b_heat_max = b_heated_max()
   b_stm_max = b_steam_max()
+  b_rt_max = b_rate_max()
   --turb
   t_stm_max = t_steam_max()
   t_en_max = t_energy_max()
@@ -222,6 +230,12 @@ local function b_steam()
   local result = round(c,1) .. rate .. " / " .. b_stm_max
   return result
 end
+local function b_rate()
+  local v = boil.getBoilRate()
+  local c, rate = reduce(v)
+  local result = round(c,1) .. rate .. " / " .. b_rt_max
+  return result
+end
 
 local function b_wat_perc()
   local v = boil.getWaterFilledPercentage()*100
@@ -237,6 +251,10 @@ local function b_heat_perc()
 end
 local function b_stm_perc()
   local v = boil.getSteamFilledPercentage()*100
+  return round(v,1)
+end
+local function b_rt_perc()
+  local v = (boil.getBoilRate()/b_rt_max)*100
   return round(v,1)
 end
 --turbina
@@ -305,17 +323,20 @@ local boil_wat_pos = 1
 local boil_cool_pos = 2
 local boil_heat_pos = 3
 local boil_steam_pos = 4
+local boil_rate_pos = 5
 local boil_log_1 = {
   { label = "Water", pos = boil_wat_pos, val = b_water, suffix = "mB", last_len = 0},
   { label = "Coolant", pos = boil_cool_pos, val = b_coolant, suffix = "mB", last_len = 0},
   { label = "Heated", pos = boil_heat_pos, val = b_heated, suffix = "mB", last_len = 0},
   { label = "Steam", pos = boil_steam_pos, val = b_steam, suffix = "mB", last_len = 0},
+  { label = "Boil", pos = boil_rate_pos, val = b_rate, suffix = "mB/t", last_len = 0},
 }
 local boil_log_2 = {
   { label = "Water %", pos = boil_wat_pos, val = b_wat_perc, suffix = "%", last_len = 0},
   { label = "Coolant %", pos = boil_cool_pos, val = b_cool_perc, suffix = "%", last_len = 0},
   { label = "Heated %", pos = boil_heat_pos, val = b_heat_perc, suffix = "%", last_len = 0},
   { label = "Steam %", pos = boil_steam_pos, val = b_stm_perc, suffix = "%", last_len = 0},
+  { label = "Boil %", pos = boil_rate_pos, val = b_rt_perc, suffix = "%", last_len = 0},
 }
 
 local turb_pos_x = log_p2_x
