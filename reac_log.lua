@@ -179,7 +179,7 @@ local function log_data(table, pos_x, pos_y, type)
   for i, data in ipairs(table) do
     local p = (pos_y + log_offset_y + (data.pos-1))
     mon.setCursorPos(x, p)
-    local text = data.val() .. " " .. data.siffix .. log_clean)
+    local text = data.val() .. " " .. data.siffix .. log_clean
     mon.write(text)
   end
 end
