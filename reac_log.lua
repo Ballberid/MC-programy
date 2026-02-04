@@ -13,6 +13,22 @@ local function round(x, dec)  --zaokruhlenie hodnoty
   local m = 10^dec
   return math.floor(x * m)/m
 end
+local function reduce(x)
+  local val = 0
+  local rate = 0
+  
+  if x < (1*10^3) then
+    val = x
+    rate = ""
+  elseif x < (1*10^6) then
+    val = x / (1*10^3)
+    rate = " K"
+  elseif x < (1*10^9) then
+    val = x / (1*10^6)
+    rate = " M"
+  end
+  return val, rate
+end
 
 --reactor
 local function r_burn_rate()  --burn rate
@@ -23,8 +39,10 @@ local function r_temp()  --teplota reactoru
   return round(t,2)
 end
 local function r_coolant()  --mnozstvo sodiku v %
-  local c = reac.getCoolantFilledPercentage()*100
-  return round(c,3)
+  local v = reac.getCoolant()/1000 --mB to B
+  local c, rate = reduce(v)
+  local result = round(c,2) .. rate
+  return result
 end
 local function r_heated()  --mnozstvo horuceho sodiku v %
   local h = reac.getHeatedCoolantFilledPercentage()*100
@@ -88,7 +106,7 @@ local reac_fuel_pos = 6
 local reac_log_1 = {
   { label = "Burn", pos = reac_burn_pos, val = r_burn_rate, suffix = "mB/t"},
   { label = "Temp", pos = reac_temp_pos, val = r_temp, suffix = "°C"},
-  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "%"},
+  { label = "Coolant", pos = reac_cool_pos, val = r_coolant, suffix = "B"},
   { label = "Heated", pos = reac_heat_pos, val = r_heated, suffix = "%"},
   { label = "Waste", pos = reac_wast_pos, val = r_waste, suffix = "%"},
   { label = "Fuel", pos = reac_fuel_pos, val = r_fuel, suffix = "%"},
