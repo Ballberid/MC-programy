@@ -2,7 +2,7 @@ local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 
-local ref_interval = 0.5  --refresh interval
+local ref_interval = 0.2  --refresh interval
 local log_init = true
 --reactor
 local r_save_temp = 300  --target temp
