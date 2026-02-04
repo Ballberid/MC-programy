@@ -23,7 +23,7 @@ local function reduce(x)
   elseif x < (1*10^6) then
     val = x / (1*10^3)
     rate = "K"
-  elseif x < (1*10^9) then
+  else
     val = x / (1*10^6)
     rate = "M"
   end
