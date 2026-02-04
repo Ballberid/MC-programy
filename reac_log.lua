@@ -197,10 +197,11 @@ local function log_data(table, pos_x, pos_y, type)
     local p = (pos_y + log_offset_y + (data.pos-1))
     mon.setCursorPos(x, p)
     local text = data.val() .. " " .. data.suffix
-    
-    if string.len(text) < tonumber(data.last_len) then
+
+    last = tonumber(data.last_len)
+    if string.len(text) < last then
       local clean = ""
-      for i = 0, i <= tonumber(data.last_len) do
+      for i = 0, i <= last do
         clean = clean .. " "
       end
       mon.write(clean)
