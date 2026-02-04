@@ -49,7 +49,7 @@ local function scram_protocol()
   local con = ""
   local scram = false
   --reac
-  if r_temp() > r_temp_max() then
+  if r_temp() > r_temp_max then
     con = con .. "r.temp" .. " | "
     scram = true
   end
