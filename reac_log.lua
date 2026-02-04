@@ -91,7 +91,7 @@ local function t_steam_max()
   return result
 end
 local function t_energy_max()
-  local v = turb.getMaxEnergy()
+  local v = turb.getMaxEnergy()/2.5
   local c, rate = reduce(v)
   if c > 1*10^3 then
     c = c / 1000
@@ -247,7 +247,7 @@ local function t_steam()
   return result
 end
 local function t_energy()
-  local v = turb.getEnergy()
+  local v = turb.getEnergy()/2.5
   local c, rate = reduce(v)
   if c > 1*10^3 then
     c = c / 1000
