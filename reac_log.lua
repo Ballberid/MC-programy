@@ -200,7 +200,7 @@ local function log_data(table, pos_x, pos_y, type)
     
     if string.len(text) < tonumber(data.last_len) then
       local clean = ""
-      for i = 0, i <= data.last_len do
+      for i = 0, i <= tonumber(data.last_len) do
         clean = clean .. " "
       end
       mon.write(clean)
