@@ -153,27 +153,35 @@ local function log_initialize()
   log_init = false
 end
 
-local function log()  --zobrazenie dat
-  if log_init == true then  --prvotne nastavenie
-    log_initialize()
-  end
-
+local function log_reac_data()
   for i, data in ipairs(reac_log) do  --reactor data
     local p = (reac_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(reac_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
-  for i, data in ipairs(boil_log) do  --reactor data
+end
+local function log_boil_data()
+  for i, data in ipairs(boil_log) do  --boiler data
     local p = (boil_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(boil_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
-  for i, data in ipairs(turb_log) do  --reactor data
+end
+local function log_turb_data()
+  for i, data in ipairs(turb_log) do  --turbine data
     local p = (turb_pos_y + log_offset_y + (i-1))
     mon.setCursorPos(turb_pos_x, p)
     mon.write(data.val() .. " " .. data.suffix .. log_clean)
   end
-  
+end
+
+local function log()  --zobrazenie dat
+  if log_init == true then  --prvotne nastavenie
+    log_initialize()
+  end
+  log_reac_data()
+  log_boil_data()
+  log_turb_data()
 end
 
 while true do  --loop
