@@ -6,6 +6,7 @@ local mon = peripheral.wrap("monitor_2")
 local ref_interval = 0.5  --refresh interval
 local log_init = true
 
+mon.setTextScale(0.5)
 mon.clear()
 
 --basic
@@ -74,8 +75,6 @@ local log_clean = "    "
 local log_offset = 3
 local log_p1_x = 1
 local log_p2_x = 25
-local log_scale_name = 1.5
-local log_scale_data = 0.7
 
 local reac_pos_x = 17
 local reac_pos_y = 1
@@ -108,9 +107,7 @@ local function log()  --zobrazenie dat
   if log_init == true then  --prvotne nastavenie
     --reactor log init
     mon.setCursorPos(log_p1_x, reac_pos_y)
-    mon.setTextScale(log_scale_name)
     mon.write("Reaktor")
-    mon.setTextScale(log_scale_data)
     for i, data in ipairs(reac_log) do
       local p = (reac_pos_y + log_offset + (i-1))
       mon.setCursorPos(log_p1_x, p)
@@ -123,7 +120,6 @@ local function log()  --zobrazenie dat
     log_init = false
   end
 
-  mon.setTextScale(log_scale_data)
   for i, data in ipairs(reac_log) do  --reactor data
     local p = (reac_pos_y + log_offset + (i-1))
     mon.setCursorPos(reac_pos_x, p)
