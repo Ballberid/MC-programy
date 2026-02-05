@@ -220,8 +220,10 @@ local function reac_controll()
   log((b - burn), b, con, cb)
 end
 --main loop
-if r_status() then
-  reac_controll()
-end
+while true do
+  if r_status() then
+    reac_controll()
+  end
 
-sleep(interval)
+  sleep(interval)
+end
