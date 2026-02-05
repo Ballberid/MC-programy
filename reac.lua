@@ -6,6 +6,7 @@ local mon = peripheral.wrap("monitor_3")
 local interval = 0.1  --refresh interval
 local interval_inc = 1  
 local interval_dec = 0.1
+local dead_zone = 1
 --reactor
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
@@ -100,11 +101,11 @@ local function calc_step(x, lim, scram, safe)
   if safe == nil then safe = 100 end
   local step = 0
   local cond = false
-  if x > lim then
+  if x > lim + dead_zone then
     step = map(x, lim, safe, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
     --interval = interval_inc
-  else
+  elseif x < lim - dead_zone then
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
     step = step*(-1)
