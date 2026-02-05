@@ -176,7 +176,7 @@ local function reac_controll()
 
   
   --set burn rate
-  --r_set_burn(b)
+  r_set_burn(b)
   log((b - burn), b, con)
 end
 --main loop
