@@ -157,7 +157,7 @@ end
 
 local coolant_last = r_coolant()
 local function coolant_controll(burn_now, burn_new, con, cb)
-  local min = 40
+  local min = 60
   local scram = 10
   local cond = "cool"
 
