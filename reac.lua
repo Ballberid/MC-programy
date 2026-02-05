@@ -113,7 +113,6 @@ local function calc_step(x, lim, scram, safe)
 
   return step
 end
-
 local function make_con(con, type_con, c)
   local result = ""
   if c == 0 then
@@ -126,25 +125,33 @@ local function make_con(con, type_con, c)
 
   return result
 end
-
-local function can_set_burn(current, last, lim)
+local function can_set_burn(current, last, lim, cb)
   local result = false
-  if current >= last and current => lim then
-    result = true
-  elseif current >= last and current < lim then
-    result = false
-  elseif current < last and current < lim then
-    result = true
-  elseif current < last and current > lim then
-    result = false
+  if cb == true then
+    if current >= last and current => lim then
+      result = true
+    elseif current >= last and current < lim then
+      result = false
+    elseif current < last and current < lim then
+      result = true
+    elseif current < last and current > lim then
+      result = false
   end
+  end
+  
   return result
 end
-
 local function r_set_burn(burn)
   burn = clamp(burn, 0, 1920)
   burn = round(burn, 2)
   reac.setBurnRate(burn)
+end
+
+local function calc_burn(val, min, scram, burn_new, burn_now)
+  local s = calc_step(val, min, scram)
+  local b, c = compare(burn_new, (burn_now + s))
+
+  return b, c
 end
 
 local coolant_last = r_coolant()
@@ -152,16 +159,12 @@ local function coolant_controll(burn_now, burn_new, con, cb)
   local min = 40
   local scram = 10
   local cond = "cool"
-  
-  local s = calc_step(r_coolant(), min, scram)
-  local b, c = compare(burn_new, (burn_now + s))
+
+  local b, c  = calc_burn(r_coolant(), min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
   
   local can_burn = can_set_burn(r_coolant() ,coolant_last, min)
   coolant_last = r_coolant()
-  if cb == false then
-    can_burn = false
-  end
   
   return b, con, can_burn
 end
@@ -172,18 +175,12 @@ local function temp_controll(burn_now, burn_new, con, cb)
   local scram = 900
   local safe = 50
   local cond = "tmp"
-  
-  local s = calc_step(r_temp(), min, scram, safe)
-  s = map(s, r_burn_step_min, r_burn_step_max, r_burn_step_max, r_burn_step_min)
-  s = s*(-1)
-  local b, c = compare(burn_new, (burn_now + s))
+
+  local b, c  = calc_burn(r_temp(), min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
 
   local can_burn = can_set_burn(r_temp() ,temp_last, min)
   temp_last = r_temp()
-  if cb == false then
-    can_burn = false
-  end
   
   return b, con, can_burn
 end
@@ -194,15 +191,11 @@ local function water_controll(burn_now, burn_new, con)
   local scram = 40
   local cond = "wat"
   
-  local s = calc_step(b_water(), min, scram)
-  local b, c = compare(burn_new, (burn_now + s))
+  local b, c  = calc_burn(b_water(), min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
 
   local can_burn = can_set_burn(b_water() ,water_last, min)
   water_last = b_water()
-  if cb == false then
-    can_burn = false
-  end
   
   return b, con, can_burn
 end
@@ -215,9 +208,9 @@ local function reac_controll()
 
   --reactor----
   b, con, cb = coolant_controll(burn, b, con, cb) --coolant
-  --b, con = temp_controll(burn, b, con, cb) --temp
+  --b, con, cb = temp_controll(burn, b, con, cb) --temp
   --boiler----
-  --b, con = water_controll(burn, b, con, cb) --water
+  --b, con, cb = water_controll(burn, b, con, cb) --water
 
   
   --set burn rate
