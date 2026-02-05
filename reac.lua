@@ -66,7 +66,7 @@ local function log(step, burn, cond, cb)
   else
     can_burn = 0
   end
-  local text = can_burn .. "|" .. "step: " .. step .. "|burn: " .. burn .. "|" .. cond
+  local text = can_burn .. " | " .. "step: " .. step .. " | burn: " .. burn .. " | " .. cond
   print(text)
   mon_pos = mon_pos + 1
   if mon_pos >= h then
