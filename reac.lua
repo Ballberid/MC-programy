@@ -11,7 +11,8 @@ local force_burn_multiplier = 1.5
 local undo_lim = 10
 local undo_pos = 0
 local undo_step = 0.1
-local undo = false
+local undo_allow = false
+local interval_allow = false
 --reactor
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
@@ -219,19 +220,21 @@ local function reac_controll()
   --boiler----
   b, con, cb = water_controll(burn, b, con, cb) --water
 
-  if undo == true then  --undo
+  if undo_allow == true then  --undo
     if undo_pos >= undo_lim then  
       cb = true
       b = (r_burn()-undo_step)
       log((b - burn), b, "undo", cb)  --undo log
     end
   end
-  if b > burn then  --time interval
-    interval = interval_inc
-  elseif b < burn and cb == true then
-    interval = interval_dec
-  else
-    interval = interval_inc
+  if interval_allow == true then
+    if b > burn then  --time interval
+      interval = interval_inc
+    elseif b < burn and cb == true then
+      interval = interval_dec
+    else
+      interval = interval_inc
+    end
   end
   --set burn rate
   if cb == true then  --can burn
