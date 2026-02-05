@@ -7,6 +7,7 @@ local interval = 0.1  --refresh interval
 local interval_inc = 1  
 local interval_dec = 0.1
 local dead_zone = 1
+local force_burn_multiplier = 1.5
 --reactor
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
@@ -137,7 +138,10 @@ local function can_set_burn(current, last, lim, cb)
       result = true
     elseif current < last and current >= lim then
       result = false
+    end
   end
+  if current < lim and (lim/current) > force_burn_multiplier then
+      result = true
   end
   
   return result
