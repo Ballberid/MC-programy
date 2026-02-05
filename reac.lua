@@ -28,6 +28,26 @@ local function map(x, inMin, inMax, outMin, outMax)
   local v = (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
   return clamp(v, outMin, outMax)
 end
+local function compare(burn_old, burn_new)
+  local burn = burn_old
+  local con = 0
+  if burn_old < burn_new then
+    burn = burn_old
+    con = 0
+  else if burn_old > burn_new then
+    burn = burn_new
+    con = 1
+  else
+    burn = burn_old
+    con = 2
+  end
+  return burn, con
+end
+
+local function log(step, burn, cond)
+  print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+end
+  
 --reactor
 local function r_status()  --status reactoru
   return reac.getStatus()
@@ -59,14 +79,17 @@ local function calc_step(x, lim, scram)
   return step
 end
 
-local function compare(burn1, burn2)
-  local burn = 0
-  if burn1 < burn2 then
-    burn = burn1
-  else
-    burn = burn2
+local function make_con(con, type_con, c)
+  local result = ""
+  if c == 0 then
+    result = con
+  elseif c == 1 then
+    result = type_con
+  elseif c == 2 then
+    result = con .. " | " .. type_con
   end
-  return burn
+
+  return result
 end
 
 local function r_set_burn(burn)
@@ -74,33 +97,33 @@ local function r_set_burn(burn)
   reac.setBurnRate(burn)
 end
 
-local function log(step, burn, cond)
-  print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
-end
-
 local function reac_controll()
   local burn = r_burn()
-  local b = 0
+  local con = ""
+  local c = 0
+  local b = burn + r_burn_step_max
   local s = 0
 
   --reactor----
   --coolant
   s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
-  log(s, (burn + s), "cool")
-  b = burn + s
+  b, c = compare(b, (burn + s))
+  local cond_cool = "cool"
+  con = make_con(con, cond_cool, c)
   --temp
-  --s = calc_step(r_temp(), r_temp_min, r_temp_scram)
-  --log(s, (burn + s), "temp")
-  --b = compare(b, (burn + s))
+  s = calc_step(r_temp(), r_temp_min, r_temp_scram)
+  b, c = compare(b, (burn + s))
+  local cond_temp = "tmp"
+  con = make_con(con, cond_temp, c)
   --boiler----
   --water
   s = calc_step(b_water(), b_water_min, b_water_scram)
-  log(s, (burn + s), "wat")
-  b = compare(b, (burn + s))
-
+  b, c = compare(b, (burn + s))
+  local cond_water = "wat"
+  con = make_con(con, cond_water, c)
   --set burn rate
-  r_set_burn(burn)
-  log((burn - r_burn()), burn, "fin")
+  r_set_burn(b)
+  log((b - burn), b, con)
 end
 --main loop
 local function main()
