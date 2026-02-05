@@ -80,25 +80,23 @@ end
 
 local function reac_controll()
   local burn = r_burn()
-  if burn == 0 then
-    burn = 0.5
-  end
+  local b = 0
   local s = 0
 
   --reactor----
   --coolant
   s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
   log(s, (burn + s), "cool")
-  burn = burn + s
+  b = burn + s
   --temp
   --s = calc_step(r_temp(), r_temp_min, r_temp_scram)
   --log(s, (burn + s), "temp")
-  --burn = compare(burn, (burn + s))
+  --b = compare(b, (burn + s))
   --boiler----
   --water
   s = calc_step(b_water(), b_water_min, b_water_scram)
   log(s, (burn + s), "wat")
-  burn = compare(burn, (burn + s))
+  b = compare(b, (burn + s))
 
   --set burn rate
   r_set_burn(burn)
