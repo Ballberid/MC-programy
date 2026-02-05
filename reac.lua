@@ -1,6 +1,7 @@
 local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
+local mon = peripheral.wrap("monitor_2")
 
 local interval = 1  --refresh interval
 --reactor
@@ -18,6 +19,10 @@ local b_water_scram = 40
 term.clear()
 
 --basic function
+local function round(x, dec)  --zaokruhlenie hodnoty
+  local m = 10^dec
+  return math.floor(x * m)/m
+end
 local function clamp(x, min, max)
   local lo = math.min(min, max)
   local hi = math.max(min, max)
@@ -48,6 +53,10 @@ end
 
 local function log(step, burn, cond)
   print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+  mon.setCursorPos(1,50)
+  mon.write("                                 ")
+  mon.setCursorPos(1,50)
+  mon.write("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
 end
   
 --reactor
@@ -78,7 +87,8 @@ local function calc_step(x, lim, scram)
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = step*(-1)
   end
-  return clamp(step, r_burn_step_min, r_burn_step_max)
+  local result = clamp(step, r_burn_step_min, r_burn_step_max)
+  return round(result, 2)
 end
 
 local function make_con(con, type_con, c)
@@ -96,6 +106,7 @@ end
 
 local function r_set_burn(burn)
   burn = clamp(burn, 0, 1920)
+  burn = round(burn, 2)
   reac.setBurnRate(burn)
 end
 
