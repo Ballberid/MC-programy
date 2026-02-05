@@ -158,7 +158,7 @@ local function water_controll(burn_now, burn_new, con)
 end
 
 local function reac_controll()
-  local burn = r_burn()
+  local burn = round(r_burn(),2)
   local con = ""
   local b = burn + r_burn_step_max
 
@@ -170,7 +170,7 @@ local function reac_controll()
 
   
   --set burn rate
-  r_set_burn(b)
+  --r_set_burn(b)
   log((b - burn), b, con)
 end
 --main loop
