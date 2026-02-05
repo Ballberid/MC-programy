@@ -1,7 +1,7 @@
 local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
-local mon = peripheral.wrap("monitor_2")
+local mon = peripheral.wrap("monitor_1")
 
 local interval = 1  --refresh interval
 --reactor
@@ -16,6 +16,8 @@ local r_burn_step_min = 0.01
 local b_water_min = 60  --minimalna hodnota vody
 local b_water_scram = 40
 
+mon.clear()
+mon.setCursorPos(1,1)
 term.clear()
 
 --basic function
@@ -53,9 +55,6 @@ end
 
 local function log(step, burn, cond)
   print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
-  mon.setCursorPos(1,50)
-  mon.write("                                 ")
-  mon.setCursorPos(1,50)
   mon.write("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
 end
   
