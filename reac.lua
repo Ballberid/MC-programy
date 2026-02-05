@@ -50,6 +50,8 @@ local function compare(burn_old, burn_new)
 end
 
 local function log(step, burn, cond)
+  step = round(step,2)
+  burn = round(burn,2)
   print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
   mon_pos = mon_pos + 1
   if mon_pos >= h then
