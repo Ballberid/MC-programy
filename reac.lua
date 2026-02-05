@@ -128,13 +128,13 @@ end
 local function can_set_burn(current, last, lim, cb)
   local result = false
   if cb == true then
-    if current >= last and current => lim then
+    if current >= last and current >= lim then
       result = true
     elseif current >= last and current < lim then
       result = false
     elseif current < last and current < lim then
       result = true
-    elseif current < last and current > lim then
+    elseif current < last and current >= lim then
       result = false
   end
   end
