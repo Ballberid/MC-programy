@@ -3,8 +3,8 @@ local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_3")
 
-local interval = 0.1
-local interval_inc = 1  --refresh interval
+local interval = 0.1  --refresh interval
+local interval_inc = 1  
 local interval_dec = 0.1
 --reactor
 local r_burn_step_max = 2
@@ -166,7 +166,8 @@ local function coolant_controll(burn_now, burn_new, con, cb)
   return b, con, can_burn
 end
 
-local function temp_controll(burn_now, burn_new, con)
+local temp_last = r_temp()
+local function temp_controll(burn_now, burn_new, con, cb)
   local min = 500
   local scram = 900
   local safe = 50
@@ -178,9 +179,16 @@ local function temp_controll(burn_now, burn_new, con)
   local b, c = compare(burn_new, (burn_now + s))
   con = make_con(con, cond, c)
 
-  return b, con
+  local can_burn = can_set_burn(r_temp() ,temp_last, min)
+  temp_last = r_temp()
+  if cb == false then
+    can_burn = false
+  end
+  
+  return b, con, can_burn
 end
 
+local water_last = b_water()
 local function water_controll(burn_now, burn_new, con)
   local min = 60
   local scram = 40
@@ -190,7 +198,13 @@ local function water_controll(burn_now, burn_new, con)
   local b, c = compare(burn_new, (burn_now + s))
   con = make_con(con, cond, c)
 
-  return b, con
+  local can_burn = can_set_burn(b_water() ,water_last, min)
+  water_last = b_water()
+  if cb == false then
+    can_burn = false
+  end
+  
+  return b, con, can_burn
 end
 
 local function reac_controll()
@@ -201,9 +215,9 @@ local function reac_controll()
 
   --reactor----
   b, con, cb = coolant_controll(burn, b, con, cb) --coolant
-  --b, con = temp_controll(burn, b, con) --temp
+  --b, con = temp_controll(burn, b, con, cb) --temp
   --boiler----
-  --b, con = water_controll(burn, b, con) --water
+  --b, con = water_controll(burn, b, con, cb) --water
 
   
   --set burn rate
