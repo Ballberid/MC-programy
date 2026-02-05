@@ -16,8 +16,12 @@ local r_burn_step_min = 0.01
 local b_water_min = 60  --minimalna hodnota vody
 local b_water_scram = 40
 
+local mon_pos = 1
+local log_i = 1
+local w, h = mon.getSize()
 mon.clear()
-mon.setCursorPos(1,1)
+mon.setTextScale(0.5)
+mon.setCursorPos(1,mon_pos)
 term.clear()
 
 --basic function
@@ -54,8 +58,14 @@ local function compare(burn_old, burn_new)
 end
 
 local function log(step, burn, cond)
-  print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
-  mon.write("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+  print(log_i .. "-" .. "step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+  mon_pos = mon_pos + 1
+  if mon_pos >= h then
+    mon_pos = 1
+  end
+  mon.setCursorPos(1, mon_pos)
+  mon.write(log_i .. "-" .. "step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+  log_i = log_i + 1
 end
   
 --reactor
