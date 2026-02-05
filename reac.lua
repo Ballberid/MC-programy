@@ -34,7 +34,7 @@ local function compare(burn_old, burn_new)
   if burn_old < burn_new then
     burn = burn_old
     con = 0
-  else if burn_old > burn_new then
+  elseif burn_old > burn_new then
     burn = burn_new
     con = 1
   else
@@ -112,6 +112,7 @@ local function reac_controll()
   con = make_con(con, cond_cool, c)
   --temp
   s = calc_step(r_temp(), r_temp_min, r_temp_scram)
+  s = map(s, r_burn_step_min, r_burn_step_max, r_burn_step_max, r_burn_step_min)
   b, c = compare(b, (burn + s))
   local cond_temp = "tmp"
   con = make_con(con, cond_temp, c)
