@@ -228,8 +228,10 @@ local function reac_controll()
   end
   if b > burn then  --time interval
     interval = interval_inc
-  else
+  elseif b < burn and cb == true then
     interval = interval_dec
+  else
+    interval = interval_inc
   end
   --set burn rate
   if cb == true then  --can burn
