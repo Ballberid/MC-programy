@@ -89,7 +89,7 @@ local function reac_controll()
   --coolant
   s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
   log(s, (burn + s), "cool")
-  burn = compare(burn, (burn + s))
+  burn = burn + s
   --temp
   --s = calc_step(r_temp(), r_temp_min, r_temp_scram)
   --log(s, (burn + s), "temp")
