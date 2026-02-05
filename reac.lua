@@ -108,12 +108,10 @@ local function calc_step(x, lim, scram, safe)
   if x > lim + dead_zone then
     step = map(x, lim, safe, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
-    interval = interval_inc
   elseif x < lim - dead_zone then
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
     step = step*(-1)
-    interval = interval_dec
   end
 
   return step
@@ -224,6 +222,11 @@ local function reac_controll()
     cb = true
     b = (r_burn()-undo_step)
     log((b - burn), b, "undo", cb)  --undo log
+  end
+  if b > burn then  --time interval
+    interval = interval_inc
+  else
+    interval = interval_dec
   end
   --set burn rate
   if cb == true then  --can burn
