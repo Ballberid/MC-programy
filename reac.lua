@@ -3,7 +3,9 @@ local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_3")
 
-local interval = 0.1  --refresh interval
+local interval = 1
+local interval_inc = 1  --refresh interval
+local interval_dec = 0.1
 --reactor
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
@@ -94,10 +96,12 @@ local function calc_step(x, lim, scram, safe)
   if x > lim then
     step = map(x, lim, safe, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
+    interval = interval_inc
   else
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
     step = step*(-1)
+    interval = interval_dec
   end
 
   return step
