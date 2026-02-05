@@ -5,16 +5,8 @@ local mon = peripheral.wrap("monitor_3")
 
 local interval = 0.1  --refresh interval
 --reactor
-local r_temp_min = 300  --target temp
-local r_temp_scram = 900
-local r_coolant_min = 40  --minimalna hodnota sodiku
-local r_coolant_scram = 10
-local r_burn_step = 1 --velkost kroku nastavenia burn
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
---boiler
-local b_water_min = 60  --minimalna hodnota vody
-local b_water_scram = 40
 
 local mon_pos = 1
 local w, h = mon.getSize()
@@ -93,17 +85,20 @@ local function b_water()
 end
 
 --reactor controll
-local function calc_step(x, lim, scram)
+local function calc_step(x, lim, scram, safe)
+  if safe == nil then safe = 100 end
   local step = 0
   local cond = false
   if x > lim then
-    step = map(x, lim, 100, r_burn_step_min, r_burn_step_max)
-  elseif x < lim then
+    step = map(x, lim, safe, r_burn_step_min, r_burn_step_max)
+    step = round(step, 2)
+  else
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
+    step = round(step, 2)
     step = step*(-1)
   end
-  local result = clamp(step, r_burn_step_min, r_burn_step_max)
-  return round(result, 2)
+
+  return step
 end
 
 local function make_con(con, type_con, c)
@@ -126,27 +121,37 @@ local function r_set_burn(burn)
 end
 
 local function coolant_controll(burn_now, burn_new, con)
-  local s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
+  local min = 40
+  local scram = 10
+  local cond = "cool"
+  
+  local s = calc_step(r_coolant(), min, scram)
   local b, c = compare(burn_new, (burn_now + s))
-  local cond_cool = "cool"
-  con = make_con(con, cond_cool, c)
+  con = make_con(con, cond, c)
 
   return b, con
 end
 local function temp_controll(burn_now, burn_new, con)
-  local s = calc_step(r_temp(), r_temp_min, r_temp_scram)
+  local min = 500
+  local scram = 900
+  local safe = 50
+  local cond = "tmp"
+  
+  local s = calc_step(r_temp(), min, scram, safe)
   s = map(s, r_burn_step_min, r_burn_step_max, r_burn_step_max, r_burn_step_min)
   local b, c = compare(burn_new, (burn_now + s))
-  local cond_temp = "tmp"
-  con = make_con(con, cond_temp, c)
+  con = make_con(con, cond, c)
 
   return b, con
 end
 local function water_controll(burn_now, burn_new, con)
-  local s = calc_step(b_water(), b_water_min, b_water_scram)
+  local min = 60
+  local scram = 40
+  local cond = "wat"
+  
+  local s = calc_step(b_water(), min, scram)
   local b, c = compare(burn_new, (burn_now + s))
-  local cond_water = "wat"
-  con = make_con(con, cond_water, c)
+  con = make_con(con, cond, c)
 
   return b, con
 end
