@@ -8,6 +8,9 @@ local interval_inc = 1
 local interval_dec = 0.1
 local dead_zone = 1
 local force_burn_multiplier = 1.5
+local undo_lim = 10
+local undo_pos = 0
+local undo_step = 0.1
 --reactor
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
@@ -105,12 +108,12 @@ local function calc_step(x, lim, scram, safe)
   if x > lim + dead_zone then
     step = map(x, lim, safe, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
-    --interval = interval_inc
+    interval = interval_inc
   elseif x < lim - dead_zone then
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
     step = step*(-1)
-    --interval = interval_dec
+    interval = interval_dec
   end
 
   return step
@@ -212,15 +215,21 @@ local function reac_controll()
   local cb = true
 
   --reactor----
-  --b, con, cb = coolant_controll(burn, b, con, cb) --coolant
+  b, con, cb = coolant_controll(burn, b, con, cb) --coolant
   --b, con, cb = temp_controll(burn, b, con, cb) --temp
   --boiler----
   b, con, cb = water_controll(burn, b, con, cb) --water
 
-  
+  if undo_pos >= undo_lim then
+    cb = true
+    b = (r_burn()-undo_step)
+  end
   --set burn rate
   if cb == true then
     r_set_burn(b)
+    undo_pos = 0
+  else
+    undo_pos = undo_pos + 1
   end
   log((b - burn), b, con, cb)
 end
