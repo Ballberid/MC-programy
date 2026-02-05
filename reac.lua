@@ -19,8 +19,10 @@ term.clear()
 
 --basic function
 local function clamp(x, min, max)
-  if x < min then return min end
-  if x > max then return max end
+  local lo = math.min(min, max)
+  local hi = math.max(min, max)
+  if x < lo then return lo end
+  if x > hi then return hi end
   return x
 end
 local function map(x, inMin, inMax, outMin, outMax)
@@ -76,7 +78,7 @@ local function calc_step(x, lim, scram)
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = step*(-1)
   end
-  return step
+  return clamp(step, r_burn_step_min, r_burn_step_max)
 end
 
 local function make_con(con, type_con, c)
