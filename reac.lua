@@ -220,18 +220,19 @@ local function reac_controll()
   --boiler----
   b, con, cb = water_controll(burn, b, con, cb) --water
 
-  if undo_pos >= undo_lim then
+  if undo_pos >= undo_lim then  --undo
     cb = true
     b = (r_burn()-undo_step)
+    log((b - burn), b, "undo", cb)  --undo log
   end
   --set burn rate
-  if cb == true then
+  if cb == true then  --can burn
     r_set_burn(b)
     undo_pos = 0
   else
     undo_pos = undo_pos + 1
   end
-  log((b - burn), b, con, cb)
+  log((b - burn), b, con, cb)  --log
 end
 --main loop
 while true do
