@@ -113,7 +113,7 @@ local function t_flow_max()
   return result
 end
 local function t_production_max()
-  local v = turb.getMaxProduction()
+  local v = turb.getMaxProduction()/2.5
   local c, rate = reduce(v)
   local result = round(c,1) .. rate
   return result
@@ -308,7 +308,7 @@ local function t_flow()
   return result
 end
 local function t_prod()
-  local v = turb.getProductionRate()
+  local v = turb.getProductionRate()/2.5
   local c, rate = reduce(v)
   local result = round(c,1) .. rate .. " / " .. t_prod_max
   return result
