@@ -163,7 +163,7 @@ local function coolant_controll(burn_now, burn_new, con, cb)
   local b, c  = calc_burn(r_coolant(), min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
   
-  local can_burn = can_set_burn(r_coolant() ,coolant_last, min)
+  local can_burn = can_set_burn(r_coolant() ,coolant_last, min, cb)
   coolant_last = r_coolant()
   
   return b, con, can_burn
@@ -179,7 +179,7 @@ local function temp_controll(burn_now, burn_new, con, cb)
   local b, c  = calc_burn(r_temp(), min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
 
-  local can_burn = can_set_burn(r_temp() ,temp_last, min)
+  local can_burn = can_set_burn(r_temp() ,temp_last, min, cb)
   temp_last = r_temp()
   
   return b, con, can_burn
@@ -194,7 +194,7 @@ local function water_controll(burn_now, burn_new, con)
   local b, c  = calc_burn(b_water(), min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
 
-  local can_burn = can_set_burn(b_water() ,water_last, min)
+  local can_burn = can_set_burn(b_water() ,water_last, min, cb)
   water_last = b_water()
   
   return b, con, can_burn
