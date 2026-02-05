@@ -65,6 +65,8 @@ local function log(step, burn, cond)
     mon_clear = true
   end
   if mon_clear == true then
+    mon.setCursorPos(1, mon_pos)
+    mon.write("                                            ")
     mon.setCursorPos(1, (mon_pos+1))
     mon.write("--------------------------------------------")
   end
