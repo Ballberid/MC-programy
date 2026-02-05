@@ -3,7 +3,7 @@ local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_3")
 
-local interval = 0.2  --refresh interval
+local interval = 0.1  --refresh interval
 --reactor
 local r_temp_min = 300  --target temp
 local r_temp_scram = 900
