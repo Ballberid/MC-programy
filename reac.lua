@@ -139,6 +139,7 @@ local function temp_controll(burn_now, burn_new, con)
   
   local s = calc_step(r_temp(), min, scram, safe)
   s = map(s, r_burn_step_min, r_burn_step_max, r_burn_step_max, r_burn_step_min)
+  s = s*(-1)
   local b, c = compare(burn_new, (burn_now + s))
   con = make_con(con, cond, c)
 
