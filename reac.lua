@@ -19,7 +19,7 @@ local b_water_scram = 40
 local mon_pos = 1
 local log_i = 1
 local w, h = mon.getSize()
-local mon_clear() = false
+local mon_clear = false
 mon.clear()
 mon.setTextScale(0.5)
 mon.setCursorPos(1,mon_pos)
