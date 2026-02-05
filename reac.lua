@@ -52,30 +52,21 @@ local function calc_step(x, lim, scram)
   local cond = false
   if x > lim then
     step = map(x, lim, 100, r_burn_step_min, r_burn_step_max)
-    cond = true
   elseif x < lim then
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
-    cond = false
+    step = step*(-1)
   end
-  return step, cond
+  return step
 end
-local function compare(in_step, in_dir, s, d)
-  local step = 0
-  local dir = false
-  
-  if d == true and in_dir == true then
-    if s < in_step then
-      step = s
-    end
-  elseif d == false and in_dir == true then
-    step = s
-    dir = d
-  elseif d == false and in_dir == false then
-    if s > in_step then
-      step = s
-    end
+
+local function compare(burn1, burn2)
+  local burn = 0
+  if burn1 < burn2 then
+    burn = burn1
+  else
+    burn = burn2
   end
-  return step, dir
+  return burn
 end
 
 local function r_set_burn(step, dir)
@@ -90,40 +81,32 @@ local function r_set_burn(step, dir)
   reac.setBurnRate(rate)
 end
 
-local function log(step, dir, cond)
-  local ndir = false
-  if dir == true then
-    ndir = 1
-  else
-    ndir = 0
-  end
-  print("step: " .. step .. " | dir: " .. ndir .. " | " .. cond)
+local function log(step, burn, cond)
+  print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
 end
 
 local function reac_controll()
-  local step = 0
-  local dir = true
+  local burn = r_burn()
   local s = 0
-  local d = true
 
   --reactor----
   --coolant
-  s, d = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
-  step, dir = compare(step, dir, s, d)
-  log(step, dir, "cool")
+  s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
+  burn = compare(burn, (burn + s))
+  log(s, (burn + s), "cool")
   --temp
-  s, d = calc_step(r_temp(), r_temp_min, r_temp_scram)
-  step, dir = compare(step, dir, s, d)
-  log(step, dir, "temp")
+  s = calc_step(r_temp(), r_temp_min, r_temp_scram)
+  burn = compare(burn, (burn + s))
+  log(s, (burn + s), "temp")
   --boiler----
   --water
-  s, d = calc_step(b_water(), b_water_min, b_water_scram)
-  step, dir = compare(step, dir, s, d)
-  log(step, dir, "wat")
+  s = calc_step(b_water(), b_water_min, b_water_scram)
+  burn = compare(burn, (burn + s))
+  log(s, (burn + s), "wat")
 
   --set burn rate
-  r_set_burn(step, dir)
-  log(step, dir, "fin")
+  r_set_burn(burn)
+  log((burn - r_burn()), burn, "fin")
 end
 --main loop
 local function main()
