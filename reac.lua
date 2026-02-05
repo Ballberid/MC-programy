@@ -3,7 +3,7 @@ local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_3")
 
-local interval = 1
+local interval = 0.1
 local interval_inc = 1  --refresh interval
 local interval_dec = 0.1
 --reactor
@@ -51,10 +51,17 @@ local function compare(burn_old, burn_new)
   return burn, con
 end
 
-local function log(step, burn, cond)
+local function log(step, burn, cond, cb)
   step = round(step,2)
   burn = round(burn,2)
-  print("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+  local can_burn = 0
+  if cb == true then
+    can_burn = 1
+  else
+    can_burn = 0
+  end
+  local text = can_burn .. "|" .. "step: " .. step .. "|burn: " .. burn .. "|" .. cond
+  print(text)
   mon_pos = mon_pos + 1
   if mon_pos >= h then
     mon_pos = 1
@@ -67,7 +74,7 @@ local function log(step, burn, cond)
     mon.write("--------------------------------------------")
   end
   mon.setCursorPos(1, mon_pos)
-  mon.write("step: " .. step .. " | burn: " .. burn .. " | " .. cond)
+  mon.write(text)
 end
   
 --reactor
@@ -96,12 +103,12 @@ local function calc_step(x, lim, scram, safe)
   if x > lim then
     step = map(x, lim, safe, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
-    interval = interval_inc
+    --interval = interval_inc
   else
     step = map(x, lim, scram, r_burn_step_min, r_burn_step_max)
     step = round(step, 2)
     step = step*(-1)
-    interval = interval_dec
+    --interval = interval_dec
   end
 
   return step
@@ -120,13 +127,28 @@ local function make_con(con, type_con, c)
   return result
 end
 
+local function can_set_burn(current, last, lim)
+  local result = false
+  if current >= last and current => lim then
+    result = true
+  elseif current >= last and current < lim then
+    result = false
+  elseif current < last and current < lim then
+    result = true
+  elseif current < last and current > lim then
+    result = false
+  end
+  return result
+end
+
 local function r_set_burn(burn)
   burn = clamp(burn, 0, 1920)
   burn = round(burn, 2)
   reac.setBurnRate(burn)
 end
 
-local function coolant_controll(burn_now, burn_new, con)
+local coolant_last = r_coolant()
+local function coolant_controll(burn_now, burn_new, con, cb)
   local min = 40
   local scram = 10
   local cond = "cool"
@@ -134,9 +156,16 @@ local function coolant_controll(burn_now, burn_new, con)
   local s = calc_step(r_coolant(), min, scram)
   local b, c = compare(burn_new, (burn_now + s))
   con = make_con(con, cond, c)
-
-  return b, con
+  
+  local can_burn = can_set_burn(r_coolant() ,coolant_last, min)
+  coolant_last = r_coolant()
+  if cb == false then
+    can_burn = false
+  end
+  
+  return b, con, can_burn
 end
+
 local function temp_controll(burn_now, burn_new, con)
   local min = 500
   local scram = 900
@@ -151,6 +180,7 @@ local function temp_controll(burn_now, burn_new, con)
 
   return b, con
 end
+
 local function water_controll(burn_now, burn_new, con)
   local min = 60
   local scram = 40
@@ -167,35 +197,24 @@ local function reac_controll()
   local burn = round(r_burn(),2)
   local con = ""
   local b = burn + r_burn_step_max
+  local cb = true
 
   --reactor----
-  b, con = coolant_controll(burn, b, con) --coolant
+  b, con, cb = coolant_controll(burn, b, con, cb) --coolant
   --b, con = temp_controll(burn, b, con) --temp
   --boiler----
   --b, con = water_controll(burn, b, con) --water
 
   
   --set burn rate
-  r_set_burn(b)
-  log((b - burn), b, con)
+  if cb == true then
+    r_set_burn(b)
+  end
+  log((b - burn), b, con, cb)
 end
 --main loop
-local function main()
-  if r_status() then
-    reac_controll()
-  end
-  
-  sleep(interval)
+if r_status() then
+  reac_controll()
 end
 
---zaciatok loopu
-while true do
-  local ok, err = pcall(main)
-
-  if not ok then
-    print("CHYBA:", err)
-    print("Restart za 3s...")
-    sleep(3)
-    os.reboot()
-  end
-end
+sleep(interval)
