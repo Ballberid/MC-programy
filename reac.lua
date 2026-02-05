@@ -119,33 +119,46 @@ local function r_set_burn(burn)
   reac.setBurnRate(burn)
 end
 
+local function coolant_controll(burn_now, burn_new, con)
+  local s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
+  local b, c = compare(burn_new, (burn_now + s))
+  local cond_cool = "cool"
+  con = make_con(con, cond_cool, c)
+
+  return b, con
+end
+local function temp_controll(burn_now, burn_new, con)
+  local s = calc_step(r_temp(), r_temp_min, r_temp_scram)
+  s = map(s, r_burn_step_min, r_burn_step_max, r_burn_step_max, r_burn_step_min)
+  local b, c = compare(burn_new, (burn_now + s))
+  local cond_temp = "tmp"
+  con = make_con(con, cond_temp, c)
+
+  return b, con
+end
+local function water_controll(burn_now, burn_new, con)
+  local s = calc_step(b_water(), b_water_min, b_water_scram)
+  local b, c = compare(burn_new, (burn_now + s))
+  local cond_water = "wat"
+  con = make_con(con, cond_water, c)
+
+  return b, con
+end
+
 local function reac_controll()
   local burn = r_burn()
   local con = ""
-  local c = 0
   local b = burn + r_burn_step_max
-  local s = 0
 
   --reactor----
-  --coolant
-  s = calc_step(r_coolant(), r_coolant_min, r_coolant_scram)
-  b, c = compare(b, (burn + s))
-  local cond_cool = "cool"
-  con = make_con(con, cond_cool, c)
-  --temp
-  s = calc_step(r_temp(), r_temp_min, r_temp_scram)
-  s = map(s, r_burn_step_min, r_burn_step_max, r_burn_step_max, r_burn_step_min)
-  b, c = compare(b, (burn + s))
-  local cond_temp = "tmp"
-  con = make_con(con, cond_temp, c)
+  b, con = coolant_controll(burn, b, con) --coolant
+  --b, con = temp_controll(burn, b, con) --temp
   --boiler----
-  --water
-  s = calc_step(b_water(), b_water_min, b_water_scram)
-  b, c = compare(b, (burn + s))
-  local cond_water = "wat"
-  con = make_con(con, cond_water, c)
+  --b, con = water_controll(burn, b, con) --water
+
+  
   --set burn rate
-  r_set_burn(b)
+  --r_set_burn(b)
   log((b - burn), b, con)
 end
 --main loop
