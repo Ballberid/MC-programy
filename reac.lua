@@ -2,7 +2,7 @@ local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
 
-local interval = 0.1  --refresh interval
+local interval = 1  --refresh interval
 --reactor
 local r_temp_min = 300  --target temp
 local r_temp_scram = 900
@@ -69,16 +69,9 @@ local function compare(burn1, burn2)
   return burn
 end
 
-local function r_set_burn(step, dir)
-  local rate = 0
-  if dir == true then
-    rate = r_burn() + step
-  elseif dir == false then
-    rate = r_burn() - step
-  end
-
-  rate = clamp(rate, 0, 1920)
-  reac.setBurnRate(rate)
+local function r_set_burn(burn)
+  burn = clamp(rate, 0, 1920)
+  reac.setBurnRate(burn)
 end
 
 local function log(step, burn, cond)
@@ -98,9 +91,9 @@ local function reac_controll()
   log(s, (burn + s), "cool")
   burn = compare(burn, (burn + s))
   --temp
-  s = calc_step(r_temp(), r_temp_min, r_temp_scram)
-  log(s, (burn + s), "temp")
-  burn = compare(burn, (burn + s))
+  --s = calc_step(r_temp(), r_temp_min, r_temp_scram)
+  --log(s, (burn + s), "temp")
+  --burn = compare(burn, (burn + s))
   --boiler----
   --water
   s = calc_step(b_water(), b_water_min, b_water_scram)
