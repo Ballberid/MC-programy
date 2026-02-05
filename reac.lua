@@ -70,7 +70,7 @@ local function compare(burn1, burn2)
 end
 
 local function r_set_burn(burn)
-  burn = clamp(rate, 0, 1920)
+  burn = clamp(burn, 0, 1920)
   reac.setBurnRate(burn)
 end
 
