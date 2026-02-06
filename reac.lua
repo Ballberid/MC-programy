@@ -15,7 +15,7 @@ local undo_cond = false
 local undo_allow = true
 local interval_allow = false
 --reactor
-local r_burn_step_max = 2
+local r_burn_step_max = 5
 local r_burn_step_min = 0.01
 local burn_limit = 500
 
