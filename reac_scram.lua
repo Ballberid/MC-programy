@@ -10,12 +10,18 @@ local r_coolant_min = 10
 local r_heated_max = 40
 local r_waste_max = 50
 local r_fuel_min = 5
+local r_temp_rev = 300
+local r_coolant_rev = 100
+local r_waste_rev = 10
 --boiler
 local b_water_min = 40
 local b_heated_max = 50
 local b_steam_max = 50
+local b_water_rev = 100
+local b_steam_rev = 5
 --turbina
 local t_energy_max = 80
+local t_energy_rev = 5
 
 --reactor
 local function r_status()  --status reactoru
@@ -91,6 +97,36 @@ local function scram_protocol()
   if scram == true then
     reac.scram()
     print("Reactor bol odstaveny: " .. con)
+  end
+end
+
+local function revive_protocol()
+local revive = true
+  --reactor
+  if r_temp() > r_temp_rev then
+    revive = false
+  end
+  if r_coolant() > r_coolant_rev then
+    revive = false
+  end
+  if r_waste() > r_waste_rev then
+    revive = false
+  end
+  --boiler
+  if b_water() > b_water_rev then
+    revive = false
+  end
+  if b_steam() > b_steam_rev then
+    revive = false
+  end
+  --turbina
+  if t_energy() > t_energy_rev then
+    revive = false
+  end
+
+  if revive == true then
+    reac.setBurnRate(10)
+    reac.activate()
   end
 end
 
