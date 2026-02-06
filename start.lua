@@ -1,4 +1,5 @@
-local ok, err = pcall(main)
+local program = "reac.lua"
+local ok, err = pcall(shell.run(program))
 if not ok then
   print("CHYBA:", err)
   print("Restart za 3s...")
