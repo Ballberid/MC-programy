@@ -13,7 +13,7 @@ local r_fuel_min = 5
 --boiler
 local b_water_min = 40
 local b_heated_max = 50
-local b_steam_max = 70
+local b_steam_max = 50
 --turbina
 local t_energy_max = 80
 
@@ -39,6 +39,9 @@ end
 --boiler
 local function b_water()
   return boil.getWaterFilledPercentage()*100
+end
+local function b_steam()
+  return boil.getSteamFilledPercentage()*100
 end
 --turbina
 local function t_energy()
@@ -73,6 +76,15 @@ local function scram_protocol()
   --boil
   if b_water() <= b_water_min then
     con = con .. "b.water" .. " | "
+    scram = true
+  end
+  if b_steam() >= b_steam_max then
+    con = con .. "b.steam" .. " | "
+    scram = true
+  end
+  --turb
+  if t_energy() >= t_energy_max then
+    con = con .. "t.energy" .. " | "
     scram = true
   end
   --scram
