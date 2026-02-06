@@ -257,7 +257,7 @@ local function reac_controll()
   if interval_allow == true and r_burn() > (burn_limit*0.7) then
     dynamic_interval(b, burn)
   end
-  if math.abs(burn-b) < burn_step_min then
+  if math.abs(burn-b) < r_burn_step_min then
     cb = false
   end
   --set burn rate
