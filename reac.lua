@@ -245,7 +245,7 @@ local function reac_controll()
   b, con, cb = water_controll(burn, b, con, cb) --water
 
   if undo_allow == true then  --undo
-    if undo_cond == true
+    if undo_cond == true then
       undo()
     end
   end
