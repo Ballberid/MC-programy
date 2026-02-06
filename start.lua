@@ -7,4 +7,3 @@ if not ok then
   sleep(3)
   os.reboot()
 end
-end
