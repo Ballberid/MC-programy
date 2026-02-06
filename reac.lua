@@ -173,6 +173,7 @@ local function undo()
     log((last_burn_step), burn, "-undo-", true)
     r_set_burn(burn)
     undo_cond = false
+    undo_pos = 0
   end
 end
 local function dynamic_interval(b, burn)
