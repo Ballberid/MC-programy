@@ -200,18 +200,19 @@ local function coolant_controll(burn_now, burn_new, con, cb)
   return b, con, can_burn
 end
 
-local temp_last = r_temp()
+local temp_last = 900 - r_temp()
 local function temp_controll(burn_now, burn_new, con, cb)
   local min = 500
   local scram = 900
   local safe = 50
   local cond = "tmp"
+  local temp_reserve = scram - r_temp()
 
-  local b, c  = calc_burn(r_temp(), min, scram, burn_new, burn_now)
+  local b, c  = calc_burn(temp_reserve, min, scram, burn_new, burn_now)
   con = make_con(con, cond, c)
 
-  local can_burn = can_set_burn(r_temp() , temp_last, min, cb)
-  temp_last = r_temp()
+  local can_burn = can_set_burn(temp_reserve, temp_last, min, cb)
+  temp_last = temp_reserve
   
   return b, con, can_burn
 end
