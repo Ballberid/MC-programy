@@ -134,6 +134,8 @@ local function main()
   while true do --loop
     if r_status() then
       scram_protocol()
+    else
+      revive_protocol()
     end
     sleep(interval)
   end
