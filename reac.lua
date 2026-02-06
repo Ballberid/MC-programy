@@ -12,7 +12,7 @@ local undo_lim = 10
 local undo_pos = 0
 local undo_step = 0.1
 local undo_cond = false
-local undo_allow = false
+local undo_allow = true
 local interval_allow = false
 --reactor
 local r_burn_step_max = 2
@@ -240,7 +240,7 @@ local function reac_controll()
 
   --reactor----
   b, con, cb = coolant_controll(burn, b, con, cb) --coolant
-  --b, con, cb = temp_controll(burn, b, con, cb) --temp
+  b, con, cb = temp_controll(burn, b, con, cb) --temp
   --boiler----
   b, con, cb = water_controll(burn, b, con, cb) --water
 
@@ -250,7 +250,7 @@ local function reac_controll()
     end
   end
   
-  if interval_allow == true then
+  if interval_allow == true and r_burn() > (burn_limit*0.7) then
     dynamic_interval(b, burn)
   end
   --set burn rate
