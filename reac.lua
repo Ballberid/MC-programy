@@ -161,8 +161,8 @@ local function r_set_burn(burn)
   reac.setBurnRate(burn)
 end
 
-local function calc_burn(val, min, scram, burn_new, burn_now)
-  local s = calc_step(val, min, scram)
+local function calc_burn(val, min, scram, burn_new, burn_now, safe)
+  local s = calc_step(val, min, scram, safe)
   local b, c = compare(burn_new, (burn_now + s))
 
   return b, c
@@ -208,7 +208,7 @@ local function temp_controll(burn_now, burn_new, con, cb)
   local cond = "tmp"
   local temp_reserve = scram - r_temp()
 
-  local b, c  = calc_burn(temp_reserve, min, scram, burn_new, burn_now)
+  local b, c  = calc_burn(temp_reserve, min, safe, burn_new, burn_now, scram)
   con = make_con(con, cond, c)
 
   local can_burn = can_set_burn(temp_reserve, temp_last, min, cb)
