@@ -4,18 +4,20 @@ local turb = peripheral.wrap("turbineValve_0")
 local mon = peripheral.wrap("monitor_3")
 
 local interval = 0.1  --refresh interval
-local interval_inc = 1  
+local interval_inc = 0.5 
 local interval_dec = 0.1
 local dead_zone = 1
 local force_burn_multiplier = 1.5
 local undo_lim = 10
 local undo_pos = 0
 local undo_step = 0.1
+local undo_cond = false
 local undo_allow = false
 local interval_allow = false
 --reactor
 local r_burn_step_max = 2
 local r_burn_step_min = 0.01
+local burn_limit = 500
 
 local mon_pos = 1
 local w, h = mon.getSize()
@@ -141,6 +143,7 @@ local function can_set_burn(current, last, lim, cb)
       result = true
     elseif current < last and current >= lim then
       result = false
+      undo_cond = true
     end
   end
   if current < lim and (lim/current) > force_burn_multiplier then
@@ -149,9 +152,12 @@ local function can_set_burn(current, last, lim, cb)
   
   return result
 end
+
+local last_burn_step = 0
 local function r_set_burn(burn)
-  burn = clamp(burn, 0, 1920)
+  burn = clamp(burn, 0, burn_limit)
   burn = round(burn, 2)
+  last_burn_step = burn - r_burn()
   reac.setBurnRate(burn)
 end
 
@@ -160,6 +166,23 @@ local function calc_burn(val, min, scram, burn_new, burn_now)
   local b, c = compare(burn_new, (burn_now + s))
 
   return b, c
+end
+local function undo()
+  if undo_pos >= undo_lim then
+    local burn = r_burn() - Last_burn_step
+    log((last_burn_step), burn, "-undo-", true)
+    r_set_burn(burn)
+    undo_cond = false
+  end
+end
+local function dynamic_interval(b, burn)
+    if b > burn then  --time interval
+      interval = interval_inc
+    elseif b < burn and cb == true then
+      interval = interval_dec
+    else
+      interval = interval_inc
+    end
 end
 
 local coolant_last = r_coolant()
@@ -221,20 +244,13 @@ local function reac_controll()
   b, con, cb = water_controll(burn, b, con, cb) --water
 
   if undo_allow == true then  --undo
-    if undo_pos >= undo_lim then  
-      cb = true
-      b = (r_burn()-undo_step)
-      log((b - burn), b, "undo", cb)  --undo log
+    if undo_cond == true
+      undo()
     end
   end
+  
   if interval_allow == true then
-    if b > burn then  --time interval
-      interval = interval_inc
-    elseif b < burn and cb == true then
-      interval = interval_dec
-    else
-      interval = interval_inc
-    end
+    dynamic_interval(b, burn)
   end
   --set burn rate
   if cb == true then  --can burn
