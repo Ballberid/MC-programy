@@ -127,6 +127,7 @@ local revive = true
   if revive == true then
     reac.setBurnRate(10)
     reac.activate()
+    print("Aktivacia reaktoru")
   end
 end
 
