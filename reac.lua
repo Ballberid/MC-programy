@@ -169,7 +169,7 @@ local function calc_burn(val, min, scram, burn_new, burn_now, safe)
 end
 local function undo()
   if undo_pos >= undo_lim then
-    local burn = r_burn() - Last_burn_step
+    local burn = r_burn() - last_burn_step
     log((last_burn_step), burn, "-undo-", true)
     r_set_burn(burn)
     undo_cond = false
@@ -207,14 +207,18 @@ local function temp_controll(burn_now, burn_new, con, cb)
   local safe = 50
   local cond = "tmp"
   local temp_reserve = scram - r_temp()
-
-  local b, c  = calc_burn(temp_reserve, min, safe, burn_new, burn_now, scram)
-  con = make_con(con, cond, c)
-
-  local can_burn = can_set_burn(temp_reserve, temp_last, min, cb)
-  temp_last = temp_reserve
   
-  return b, con, can_burn
+  if r_temp() >= (min * 0.9) then
+    local b, c  = calc_burn(temp_reserve, min, safe, burn_new, burn_now, scram)
+    con = make_con(con, cond, c)
+    
+    local can_burn = can_set_burn(temp_reserve, temp_last, min, cb)
+    temp_last = temp_reserve
+    
+    return b, con, can_burn
+  else
+    return burn_new, con, cb
+  end
 end
 
 local water_last = b_water()
