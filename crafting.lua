@@ -60,8 +60,8 @@ local function logic()
     elseif data.type == 2 then
       if check_production() == false then
         data.active = false
-        set_redstone(data)
       end
+      set_redstone(data)
     elseif data.type == 3 then
       data.amount = check_amount()
       set_active(data)
