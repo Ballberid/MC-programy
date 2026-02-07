@@ -1,8 +1,11 @@
-local chest = peripheral.wrap("right")
+local chest_side = "right"
+local chest = peripheral.wrap(chest_side)
 local need_setup = true
 
 local item_data = {
   { name = "mekanism:basic_induction_cell", side = "left", type = 1, target = 30, amount = 0, active = false},
+  { name = "mekanism:basic_induction_provider", side = "back", type = 1, target = 30, amount = 0, active = false},
+  { name = "", side = "front", type = 2, target = 30, amount = 0, active = false},
 }
 
 local function check_amount(name)
