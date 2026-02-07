@@ -170,7 +170,7 @@ end
 local function undo()
   if undo_pos >= undo_lim then
     local burn = r_burn() - math.abs(last_burn_step)
-    log((last_burn_step), burn, "-undo-", true)
+    log((burn-r_burn()), burn, "-undo-", true)
     r_set_burn(burn)
     undo_cond = false
     undo_pos = 0
