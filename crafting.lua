@@ -1,5 +1,36 @@
 local chest = peripheral.wrap("right")
 
+
+local item_data = {
+  { name = "mekanism:basic_induction_cell", side = "left", type = 1, amount = 0},
+}
+
+local function check_amount(name)
+  local amount = 0
+  
+  for _, item in pairs(chest.list()) do
+    if name ~= nil then
+      if item.name == name then
+        amount = amount + item.count
+      end
+    else
+      amount = amount + item.count
+    end
+  end
+
+  return amount
+end
+
+--loop
+for i, data in ipairs(table) do
+  if data.type == 1 then
+    data.amount = check_amount(data.name)
+  end
+  print(data.amount)
+end
+
+
+--[[
 redstone.setOutput("back", false)
 redstone.setOutput("left", false)
 redstone.setOutput("front", false)
@@ -38,3 +69,4 @@ end
 local fin = read()
 term.clear()
 shell.run("test")
+]]
