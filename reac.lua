@@ -21,7 +21,6 @@ local burn_limit = 500
 
 local mon_pos = 1
 local w, h = mon.getSize()
-local mon_clear = false
 mon.clear()
 mon.setTextScale(0.5)
 mon.setCursorPos(1,mon_pos)
@@ -74,13 +73,7 @@ local function log(step, burn, cond, cb)
   mon_pos = mon_pos + 1
   if mon_pos >= h then
     mon_pos = 1
-    mon_clear = true
-  end
-  if mon_clear == true then
-    mon.setCursorPos(1, mon_pos)
-    mon.write("                                    ")
-    mon.setCursorPos(1, (mon_pos+1))
-    mon.write("------------------------------------")
+    mon.clear()
   end
   mon.setCursorPos(1, mon_pos)
   mon.write(text)
