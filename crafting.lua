@@ -124,3 +124,6 @@ while true do
     break
   end
 end
+
+local input = read()
+os.reboot()
