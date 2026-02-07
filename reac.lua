@@ -259,6 +259,7 @@ local function reac_controll()
   end
   if math.abs(burn-b) < r_burn_step_min then
     cb = false
+    con = con .. "**"
   end
   --set burn rate
   if cb == true then  --can burn
