@@ -68,6 +68,12 @@ local function log(step, burn, cond, cb)
   else
     can_burn = 0
   end
+  if burn >= burn_limit then
+    can_burn = 0
+    step = 0
+    burn = burn_limit
+    cond = "burn.throttle"
+  end
   local text = can_burn .. " | " .. "step: " .. step .. " | burn: " .. burn .. " | " .. cond
   print(text)
   mon_pos = mon_pos + 1
