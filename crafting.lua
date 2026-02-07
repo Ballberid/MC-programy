@@ -3,9 +3,9 @@ local chest = peripheral.wrap(chest_side)
 local need_setup = true
 
 local item_data = {
-  { name = "mekanism:basic_induction_cell", side = "left", type = 1, target = 30, amount = 0, active = false},
-  { name = "mekanism:basic_induction_provider", side = "back", type = 1, target = 30, amount = 0, active = false},
-  { name = "", side = "front", type = 2, target = 30, amount = 0, active = false},
+  { name = "mekanism:basic_induction_cell", side = "left", type = 1, target = 30, amount = 0, active = true},
+  { name = "mekanism:basic_induction_provider", side = "back", type = 1, target = 30, amount = 0, active = true},
+  { name = "", side = "front", type = 2, target = 30, amount = 0, active = true},
 }
 
 local function check_amount(name)
