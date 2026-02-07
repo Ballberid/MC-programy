@@ -2,7 +2,7 @@ local chest = peripheral.wrap("right")
 local need_setup = true
 
 local item_data = {
-  { name = "mekanism:basic_induction_cell", side = "left", type = 1, target = 30 amount = 0, active = false},
+  { name = "mekanism:basic_induction_cell", side = "left", type = 1, target = 30, amount = 0, active = false},
 }
 
 local function check_amount(name)
@@ -85,7 +85,7 @@ local function log()
 end
 
 local function set_input()
-  local log_pos = 0
+  local log_pos = 2
   
   term.clear()
   term.setCursorPos(1,1)
