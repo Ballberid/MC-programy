@@ -12,6 +12,7 @@ local r_waste_max = 50
 local r_fuel_min = 5
 local r_temp_rev = 300
 local r_coolant_rev = 100
+local r_heated_rev = 5
 local r_waste_rev = 10
 --boiler
 local b_water_min = 40
@@ -107,6 +108,9 @@ local revive = true
     revive = false
   end
   if r_coolant() > r_coolant_rev then
+    revive = false
+  end
+  if r_heated() > r_heated_rev then
     revive = false
   end
   if r_waste() > r_waste_rev then
