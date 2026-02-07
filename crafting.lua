@@ -125,5 +125,7 @@ while true do
   end
 end
 
+term.setCursorPos(1,10)
+print("ENTER pre restart")
 local input = read()
 os.reboot()
