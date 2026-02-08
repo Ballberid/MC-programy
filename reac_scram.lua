@@ -30,6 +30,10 @@ local t_energy_max = 80
 local t_energy_rev = 5
 
 local function print_page(text)
+  if printer.getInkLevel() <= 0 or printer.getPaperLevel() <= 0 then
+    print("Neni farba alebo papier!")
+    return
+  end
   printer.setCursorPos(1,page_pos)
   printer.write(text)
   page_pos = page_pos + 1
