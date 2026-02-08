@@ -1,6 +1,11 @@
 local reac = peripheral.wrap("fissionReactorLogicAdapter_1")
 local boil = peripheral.wrap("boilerValve_0")
 local turb = peripheral.wrap("turbineValve_0")
+local printer = peripheral.wrap("left")
+
+local printer_active = true
+local page_size = 20
+local page_pos = 1
 
 local interval = 0.1
 print("Scram rdy")
@@ -24,6 +29,17 @@ local b_steam_rev = 5
 local t_energy_max = 80
 local t_energy_rev = 5
 
+local function print_page(text)
+  printer.setCursorPos(1,page_pos)
+  printer.write(text)
+  page_pos = page_pos + 1
+
+  if page_pos >= page_size then
+    printer.endPage()
+    printer.newPage()
+    page_pos = 1
+  end
+end
 --reactor
 local function r_status()  --status reactoru
   return reac.getStatus()
@@ -97,7 +113,11 @@ local function scram_protocol()
   --scram
   if scram == true then
     reac.scram()
-    print("Reactor bol odstaveny: " .. con)
+    local text = "Reactor bol odstaveny: " .. con
+    print(text)
+    if printer_active == true then
+      print_page(text)
+    end
   end
 end
 
@@ -131,7 +151,11 @@ local revive = true
   if revive == true then
     reac.setBurnRate(10)
     reac.activate()
-    print("Aktivacia reaktoru")
+    local text = "Aktivacia reaktoru"
+    print(text)
+    if printer_active == true then
+      print_page(text)
+    end
   end
 end
 
@@ -147,6 +171,9 @@ local function main()
 end
 
 --zaciatok kodu
+if printer_active == true then
+  printer.newPage()
+end
 
 while true do
   local ok, err = pcall(main)
