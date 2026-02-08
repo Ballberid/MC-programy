@@ -5,7 +5,7 @@ local reac_side = "left"
 local boil_side = "right"
 
 local reac_ok = 80
-local reac_nok = 20
+local reac_nok = 40
 local boil_ok = 40
 local boil_nok = 60
 
