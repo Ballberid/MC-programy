@@ -34,9 +34,43 @@ local function location()
     return x, y, z
 end
 
+local function canMove(r, z)
+    local frontBlock, frontData = turtle.inspect()
+    local rotCount = r or 0
+    local upCount = z or 0
+
+    if frontBlock == false then
+        return true, rotCount, upCount
+    else
+        turtle.turnRight()
+        rotCount = rotCount + 1
+        tryMove(rotCount)
+    end
+
+    if rotCount == 3 then
+        turtle.turnRight()
+        rotCount = 0
+        local upBlock, upData = turtle.inspectup()
+        if upBlock == false then
+            turtle.up()
+            upCount = upCount + 1
+            tryMove(rotCount, upCount)
+        else
+            return false, rotCount, upCount
+        end
+    end
+end
+
 function nav.direction()
     local cur_x, cur_y, cur_z = location()
-    turtle.forward()
+    local canMove, rotCount, upCount = canMove()
+
+    if canMove == true then
+        turtle.forward()
+    else
+        print("Turtle is blocked!")
+    end
+    
     local new_x, new_y, new_z = location()
 
     if (new_x - cur_x) <= -1 then
@@ -51,6 +85,13 @@ function nav.direction()
     end
 
     turtle.back()
+
+    for i = 1, rotCount do
+        turtle.turnLeft()
+    end
+    for i = 1, upCount do
+        turtle.down()
+    end
 
     if direction == nil then
         print("Direction not found!")
