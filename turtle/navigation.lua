@@ -93,7 +93,7 @@ function nav.direction()
         turtle.down()
     end
 
-    if direction != nil and rotCount > 0 then
+    if direction ~= nil and rotCount > 0 then
         if direction < rotCount then
             direction = 3 - (rotCount - 1)
         else
