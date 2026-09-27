@@ -1,8 +1,5 @@
 local subory = {
- { meno = "SetOrigin.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/SetOrigin.lua"},
  { meno = "navigation.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/navigation.lua"},
- { meno = "move.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/move.lua"},
- { meno = "movel.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/movel.lua"},
 }
 
 for _, subor in ipairs(subory) do
