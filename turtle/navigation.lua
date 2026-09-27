@@ -42,19 +42,19 @@ local function canMove(r, z)
     if frontBlock == false then
         return true, rotCount, upCount
     else
-        turtle.turnRight()
+        turtle.turnLeft()
         rotCount = rotCount + 1
-        canMove(rotCount)
+        return canMove(rotCount)
     end
 
     if rotCount == 3 then
-        turtle.turnRight()
+        turtle.turnLeft()
         rotCount = 0
-        local upBlock, upData = turtle.inspectup()
+        local upBlock, upData = turtle.inspectUp()
         if upBlock == false then
             turtle.up()
             upCount = upCount + 1
-            canMove(rotCount, upCount)
+            return canMove(rotCount, upCount)
         else
             return false, rotCount, upCount
         end
@@ -87,7 +87,7 @@ function nav.direction()
     turtle.back()
 
     for i = 1, rotCount do
-        turtle.turnLeft()
+        turtle.turnRight()
     end
     for i = 1, upCount do
         turtle.down()
