@@ -67,6 +67,8 @@ function nav.direction()
 
     if canMove == true then
         turtle.forward()
+        turtle.dig()
+        turtle.forward()
     else
         print("Turtle is blocked!")
     end
