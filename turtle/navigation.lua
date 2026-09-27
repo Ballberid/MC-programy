@@ -44,7 +44,7 @@ local function canMove(r, z)
     else
         turtle.turnRight()
         rotCount = rotCount + 1
-        tryMove(rotCount)
+        canMove(rotCount)
     end
 
     if rotCount == 3 then
@@ -54,7 +54,7 @@ local function canMove(r, z)
         if upBlock == false then
             turtle.up()
             upCount = upCount + 1
-            tryMove(rotCount, upCount)
+            canMove(rotCount, upCount)
         else
             return false, rotCount, upCount
         end
@@ -91,6 +91,14 @@ function nav.direction()
     end
     for i = 1, upCount do
         turtle.down()
+    end
+
+    if direction != nil and rotCount > 0 then
+        if direction < rotCount then
+            direction = 3 - (rotCount - 1)
+        else
+            direction = direction - rotCount
+        end
     end
 
     if direction == nil then
