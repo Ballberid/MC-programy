@@ -50,10 +50,20 @@ function nav.direction()
         direction = 2
     end
 
+    turtle.back()
+
     if direction == nil then
         print("Direction not found!")
+    elseif direction == 0 then
+        print("Direction: -Z (North)")
+    elseif direction == 1 then
+        print("Direction: +X (East)")
+    elseif direction == 2 then
+        print("Direction: +Z (South)")
+    elseif direction == 3 then
+        print("Direction: -X (West)")
     else
-        print("Direction: ", direction)
+        print("Unknown direction")
     end
 end
 
