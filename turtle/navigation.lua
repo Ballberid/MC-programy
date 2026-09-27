@@ -7,7 +7,7 @@ local nav = {}
 
 local direction = nil
 
-local function setOrigin()
+function nav.setOrigin()
     local x, y, z = gps.locate(5)
 
     if not x then
