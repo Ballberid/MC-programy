@@ -39,14 +39,6 @@ local function canMove(r, z)
     local rotCount = r or 0
     local upCount = z or 0
 
-    if frontBlock == false then
-        return true, rotCount, upCount
-    else
-        turtle.turnLeft()
-        rotCount = rotCount + 1
-        return canMove(rotCount)
-    end
-
     if rotCount == 3 then
         turtle.turnLeft()
         rotCount = 0
@@ -58,6 +50,14 @@ local function canMove(r, z)
         else
             return false, rotCount, upCount
         end
+    end
+    
+    if frontBlock == false then
+        return true, rotCount, upCount
+    else
+        turtle.turnLeft()
+        rotCount = rotCount + 1
+        return canMove(rotCount)
     end
 end
 
