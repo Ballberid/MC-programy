@@ -1,5 +1,5 @@
 local subory = {
- { meno = "SetOrigin.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/setorigin.lua"},
+ { meno = "SetOrigin.lua", url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/SetOrigin.lua"},
 }
 
 for _, subor in ipairs(subory) do
