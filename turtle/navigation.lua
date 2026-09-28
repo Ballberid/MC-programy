@@ -56,7 +56,7 @@ local function canMove(r, z)
     else
         turtle.turnLeft()
         rotCount = rotCount + 1
-        return canMove(rotCount)
+        return canMove(rotCount, upCount)
     end
 end
 
