@@ -39,8 +39,7 @@ local function canMove(r, z)
     local rotCount = r or 0
     local upCount = z or 0
 
-    if rotCount == 3 then
-        turtle.turnLeft()
+    if rotCount == 4 then
         rotCount = 0
         local upBlock, upData = turtle.inspectUp()
         if upBlock == false then
