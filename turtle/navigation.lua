@@ -93,7 +93,7 @@ function nav.direction()
     end
 
     if direction ~= nil and rotCount > 0 then
-        direction = (direction - rotCount) % 4
+        direction = (direction + rotCount) % 4
     end
 
     if direction == nil then
