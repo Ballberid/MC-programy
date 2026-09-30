@@ -6,6 +6,12 @@ local nav = {}
 -- 3 = West   (-X)
 
 local direction = nil
+local directionNames = {
+    [0] = "-Z (North)",
+    [1] = "+X (East)",
+    [2] = "+Z (South)",
+    [3] = "-X (West)"
+}
 
 function nav.setOrigin()
     local x, y, z = gps.locate(5)
@@ -34,56 +40,59 @@ local function location()
     return x, y, z
 end
 
-local function canMove(r, z)
-    local frontBlock, frontData = turtle.inspect()
-    local rotCount = r or 0
-    local upCount = z or 0
+function nav.direction()
+    local rotCount = 0
+    local upCount = 0
+    local OK = false
 
-    if rotCount == 4 then
-        rotCount = 0
-        local upBlock, upData = turtle.inspectUp()
-        if upBlock == false then
-            turtle.up()
-            upCount = upCount + 1
-            return canMove(rotCount, upCount)
+    while OK == false do
+        if rotCount == 4 then
+            rotCount = 0
+            if turtle.detectUp() == false then
+                turtle.up()
+                upCount = upCount + 1
+            else
+                break
+            end
         else
-            return false, rotCount, upCount
+            if turtle.detect() == true then
+                turtle.turnLeft()
+                rotCount = rotCount + 1
+            else
+                OK = true
+                break
+            end
         end
     end
-    
-    if frontBlock == false then
-        return true, rotCount, upCount
-    else
-        turtle.turnLeft()
-        rotCount = rotCount + 1
-        return canMove(rotCount, upCount)
-    end
-end
 
-function nav.direction()
-    local cur_x, cur_y, cur_z = location()
-    local canMove, rotCount, upCount = canMove()
-
-    if canMove == true then
+    if OK == true then
+        local cur_x, cur_y, cur_z = location()
         turtle.forward()
+        local new_x, new_y, new_z = location()
+        local dx = new_x - cur_x
+        local dy = new_y - cur_y
+
+        if dx < 0 then
+            direction = 3
+        elseif dx > 0 then
+            direction = 1
+        end
+        if dz < 0 then
+            direction = 0
+        elseif dz > 0 then
+            direction = 2
+        else
+            print("Unknown direction")
+        end
+        
+        turtle.back()
+
+        if direction ~= nil and rotCount > 0 then
+            direction = (direction + rotCount) % 4
+        end
     else
         print("Turtle is blocked!")
     end
-    
-    local new_x, new_y, new_z = location()
-
-    if (new_x - cur_x) <= -1 then
-        direction = 3
-    elseif (new_x - cur_x) >= 1 then
-        direction = 1
-    end
-    if (new_z - cur_z) <= -1 then
-        direction = 0
-    elseif (new_z - cur_z) >= 1 then
-        direction = 2
-    end
-
-    turtle.back()
 
     for i = 1, rotCount do
         turtle.turnRight()
@@ -92,22 +101,10 @@ function nav.direction()
         turtle.down()
     end
 
-    if direction ~= nil and rotCount > 0 then
-        direction = (direction + rotCount) % 4
-    end
-
-    if direction == nil then
-        print("Direction not found!")
-    elseif direction == 0 then
-        print("Direction: -Z (North)")
-    elseif direction == 1 then
-        print("Direction: +X (East)")
-    elseif direction == 2 then
-        print("Direction: +Z (South)")
-    elseif direction == 3 then
-        print("Direction: -X (West)")
+    if direction ~= nil then
+        print("Direction: " .. directionNames[direction])
     else
-        print("Unknown direction")
+        print("Direction not found!")
     end
 end
 
