@@ -70,7 +70,7 @@ function nav.direction()
         turtle.forward()
         local new_x, new_y, new_z = location()
         local dx = new_x - cur_x
-        local dy = new_y - cur_y
+        local dz = new_z - cur_z
 
         if dx < 0 then
             direction = 3
