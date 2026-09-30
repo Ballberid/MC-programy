@@ -81,8 +81,6 @@ function nav.direction()
             direction = 0
         elseif dz > 0 then
             direction = 2
-        else
-            print("Unknown direction")
         end
         
         turtle.back()
