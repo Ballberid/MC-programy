@@ -13,6 +13,8 @@ local directionNames = {
     [3] = "-X (West)"
 }
 
+fl = require("fuel")
+
 function nav.setOrigin()
     local x, y, z = gps.locate(5)
 
@@ -52,6 +54,10 @@ function nav.direction()
     local rotCount = 0
     local upCount = 0
     local OK = false
+
+    if turtle.getFuelLevel() < 5 then
+        if fl.refuel() < 5 then
+            
 
     while OK == false do
         if rotCount == 4 then
@@ -109,8 +115,10 @@ function nav.direction()
 
     if direction ~= nil then
         print("Direction: " .. directionNames[direction])
+        return true
     else
         print("Direction not found!")
+        return false
     end
 end
 
@@ -126,7 +134,9 @@ function nav.goHome()
     local dy = origin_y - cur_y
     local dz = origin_z - cur_z
 
-    print(dx, dy, dz)
+    if nav.direction == true then
+                
+    end
 end
 
 return nav
