@@ -23,18 +23,24 @@ function nav.setOrigin()
         return
     end
 
+    if nav.direction() == false then
+        return
+    end
+
     fs.makeDir("data")
     local file = fs.open("data/origin.txt", "w")
     file.write(textutils.serialize({
         x = x,
         y = y,
-        z = z
+        z = z,
+        startDirection = direction
     }))
 
     file.close()
     
     print("Origin ulozeny:")
     print("X:", x, "Y:", y, "Z:", z)
+    print("Start direction: " .. directionNames[direction])
 end
 
 function nav.getOrigin()
@@ -42,7 +48,7 @@ function nav.getOrigin()
     local origin = textutils.unserialize(file.readAll())
     file.close()
 
-    return origin.x, origin.y, origin.z
+    return origin.x, origin.y, origin.z, origin.startDirection
 end
 
 local function location()
@@ -156,7 +162,7 @@ end
 
 function nav.goHome()
     local cur_x, cur_y, cur_z = location()
-    local origin_x, origin_y, origin_z = nav.getOrigin()
+    local origin_x, origin_y, origin_z, startDirection = nav.getOrigin()
     local returnDir_x = nil
     local returnDir_z = nil
     local dx = origin_x - cur_x
@@ -201,6 +207,7 @@ function nav.goHome()
     secondDist = secondDist - moveForward(secondDist)
 
     if firstDist == 0 and secondDist == 0 then
+        turnToDirection(startDirection)
         return true
     else
         return false
