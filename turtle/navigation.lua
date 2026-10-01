@@ -57,6 +57,8 @@ function nav.direction()
 
     if turtle.getFuelLevel() < 5 then
         if fl.refuel() < 5 then
+        end
+    end
             
 
     while OK == false do
