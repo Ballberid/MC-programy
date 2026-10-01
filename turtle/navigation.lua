@@ -35,6 +35,14 @@ function nav.setOrigin()
     print("X:", x, "Y:", y, "Z:", z)
 end
 
+function nav.getOrigin()
+    local file = fs.open("data/origin.txt", "r")
+    local origin = textutils.unserialize(file.readAll())
+    file.close()
+
+    return origin.x, origin.y, origin.z
+end
+
 local function location()
     local x, y, z = gps.locate()
     return x, y, z
@@ -108,6 +116,17 @@ end
 
 function nav.move(x,y,z)
 
+end
+
+function nav.goHome()
+    local cur_x, cur_y, cur_z = location()
+    local origin_x, origin_y, origin_z = nav.getOrigin()
+
+    local dx = origin_x - cur_x
+    local dy = origin_y - cur_y
+    local dz = origin_z - cur_z
+
+    print(dx, dy, dz)
 end
 
 return nav
