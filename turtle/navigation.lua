@@ -66,6 +66,8 @@ local function returnDistance()
     returnDx = origin_x - cur_x
     returnDy = origin_y - cur_y
     returnDz = origin_z - cur_z
+
+    returnDist = math.abs(returnDx) + math.abs(returnDy) + math.abs(returnDz)
 end
 
 function nav.direction()
