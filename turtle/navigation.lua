@@ -14,6 +14,10 @@ local directionNames = {
     [2] = "+Z (South)",
     [3] = "-X (West)"
 }
+local returnDx = 0
+local returnDy = 0
+local returnDz = 0
+local returnDist = 0
 
 function nav.setOrigin()
     local x, y, z = gps.locate(5)
@@ -54,6 +58,14 @@ end
 local function location()
     local x, y, z = gps.locate()
     return x, y, z
+end
+
+local function returnDistance()
+    local cur_x, cur_y, cur_z = location()
+    
+    returnDx = origin_x - cur_x
+    returnDy = origin_y - cur_y
+    returnDz = origin_z - cur_z
 end
 
 function nav.direction()
@@ -146,9 +158,10 @@ local function turnToDirection(targetDirection)
     direction = targetDirection
 end
 
-local function moveForward(distance)
+local function moveInDirection(dist, dir)
     local distTraveled = 0
-    for i = 1, distance do
+    turnToDirection(dir)
+    for i = 1, dist do
         turtle.forward()
         distTraveled = distTraveled + 1
     end
@@ -161,13 +174,9 @@ function nav.moveToCoord(x,y,z)
 end
 
 function nav.goHome()
-    local cur_x, cur_y, cur_z = location()
     local origin_x, origin_y, origin_z, startDirection = nav.getOrigin()
     local returnDir_x = nil
     local returnDir_z = nil
-    local dx = origin_x - cur_x
-    local dy = origin_y - cur_y
-    local dz = origin_z - cur_z
     local firstDir = nil
     local firstDist = 0
     local secondDir = nil
@@ -178,33 +187,33 @@ function nav.goHome()
         return
     end
 
-    if dx > 0 then
+    returnDistance()
+
+    if returnDx > 0 then
         returnDir_x = 1
-    elseif dx < 0 then
+    elseif returnDx < 0 then
         returnDir_x = 3
     end
-    if dz > 0 then
+    if returnDz > 0 then
         returnDir_z = 2
-    elseif dz < 0 then
+    elseif returnDz < 0 then
         returnDir_z = 0
     end
 
     if returnDir_x == (direction + 2) % 4 then
         firstDir = returnDir_x
-        firstDist = dx
+        firstDist = returnDx
         secondDir = returnDir_z
-        secondDist = dz
+        secondDist = returnDz
     elseif returnDir_z == (direction + 2) % 4 then
         firstDir = returnDir_z
-        firstDist = dz
+        firstDist = returnDz
         secondDir = returnDir_x
-        secondDist = dx
+        secondDist = returnDx
     end
 
-    turnToDirection(firstDir)
-    firstDist = firstDist - moveForward(firstDist)
-    turnToDirection(secondDir)
-    secondDist = secondDist - moveForward(secondDist)
+    firstDist = firstDist - moveInDirection(firstDist, firstDir)
+    secondDist = secondDist - moveInDirection(secondDist, secondDir)
 
     if firstDist == 0 and secondDist == 0 then
         turnToDirection(startDirection)
