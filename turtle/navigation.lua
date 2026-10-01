@@ -1,3 +1,5 @@
+fl = require("fuel")
+
 local nav = {}
 
 -- 0 = North  (-Z)
@@ -12,8 +14,6 @@ local directionNames = {
     [2] = "+Z (South)",
     [3] = "-X (West)"
 }
-
-fl = require("fuel")
 
 function nav.setOrigin()
     local x, y, z = gps.locate(5)
@@ -135,7 +135,7 @@ function nav.goHome()
     local dz = origin_z - cur_z
 
     if nav.direction == true then
-                
+        
     end
 end
 
