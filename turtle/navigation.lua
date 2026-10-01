@@ -154,7 +154,7 @@ function nav.goHome()
     local dy = origin_y - cur_y
     local dz = origin_z - cur_z
 
-    if nav.direction == false then
+    if nav.direction() == false then
         print("Cant go Home")
         return
     end
