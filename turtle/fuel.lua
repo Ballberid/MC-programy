@@ -2,6 +2,7 @@ local fl = {}
 
 function fl.refuel()
   local fuel = turtle.getFuelLevel()
+  local currentSlot = turtle.getSelectedSlot()
   
   for slot = 1, 16 do
     turtle.select(slot)
@@ -10,7 +11,8 @@ function fl.refuel()
       fuel = turtle.getFuelLevel()
     end
   end
-  
+
+  turtle.select(currentSlot)
   return fuel
 end
 
