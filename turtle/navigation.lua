@@ -140,7 +140,17 @@ local function turnToDirection(targetDirection)
     direction = targetDirection
 end
 
-function nav.move(x,y,z)
+local function moveForward(distance)
+    local distTraveled = 0
+    for i = 1, distance do
+        turtle.forward()
+        distTraveled = distTraveled + 1
+    end
+    
+    return distTraveled
+end
+
+function nav.moveToCoord(x,y,z)
     
 end
 
@@ -149,10 +159,13 @@ function nav.goHome()
     local origin_x, origin_y, origin_z = nav.getOrigin()
     local returnDir_x = nil
     local returnDir_z = nil
-    local returnDir = nil
     local dx = origin_x - cur_x
     local dy = origin_y - cur_y
     local dz = origin_z - cur_z
+    local firstDir = nil
+    local firstDist = 0
+    local secondDir = nil
+    local secondDir = 0
 
     if nav.direction() == false then
         print("Cant go Home")
@@ -171,12 +184,25 @@ function nav.goHome()
     end
 
     if returnDir_x == (direction + 2) % 4 then
-        returnDir = returnDir_x
+        firstDir = returnDir_x
+        firstDist = dx
+        secondDir = returnDir_z
+        secondDist = dz
     elseif returnDir_z == (direction + 2) % 4 then
-        returnDir = returnDir_z
+        firstDir = returnDir_z
+        firstDist = dz
+        secondDir = returnDir_x
+        secondDist = dx
     end
 
-    turnToDirection(returnDir)
+    firstDist = firstDist - moveForward(firstDist)
+    secondDist = secondDist - moveForward(secondDist)
+
+    if firstDist == 0 and secondDist == 0 then
+        return true
+    else
+        return false
+    end
 end
 
 return nav
