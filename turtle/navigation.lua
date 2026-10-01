@@ -57,6 +57,7 @@ function nav.direction()
 
     if turtle.getFuelLevel() < 5 then
         if fl.refuel() < 5 then
+            return false
         end
     end
             
@@ -124,21 +125,58 @@ function nav.direction()
     end
 end
 
-function nav.move(x,y,z)
+local function turnToDirection(targetDirection)
+    local turn = (targetDirection - direction) % 4
 
+    if turn == 1 then
+        turtle.turnRight()
+    elseif turn == 2 then
+        turtle.turnRight()
+        turtle.turnRight()
+    elseif turn == 3 then
+        turtle.turnLeft()
+    end
+
+    direction = targetDirection
+end
+
+function nav.move(x,y,z)
+    
 end
 
 function nav.goHome()
     local cur_x, cur_y, cur_z = location()
     local origin_x, origin_y, origin_z = nav.getOrigin()
-
+    local returnDir_x = nil
+    local returnDir_z = nil
+    local returnDir = nil
     local dx = origin_x - cur_x
     local dy = origin_y - cur_y
     local dz = origin_z - cur_z
 
-    if nav.direction == true then
-        
+    if nav.direction == false then
+        print("Cant go Home")
+        return
     end
+
+    if dx > 0 then
+        returnDir_x = 1
+    elseif dx < 0 then
+        returnDir_x = 3
+    end
+    if dz > 0 then
+        returnDir_z = 2
+    elseif dz < 0 then
+        returnDir_z = 0
+    end
+
+    if returnDir_x == (direction + 2) % 4 then
+        returnDir = returnDir_x
+    elseif returnDir_z == (direction + 2) % 4 then
+        returnDir = returnDir_z
+    end
+
+    turnToDirection(returnDir)
 end
 
 return nav
