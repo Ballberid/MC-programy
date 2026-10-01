@@ -62,6 +62,7 @@ end
 
 local function returnDistance()
     local cur_x, cur_y, cur_z = location()
+    local origin_x, origin_y, origin_z, startDirection = nav.getOrigin()
     
     returnDx = origin_x - cur_x
     returnDy = origin_y - cur_y
@@ -176,7 +177,6 @@ function nav.moveToCoord(x,y,z)
 end
 
 function nav.goHome()
-    local origin_x, origin_y, origin_z, startDirection = nav.getOrigin()
     local returnDir_x = nil
     local returnDir_z = nil
     local firstDir = nil
