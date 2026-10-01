@@ -14,10 +14,12 @@ local directionNames = {
     [2] = "+Z (South)",
     [3] = "-X (West)"
 }
-local returnDx = 0
-local returnDy = 0
-local returnDz = 0
-local returnDist = 0
+local returnDist = {
+    x = 0
+    y = 0
+    z = 0
+    distance
+}
 
 function nav.setOrigin()
     local x, y, z = gps.locate(5)
@@ -64,11 +66,11 @@ local function returnDistance()
     local cur_x, cur_y, cur_z = location()
     local origin_x, origin_y, origin_z, startDirection = nav.getOrigin()
     
-    returnDx = origin_x - cur_x
-    returnDy = origin_y - cur_y
-    returnDz = origin_z - cur_z
+    returnDist.x = origin_x - cur_x
+    returnDist.y = origin_y - cur_y
+    returnDist.z = origin_z - cur_z
 
-    returnDist = math.abs(returnDx) + math.abs(returnDy) + math.abs(returnDz)
+    returnDist.distance = math.abs(returnDist.x) + math.abs(returnDist.y) + math.abs(returnDist.z)
 end
 
 function nav.direction()
@@ -180,9 +182,9 @@ function nav.goHome()
     local returnDir_x = nil
     local returnDir_z = nil
     local firstDir = nil
-    local firstDist = 0
+    local firstDist = ""
     local secondDir = nil
-    local secondDir = 0
+    local secondDir = ""
 
     if nav.direction() == false then
         print("Cant go Home")
@@ -204,20 +206,17 @@ function nav.goHome()
 
     if returnDir_x == (direction + 2) % 4 then
         firstDir = returnDir_x
-        firstDist = returnDx
+        firstDist = "x"
         secondDir = returnDir_z
-        secondDist = returnDz
+        secondDist = "z"
     elseif returnDir_z == (direction + 2) % 4 then
         firstDir = returnDir_z
-        firstDist = returnDz
+        firstDist = "z"
         secondDir = returnDir_x
-        secondDist = returnDx
+        secondDist = "x"
     end
 
-    firstDist = firstDist - moveInDirection(firstDist, firstDir)
-    secondDist = secondDist - moveInDirection(secondDist, secondDir)
-
-    if firstDist == 0 and secondDist == 0 then
+    if returnDist[first] - moveInDirection(returnDist[first], firstDir) == 0 and returnDist[second] - moveInDirection(returnDist[second], secondDir) == 0 then
         turnToDirection(startDirection)
         return true
     else
