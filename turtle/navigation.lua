@@ -15,10 +15,10 @@ local directionNames = {
     [3] = "-X (West)"
 }
 local returnDist = {
-    x = 0
-    y = 0
-    z = 0
-    distance
+    x = 0,
+    y = 0,
+    z = 0,
+    distance = 0
 }
 
 function nav.setOrigin()
