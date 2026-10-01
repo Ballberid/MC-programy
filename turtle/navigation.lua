@@ -53,7 +53,7 @@ function nav.getOrigin()
     local file = fs.open("data/origin.txt", "r")
     local origin = textutils.unserialize(file.readAll())
     file.close()
-
+    
     return origin.x, origin.y, origin.z, origin.startDirection
 end
 
@@ -165,10 +165,14 @@ end
 
 local function moveInDirection(dist, dir)
     local distTraveled = 0
+    
     turnToDirection(dir)
     for i = 1, dist do
-        turtle.forward()
-        distTraveled = distTraveled + 1
+        if turtle.forward() then
+            distTraveled = distTraveled + 1
+        else
+
+        end
     end
     
     return distTraveled
@@ -184,7 +188,7 @@ function nav.goHome()
     local firstDir = nil
     local firstDist = ""
     local secondDir = nil
-    local secondDir = ""
+    local secondDist = ""
 
     if nav.direction() == false then
         print("Cant go Home")
@@ -195,12 +199,12 @@ function nav.goHome()
 
     if returnDist.x > 0 then
         returnDir_x = 1
-    elseif returnDist.x < 0 then
+    else returnDist.x < 0
         returnDir_x = 3
     end
     if returnDist.z > 0 then
         returnDir_z = 2
-    elseif returnDist.z < 0 then
+    else returnDist.z < 0
         returnDir_z = 0
     end
 
@@ -216,7 +220,10 @@ function nav.goHome()
         secondDist = "x"
     end
 
-    if returnDist[first] - moveInDirection(returnDist[first], firstDir) == 0 and returnDist[second] - moveInDirection(returnDist[second], secondDir) == 0 then
+    local first = math.abs(returnDist[firstDist]) - moveInDirection(math.abs(returnDist[firstDist]), firstDir)
+    local second = math.abs(returnDist[secondDist]) - moveInDirection(math.abs(returnDist[secondDist]), secondDir)
+    if first == 0 and second == 0 then
+        local _, _, _, startDirection = nav.getOrigin()
         turnToDirection(startDirection)
         return true
     else
