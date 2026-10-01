@@ -193,14 +193,14 @@ function nav.goHome()
 
     returnDistance()
 
-    if returnDx > 0 then
+    if returnDist.x > 0 then
         returnDir_x = 1
-    elseif returnDx < 0 then
+    elseif returnDist.x < 0 then
         returnDir_x = 3
     end
-    if returnDz > 0 then
+    if returnDist.z > 0 then
         returnDir_z = 2
-    elseif returnDz < 0 then
+    elseif returnDist.z < 0 then
         returnDir_z = 0
     end
 
