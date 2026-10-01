@@ -195,9 +195,9 @@ function nav.goHome()
         secondDist = dx
     end
 
-    turnToDirection(firstDirection)
+    turnToDirection(firstDir)
     firstDist = firstDist - moveForward(firstDist)
-    turnToDirection(secondDirection)
+    turnToDirection(secondDir)
     secondDist = secondDist - moveForward(secondDist)
 
     if firstDist == 0 and secondDist == 0 then
