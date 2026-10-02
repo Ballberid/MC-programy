@@ -1,0 +1,12 @@
+Stiahnutie updatera jednym prikazom v terminali turtle alebo pocket computer:
+
+wget https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/turtle_update.lua update.lua
+
+Potom spusti podla zariadenia:
+
+Turtle:          update turtle
+Pocket computer alebo PC na zobrazovanie: update receiver
+PC ako router:  update router
+
+Po aktualizacii spusti reboot.
+Na pocket computer alebo zobrazovacom PC potom spusti receiver.
