@@ -1,6 +1,7 @@
 # Craftoria turtle knižnice
 
-Modulárny základ pre CC:Tweaked. Ťažobné a stavacie programy ešte nie sú súčasťou.
+Modulárny základ pre CC:Tweaked s programom `quarry` na kopanie kvádra.
+Stavací program ešte nie je súčasťou.
 Knižnice sa načítavajú cez `require("navigation")` atď. Súbory nainštaluj do rovnakého
 pracovného priečinka a programy spúšťaj z neho. Dáta sa ukladajú do `data/`.
 
@@ -51,6 +52,55 @@ Setup ukladá nastavenia, nenavštevuje truhly. V diagnostike potom vyber overen
 truhiel. `test check` sa nepohybuje a nespotrebúva predmety. Interaktívne menu
 vyžaduje `ANO` pred pohybom alebo zásobovaním. Diagnostika nekopá ani nestavia.
 
+## Kopanie kvádra
+
+Po aktualizácii spusti v termináli mining turtle:
+
+```text
+quarry
+```
+
+Program si vypýta X/Y/Z dvoch protiľahlých rohov. Sú to súradnice blokov, ktoré
+majú patriť do vykopanej oblasti; oba rohy aj hranice sú zahrnuté. Rohy môžu byť
+zadané v ľubovoľnom poradí. Napríklad `(100,50,100)` a `(102,52,104)` znamenajú
+oblasť 3 × 3 × 5, teda 45 miest. Pred štartom zobrazí normalizované hranice,
+rozmery a počet miest. Potvrdenie používa `a/N`, takže prázdny Enter kopanie zruší.
+Ďalšia otázka umožní automatické zistenie smeru cez GPS alebo jeho ručné zadanie.
+
+Používa palivovú a vykladaciu stanicu zo setupu; obe musia byť nastavené.
+Knižnice a program automaticky stiahne `update turtle` podľa manifestu.
+Potrebuje mining turtle s nástrojom na kopanie, funkčné GPS a počiatočné palivo
+na overenie truhiel. Do setupu netreba zadávať rozmery výkopu.
+
+Najprv overí prístup k palivu a vykladacej truhle. Prístup ku kvádru hľadá bežnou
+navigáciou bez kopania k miestu nad vybraným horným rohom. Toto miesto musí byť
+prístupné; **nevykopáva prístupový tunel mimo zadanej oblasti**. Ak po úvodnom
+servise stojí vo vnútri kvádra, môže sa k hornému rohu prekopať iba v jeho hraniciach.
+
+Oblasť prechádza cikcakom po vrstvách zhora nadol. Každé ďalšie pracovné miesto
+je susedný blok. Pri kopaní počíta úspešné presuny, nie počet pokusov. Pred každým
+kopaním kontroluje palivo a aspoň dva prázdne sloty. Podľa potreby navštívi palivo
+alebo vykladaciu truhlu a vráti sa na presnú pracovnú polohu aj smer. Telemetria
+obsahuje priebeh; každých 64 miest vypíše počet dokončených miest. Limit oblasti
+je 1 000 000 miest, ale dostupnosť paliva a navigačné limity môžu zastaviť aj menšiu oblasť.
+
+Vykladá aj vykopaný uhlík a ďalšie palivové predmety, aby nezaplnili inventár.
+Chránené predmety z `protectedItems` a nastavené palivové sloty zostávajú zachované.
+Nepoužité novo vyzdvihnuté palivo vracia do palivovej truhly. Predmety, ktoré už
+boli v inventári pred spustením, sa tiež môžu vyložiť, ak nie sú chránené.
+
+Padajúci piesok/štrk opakovane odstraňuje, najviac 32 pokusov na jedno miesto.
+Pri nerozbitnom bloku, inom turtle, inventári, vode/láve, nedostatku zásob alebo
+nedoriešenej ceste úlohu označí ako nedokončenú, vypíše dôvod a pokúsi sa vrátiť
+domov bez kopania. Nastavené truhly nesmú byť vo výkope. Program neodčerpáva
+kvapaliny ani nemá automatické pokračovanie po reštarte. Po odstránení príčiny
+možno znova zadať rovnaké rohy; už vyprázdnené miesta prejde bez kopania.
+
+Po dokončení vyloží zvyšný materiál a vráti sa na konečné miesto aj smer zo setupu.
+Zobrazený počet miest zahŕňa aj miesta, kde už bol vzduch; počet skutočných
+kopaní je oddelený v údajoch `dug`. Modové bloky môžu zhadzovať viac rôznych predmetov
+naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z jedného bloku.
+
 ## Súbory a API
 
 | Súbor | Hlavné príkazy |
@@ -63,6 +113,9 @@ vyžaduje `ANO` pred pohybom alebo zásobovaním. Diagnostika nekopá ani nestav
 | `inventory.lua` | `freeSlots()`, `freeSlotList()`, `count(name)`, `find(name)`, `select(name)`, `space(name)`, `snapshot()`, `hasMaterials(materials)` |
 | `stations.lua` | `get(name)`, `visit(name,[options])`, `verify(name,[options])`, `refuel(target,[options])`, `unload([keep],[options])`, `takeMaterials(materials,[options])` |
 | `supplies.lua` | `prepare([heading])`, `check(request)`, `ensure(request)`, `navigationOptions()` |
+| `cuboid.lua` | Normalizácia rohov, rozmery a postupné susedné bunky kvádra |
+| `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading])`, `stepTo(point,box,[progress])` |
+| `quarry.lua` | Herný dialóg na vykopanie oblasti |
 | `telemetry.lua` | `configure(settings,[positionProvider])`, `setActivity(text)`, `emit(level,message,[details],[force])`, `log(message,[level],[details])`, `capture(function,...)` |
 | `network.lua` | Otvorenie dostupných modemov pre rednet |
 | `setup.lua`, `test.lua` | Herné programy na nastavenie a diagnostiku |

@@ -21,6 +21,7 @@ local function validate(request)
         if type(name) ~= "string" or type(amount) ~= "number" or amount ~= amount or amount == math.huge or amount < 0 or amount % 1 ~= 0 then return false, "invalid_materials" end
     end
     if request.endpoint and not config.isPoint(request.endpoint) then return false, "invalid_endpoint" end
+    if request.unloadFuel ~= nil and type(request.unloadFuel) ~= "boolean" then return false, "invalid_unload_fuel" end
     return true
 end
 
@@ -75,7 +76,7 @@ function supplies.ensure(request)
         if not ok then return false, reason end
     end
     local c = config.load()
-    local options = { anchor = station, reserve = c.navigation.reserve }
+    local options = { anchor = station, reserve = c.navigation.reserve, keepFuel = request.unloadFuel ~= true }
     -- Bounded service passes. Each individual visit returns to the work point.
     for _ = 1, 4 do
         local ok, need, info = supplies.check(request)

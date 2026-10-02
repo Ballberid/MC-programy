@@ -1,6 +1,6 @@
 package.path = ROOT .. "/turtle/?.lua;" .. package.path
 local realLoadfile = loadfile
-local modules = { "config", "fuel", "inventory", "position", "pathfinding", "navigation", "stations", "supplies", "network", "telemetry" }
+local modules = { "config", "fuel", "inventory", "position", "pathfinding", "navigation", "stations", "supplies", "network", "telemetry", "cuboid", "mining" }
 local W
 local tests = 0
 local function key(p) return p.x .. "," .. p.y .. "," .. p.z end
@@ -26,7 +26,8 @@ local function reset()
     for _, name in ipairs(modules) do package.loaded[name] = nil end
     W = { x = 0, y = 0, z = 0, d = 0, fuel = 1000, limit = 2000,
         blocks = {}, chests = {}, slots = {}, selected = 1, moves = 0, gpsCalls = 0,
-        files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0 }
+        files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0,
+        digs = {}, unbreakable = {}, blockNames = {}, drops = {}, falling = {}, lostDrops = 0 }
     turtle = {}
     turtle.getFuelLevel = function() return W.fuel end
     turtle.getFuelLimit = function() return W.limit end
@@ -43,6 +44,7 @@ local function reset()
         if not i or i.name ~= "minecraft:coal" then return false end
         if count == 0 then return true end
         if W.fuel >= W.limit then return false end
+        W.refuelAfterDig = W.refuelAfterDig or #W.digs > 0
         local amount = math.min(count or i.count, i.count)
         W.fuel = math.min(W.limit, W.fuel + amount * 80)
         i.count = i.count - amount
@@ -72,6 +74,36 @@ local function reset()
     turtle.detect = function() return detect("front") end
     turtle.detectUp = function() return detect("up") end
     turtle.detectDown = function() return detect("down") end
+    local function inspect(side)
+        local k = key(adjacent(side))
+        if W.chests[k] then return true, { name = "minecraft:chest" } end
+        if not W.blocks[k] and not W.blockNames[k] then return false, "No block" end
+        return true, { name = W.blockNames[k] or "minecraft:stone" }
+    end
+    local function dig(side)
+        local p = adjacent(side)
+        local k = key(p)
+        if W.unbreakable[k] then return false, "Unbreakable block" end
+        if not W.blocks[k] then return false, "No block" end
+        W.digs[#W.digs + 1] = p
+        if (W.falling[k] or 0) > 0 then W.falling[k] = W.falling[k] - 1
+        else W.blocks[k], W.blockNames[k] = nil, nil end
+        local name = W.drops[k] or "minecraft:cobblestone"
+        for slot = 1, 16 do
+            local item = W.slots[slot]
+            if not item or (item.name == name and item.count < 64) then
+                W.slots[slot] = { name = name, count = (item and item.count or 0) + 1 }
+                return true
+            end
+        end
+        W.lostDrops = W.lostDrops + 1
+        return true
+    end
+    for _, entry in ipairs({ { "inspect", "front", false }, { "inspectUp", "up", false }, { "inspectDown", "down", false },
+        { "dig", "front", true }, { "digUp", "up", true }, { "digDown", "down", true } }) do
+        local name, side, destructive = entry[1], entry[2], entry[3]
+        turtle[name] = function() if destructive then return dig(side) else return inspect(side) end end
+    end
     local function suck(side, amount)
         local chest = W.chests[key(adjacent(side))]
         if not chest then return false end
@@ -324,6 +356,8 @@ test("fuel station visit refuels and returns", function()
     local nav = navReady()
     assert(require("stations").refuel(500))
     eq(W.x, 0); eq(W.d, 0); assert(W.fuel >= 500); matchesWorld(nav)
+    eq(require("inventory").count("minecraft:coal"), 0)
+    eq(W.chests["3,0,0"].items[1].count, 10)
     eq(nav.knownDistance({ x = 2, y = 0, z = 0 }), 2)
 end)
 test("full output chest reports partial transfer and returns", function()
@@ -524,6 +558,134 @@ end)
 test("setup explicit no selects manual heading", function()
     local heading = runSetup({ "Nie", "3", "ano", "nie", "nie", "nie", "", "", "nie", "" })
     eq(heading, 3)
+end)
+
+local function quarryWorld()
+    configured({ fuel = { x = 0, y = 0, z = 0, direction = 3, side = "front" },
+        output = { x = 0, y = 0, z = 0, direction = 0, side = "front" } })
+    W.chests["-1,0,0"] = { items = { { name = "minecraft:coal", count = 64 } } }
+    W.chests["0,0,-1"] = { items = {} }
+    navReady()
+end
+
+test("cuboid sorts reversed corners and includes both endpoints", function()
+    local b = assert(require("cuboid").new({ x = 4, y = 3, z = 2 }, { x = 2, y = 1, z = 1 }))
+    eq(b.volume, 18); eq(b.size.x, 3); eq(b.min.y, 1); eq(b.max.z, 2)
+end)
+test("cuboid snakes cover all cells with adjacent layer transitions", function()
+    local cuboid = require("cuboid")
+    for x = 1, 4 do for y = 1, 3 do for z = 1, 4 do
+        local b = assert(cuboid.new({ x = -2, y = -3, z = -4 }, { x = -3 + x, y = -4 + y, z = -5 + z }))
+        for _, ex in ipairs({ b.min.x, b.max.x }) do for _, ez in ipairs({ b.min.z, b.max.z }) do
+            local entry, seen, previous = { x = ex, y = b.max.y, z = ez }, {}, nil
+            for index = 1, b.volume do
+                local p = cuboid.cell(b, index, entry)
+                assert(cuboid.contains(b, p)); assert(not seen[key(p)]); seen[key(p)] = true
+                if previous then eq(require("pathfinding").distance(previous, p), 1) end
+                previous = p
+            end
+        end end
+    end end end
+end)
+test("quarry rejects station chest within mining bounds before movement", function()
+    quarryWorld()
+    local ok, err = require("mining").run({ x = -1, y = 0, z = 0 }, { x = -1, y = 0, z = 0 })
+    eq(ok, false); eq(err, "station_inside_area:fuel"); eq(#W.digs, 0); eq(W.moves, 0)
+end)
+test("quarry mines reversed three dimensional corners and returns home", function()
+    quarryWorld()
+    local a, b = { x = 3, y = 0, z = 2 }, { x = 2, y = -1, z = 1 }
+    for x = 2, 3 do for y = -1, 0 do for z = 1, 2 do W.blocks[key({ x = x, y = y, z = z })] = true end end end
+    W.blocks["4,-1,2"] = true
+    local ok, err, progress = require("mining").run(a, b)
+    assert(ok, err); eq(progress.visited, 8); eq(progress.dug, 8)
+    eq(W.x, 0); eq(W.y, 0); eq(W.z, 0); eq(W.d, 0); eq(W.blocks["4,-1,2"], true)
+    eq(require("inventory").count("minecraft:cobblestone"), 0)
+    local total = 0
+    for _, item in ipairs(W.chests["0,0,-1"].items) do total = total + item.count end
+    eq(total, 8); eq(W.lostDrops, 0)
+end)
+test("quarry unloads mid-job then resumes the correct cell", function()
+    quarryWorld()
+    local a, b = { x = 2, y = 0, z = 0 }, { x = 21, y = 0, z = 0 }
+    for x = 2, 21 do
+        local k = x .. ",0,0"; W.blocks[k] = true; W.drops[k] = "mod:item_" .. x
+    end
+    local ok, err, progress = require("mining").run(a, b)
+    assert(ok, err); eq(progress.visited, 20); eq(#W.digs, 20); eq(W.lostDrops, 0)
+    local total = 0
+    for _, item in ipairs(W.chests["0,0,-1"].items) do total = total + item.count end
+    eq(total, 20); eq(W.x, 0); eq(W.d, 0)
+end)
+test("quarry unloads mined coal and returns with reserve", function()
+    quarryWorld(); W.fuel = 200
+    local a, b = { x = 2, y = 0, z = 0 }, { x = 20, y = 0, z = 0 }
+    for x = 2, 20 do
+        local k = x .. ",0,0"; W.blocks[k] = true; W.drops[k] = "minecraft:coal"
+    end
+    local ok, err = require("mining").run(a, b)
+    assert(ok, err); eq(W.x, 0); eq(require("inventory").count("minecraft:coal"), 0)
+    assert(W.fuel >= 20)
+end)
+test("quarry obtains chest fuel after excavation has started", function()
+    quarryWorld(); W.fuel = 80
+    local a, b = { x = 2, y = 0, z = 0 }, { x = 80, y = 0, z = 0 }
+    for x = 2, 80 do W.blocks[x .. ",0,0"] = true end
+    local ok, err, progress = require("mining").run(a, b)
+    assert(ok, err); eq(progress.visited, 79); assert(W.refuelAfterDig)
+    assert(not W.chests["-1,0,0"].items[1] or W.chests["-1,0,0"].items[1].count < 64)
+    eq(W.x, 0); eq(W.d, 0); eq(W.lostDrops, 0)
+end)
+test("quarry unbreakable block stops without claiming completion", function()
+    quarryWorld(); W.blocks["2,0,0"] = true; W.unbreakable["2,0,0"] = true
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    eq(ok, false); assert(err:find("dig_failed", 1, true)); eq(progress.visited, 0); eq(#W.digs, 0)
+    eq(W.blocks["2,0,0"], true); eq(W.x, 0); eq(W.d, 0)
+end)
+test("quarry bounded falling block retries and accurate coordinates", function()
+    quarryWorld(); W.blocks["2,0,0"] = true; W.falling["2,0,0"] = 2
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    assert(ok, err); eq(progress.dug, 3); eq(progress.visited, 1); eq(W.x, 0)
+end)
+test("quarry stops infinite falling blocks after its retry limit", function()
+    quarryWorld(); W.blocks["2,0,0"] = true; W.falling["2,0,0"] = 100
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    eq(ok, false); eq(err, "dig_or_move_retry_limit"); eq(progress.visited, 0)
+    eq(#W.digs, 32); eq(W.x, 0); eq(W.lostDrops, 0)
+end)
+test("quarry does not destroy unexpected inventory or fluids", function()
+    quarryWorld(); W.chests["2,0,0"] = { items = {} }
+    local mining = require("mining")
+    local ok, err = mining.run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    eq(ok, false); eq(err, "inventory_in_area"); eq(#W.digs, 0)
+    W.chests["2,0,0"] = nil; W.blockNames["2,0,0"] = "minecraft:lava"
+    ok, err = mining.run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    eq(ok, false); eq(err, "fluid_in_area:minecraft:lava"); eq(#W.digs, 0)
+end)
+test("quarry full output chest preserves unfinished job and loot", function()
+    quarryWorld(); W.chests["0,0,-1"].capacity = 0; W.blocks["2,0,0"] = true
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    eq(ok, false); eq(err, "output_chest_full"); eq(progress.phase, "failed")
+    eq(require("inventory").count("minecraft:cobblestone"), 1); eq(W.lostDrops, 0)
+end)
+test("mining refuses digging outside the requested cuboid", function()
+    quarryWorld(); W.blocks["1,0,0"] = true
+    local box = assert(require("cuboid").new({ x = 2, y = 0, z = 0 }, { x = 3, y = 0, z = 0 }))
+    local ok, err = require("mining").stepTo({ x = 1, y = 0, z = 0 }, box)
+    eq(ok, false); eq(err, "dig_outside_area"); eq(#W.digs, 0); eq(W.moves, 0)
+end)
+
+test("quarry dialog accepts letter cancellation without moving", function()
+    quarryWorld()
+    local answers = { "2", "0", "0", "3", "1", "1", "n" }
+    local originalPrint, originalWrite, originalRead = print, write, read
+    local reads = 0
+    print = function() end
+    write = function(text) eq(text, "> ") end
+    read = function() reads = reads + 1; assert(answers[reads], "unexpected question"); return answers[reads] end
+    local ok, err = pcall(realLoadfile(ROOT .. "/turtle/quarry.lua"))
+    print, write, read = originalPrint, originalWrite, originalRead
+    assert(ok, err); eq(reads, 7); eq(W.moves, 0); eq(#W.digs, 0)
 end)
 
 local function updaterEnvironment()

@@ -97,6 +97,13 @@ function stations.refuel(target, options)
                 return false, "fuel_chest_contains_nonfuel"
             end
             fuel.refuel(required, { slot })
+            -- Leave unused newly collected fuel in its source chest. Otherwise
+            -- a mining unload would move the remaining supply into output.
+            local leftover = turtle.getItemCount(slot)
+            if leftover > 0 and turtle.refuel(0) then
+                transfer(station.side, false, leftover)
+                if turtle.getItemCount(slot) > 0 then return false, "unused_fuel_cannot_return" end
+            end
         end
         return fuel.has(required), "fuel_transfer_limit"
     end, options)
@@ -112,7 +119,10 @@ function stations.unload(keep, options)
             local item = turtle.getItemDetail(slot)
             if item then
                 turtle.select(slot)
-                local protected = c.protectedItems[item.name] == true or turtle.refuel(0)
+                local preserveFuel = not options or options.keepFuel ~= false
+                local reservedSlot = false
+                for _, value in ipairs(c.fuelSlots) do if slot == value then reservedSlot = true end end
+                local protected = c.protectedItems[item.name] == true or reservedSlot or (preserveFuel and turtle.refuel(0))
                 local retain = protected and item.count
                     or math.min(item.count, math.max(0, (keep[item.name] or 0) - (kept[item.name] or 0)))
                 kept[item.name] = (kept[item.name] or 0) + retain
