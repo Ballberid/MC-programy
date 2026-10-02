@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "files": [
+    { "source": "turtle_update.lua", "target": "update.lua", "roles": ["turtle", "receiver", "router"] },
+    { "source": "config.lua", "target": "config.lua", "roles": ["turtle"] },
+    { "source": "fuel.lua", "target": "fuel.lua", "roles": ["turtle"] },
+    { "source": "inventory.lua", "target": "inventory.lua", "roles": ["turtle"] },
+    { "source": "position.lua", "target": "position.lua", "roles": ["turtle"] },
+    { "source": "pathfinding.lua", "target": "pathfinding.lua", "roles": ["turtle"] },
+    { "source": "navigation.lua", "target": "navigation.lua", "roles": ["turtle"] },
+    { "source": "stations.lua", "target": "stations.lua", "roles": ["turtle"] },
+    { "source": "supplies.lua", "target": "supplies.lua", "roles": ["turtle"] },
+    { "source": "network.lua", "target": "network.lua", "roles": ["turtle", "receiver", "router"] },
+    { "source": "telemetry.lua", "target": "telemetry.lua", "roles": ["turtle"] },
+    { "source": "setup.lua", "target": "setup.lua", "roles": ["turtle"] },
+    { "source": "test.lua", "target": "test.lua", "roles": ["turtle"] },
+    { "source": "receiver.lua", "target": "receiver.lua", "roles": ["receiver"] },
+    { "source": "router.lua", "target": "router.lua", "roles": ["router"] }
+  ]
+}

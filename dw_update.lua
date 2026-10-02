@@ -1,4 +1,4 @@
-local url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle_update.lua"
+local url = "https://raw.githubusercontent.com/Ballberid/MC-programy/refs/heads/main/turtle/turtle_update.lua"
 local r = http.get(url)
 
 if r then

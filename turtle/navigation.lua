@@ -1,234 +1,212 @@
-fl = require("fuel")
-
+local config = require("config")
+local position = require("position")
+local paths = require("pathfinding")
+local fuel = require("fuel")
+local telemetry = require("telemetry")
 local nav = {}
+local settings = config.defaults()
+local movesSinceGPS = 0
 
--- 0 = North  (-Z)
--- 1 = East   (+X)
--- 2 = South  (+Z)
--- 3 = West   (-X)
-
-local direction = nil
-local directionNames = {
-    [0] = "-Z (North)",
-    [1] = "+X (East)",
-    [2] = "+Z (South)",
-    [3] = "-X (West)"
-}
-local returnDist = {
-    x = 0,
-    y = 0,
-    z = 0,
-    distance = 0
-}
-
-function nav.setOrigin()
-    local x, y, z = gps.locate(5)
-
-    if not x then
-        print("GPS pozicia nenajdena")
-        return
-    end
-
-    if nav.direction() == false then
-        return
-    end
-
-    fs.makeDir("data")
-    local file = fs.open("data/origin.txt", "w")
-    file.write(textutils.serialize({
-        x = x,
-        y = y,
-        z = z,
-        startDirection = direction
-    }))
-
-    file.close()
-    
-    print("Origin ulozeny:")
-    print("X:", x, "Y:", y, "Z:", z)
-    print("Start direction: " .. directionNames[direction])
+function nav.configure(c)
+    settings = c or settings
+    telemetry.configure(settings.telemetry, position.get)
 end
 
-function nav.getOrigin()
-    local file = fs.open("data/origin.txt", "r")
-    local origin = textutils.unserialize(file.readAll())
-    file.close()
-    
-    return origin.x, origin.y, origin.z, origin.startDirection
+function nav.init(heading)
+    local c = config.load()
+    if c then nav.configure(c) end
+    paths.clear()
+    movesSinceGPS = 0
+    local ok, err = position.init(heading, settings.navigation, fuel.slots(settings))
+    if ok then paths.mark(position.get(), true) end
+    return ok, err
 end
 
-local function location()
-    local x, y, z = gps.locate()
-    return x, y, z
-end
-
-local function returnDistance()
-    local cur_x, cur_y, cur_z = location()
-    local origin_x, origin_y, origin_z, startDirection = nav.getOrigin()
-    
-    returnDist.x = origin_x - cur_x
-    returnDist.y = origin_y - cur_y
-    returnDist.z = origin_z - cur_z
-
-    returnDist.distance = math.abs(returnDist.x) + math.abs(returnDist.y) + math.abs(returnDist.z)
+function nav.getPosition()
+    return position.get()
 end
 
 function nav.direction()
-    local rotCount = 0
-    local upCount = 0
-    local OK = false
+    if not position.get() then return nav.init() end
+    return position.sync()
+end
 
-    if turtle.getFuelLevel() < 5 then
-        if fl.refuel() < 5 then
-            return false
+function nav.turnToDirection(target)
+    return position.turnTo(target)
+end
+
+function nav.distance(a, b)
+    return paths.distance(a, b)
+end
+
+function nav.knownDistance(target, from)
+    from = from or position.get()
+    if not from then return nil, "position_uninitialized" end
+    local route, err = paths.find(from, target, { knownOnly = true, maxNodes = settings.navigation.maxNodes })
+    if not route then return nil, err end
+    return #route
+end
+
+function nav.sync()
+    local ok, err = position.sync()
+    if not ok and err == "position_mismatch" then paths.clear() end
+    if ok then movesSinceGPS = 0 end
+    return ok, err
+end
+
+local function stop(reason, goal, moved)
+    telemetry.emit("error", reason, { target = goal, moved = moved }, true)
+    return false, reason, { position = position.get(), moved = moved }
+end
+
+local function stepToward(nextPoint)
+    local p = position.get()
+    if nextPoint.y > p.y then return "up" end
+    if nextPoint.y < p.y then return "down" end
+    local d
+    if nextPoint.x > p.x then d = 1
+    elseif nextPoint.x < p.x then d = 3
+    elseif nextPoint.z > p.z then d = 2
+    else d = 0 end
+    local ok, err = position.turnTo(d)
+    if not ok then return nil, err end
+    return "front"
+end
+
+local function detect(side)
+    return ({ front = turtle.detect, up = turtle.detectUp, down = turtle.detectDown })[side]()
+end
+
+function nav.moveToCoord(x, y, z, options)
+    local goal = { x = x, y = y, z = z }
+    options = options or {}
+    if not config.isPoint(goal) then return false, "invalid_target" end
+    if options.direction ~= nil and not config.isDirection(options.direction) then return false, "invalid_direction" end
+    for _, name in ipairs({ "reserve", "maxMoves", "maxDetour" }) do
+        local value = options[name]
+        if value ~= nil and (type(value) ~= "number" or value ~= value or value == math.huge or value < 0 or value % 1 ~= 0) then
+            return false, "invalid_option:" .. name
         end
     end
-            
-
-    while OK == false do
-        if rotCount == 4 then
-            rotCount = 0
-            if turtle.detectUp() == false then
-                turtle.up()
-                upCount = upCount + 1
-            else
+    if not position.get() then
+        local ok, err = nav.init()
+        if not ok then return false, err end
+    end
+    local synced, syncErr = nav.sync()
+    if not synced then return false, syncErr end
+    local start = position.get()
+    local anchor = options.anchor or settings.stations.fuel or start
+    if not config.isPoint(anchor) then return false, "invalid_anchor" end
+    local reserve = options.reserve or settings.navigation.reserve
+    local maxMoves = options.maxMoves or settings.navigation.maxMoves
+    local bounds = paths.bounds(start, goal, options.maxDetour or settings.navigation.maxDetour)
+    local known = options.knownOnly == true
+    if not known then paths.forgetBlocked() end
+    local homeCost, homeErr = nav.knownDistance(anchor)
+    if not homeCost then return false, "return_route_unknown:" .. tostring(homeErr) end
+    local moved, replans = 0, 0
+    telemetry.setActivity("moving")
+    while paths.distance(position.get(), goal) > 0 do
+        if moved >= maxMoves then return stop("move_limit", goal, moved) end
+        local route, routeErr = paths.find(position.get(), goal, {
+            bounds = bounds, knownOnly = known, maxNodes = settings.navigation.maxNodes,
+        })
+        if not route then return stop(routeErr, goal, moved) end
+        local obstructed = false
+        for _, nextPoint in ipairs(route) do
+            if moved >= maxMoves then return stop("move_limit", goal, moved) end
+            local returnCost = nav.knownDistance(anchor)
+            if not returnCost then return stop("return_route_lost", goal, moved) end
+            -- Worst case: next step needs to be undone before returning.
+            -- Prefer an already known shorter return route when available.
+            local nextReturn = nav.knownDistance(anchor, nextPoint)
+            nextReturn = nextReturn or (returnCost + 1)
+            local enough = fuel.ensure(1 + nextReturn + reserve, fuel.slots(settings))
+            if not enough then return stop("fuel_reserve", goal, moved) end
+            local side, sideErr = stepToward(nextPoint)
+            if not side then return stop(sideErr, goal, moved) end
+            local success = false
+            for attempt = 0, settings.navigation.retries do
+                if detect(side) then break end
+                if position.move(side) then success = true; break end
+                if attempt < settings.navigation.retries then sleep(0.3) end
+            end
+            if not success then
+                paths.mark(nextPoint, false)
+                replans = replans + 1
+                if replans > settings.navigation.maxReplans then return stop("replan_limit", goal, moved) end
+                obstructed = true
+                telemetry.emit("warning", "obstacle", nextPoint, true)
                 break
             end
-        else
-            if turtle.detect() == true then
-                turtle.turnLeft()
-                rotCount = rotCount + 1
-            else
-                OK = true
-                break
+            paths.mark(nextPoint, true)
+            moved = moved + 1
+            movesSinceGPS = movesSinceGPS + 1
+            telemetry.emit("info", "step", { target = goal })
+            if movesSinceGPS >= settings.navigation.gpsEvery then
+                local ok, err = nav.sync()
+                if not ok then return stop(err, goal, moved) end
             end
         end
+        if not obstructed then break end
     end
-
-    if OK == true then
-        local cur_x, cur_y, cur_z = location()
-        turtle.forward()
-        local new_x, new_y, new_z = location()
-        local dx = new_x - cur_x
-        local dz = new_z - cur_z
-
-        if dx < 0 then
-            direction = 3
-        elseif dx > 0 then
-            direction = 1
-        end
-        if dz < 0 then
-            direction = 0
-        elseif dz > 0 then
-            direction = 2
-        end
-        
-        turtle.back()
-
-        if direction ~= nil and rotCount > 0 then
-            direction = (direction + rotCount) % 4
-        end
-    else
-        print("Turtle is blocked!")
+    local ok, err = nav.sync()
+    if not ok then return stop(err, goal, moved) end
+    if options.direction ~= nil then
+        ok, err = position.turnTo(options.direction)
+        if not ok then return stop(err, goal, moved) end
     end
-
-    for i = 1, rotCount do
-        turtle.turnRight()
-    end
-    for i = 1, upCount do
-        turtle.down()
-    end
-
-    if direction ~= nil then
-        print("Direction: " .. directionNames[direction])
-        return true
-    else
-        print("Direction not found!")
-        return false
-    end
+    telemetry.setActivity("arrived")
+    return true, nil, { position = position.get(), moved = moved }
 end
 
-local function turnToDirection(targetDirection)
-    local turn = (targetDirection - direction) % 4
-
-    if turn == 1 then
-        turtle.turnRight()
-    elseif turn == 2 then
-        turtle.turnRight()
-        turtle.turnRight()
-    elseif turn == 3 then
-        turtle.turnLeft()
-    end
-
-    direction = targetDirection
+-- Single steps also obey coordinate tracking and reserve checks.
+function nav.step(side, options)
+    local p = position.get()
+    if not p then return false, "position_uninitialized" end
+    if side ~= "front" and side ~= "back" and side ~= "up" and side ~= "down" then return false, "invalid_move" end
+    local d = side == "back" and (p.direction + 2) % 4 or p.direction
+    local target = position.offset(p, d, side)
+    local o = {}
+    for key, value in pairs(options or {}) do o[key] = value end
+    o.maxMoves, o.maxDetour, o.direction = 1, 0, p.direction
+    return nav.moveToCoord(target.x, target.y, target.z, o)
 end
 
-local function moveInDirection(dist, dir)
-    local distTraveled = 0
-    
-    turnToDirection(dir)
-    for i = 1, dist do
-        if turtle.forward() then
-            distTraveled = distTraveled + 1
-        else
-
-        end
-    end
-    
-    return distTraveled
+function nav.setOrigin()
+    local ok, err = nav.direction()
+    if not ok then return false, err end
+    local p = position.get()
+    settings.start, settings.home = p, position.get()
+    local saved, saveErr = config.save(settings)
+    if not saved then return false, saveErr end
+    fs.makeDir("data")
+    local f = fs.open("data/origin.txt", "w")
+    if not f then return false, "origin_write_failed" end
+    f.write(textutils.serialize({ x = p.x, y = p.y, z = p.z, startDirection = p.direction }))
+    f.close()
+    return true
 end
 
-function nav.moveToCoord(x,y,z)
-    
+function nav.getOrigin()
+    local c = config.load()
+    if c then return c.home.x, c.home.y, c.home.z, c.home.direction end
+    -- Compatibility with existing origin files.
+    local f = fs.open("data/origin.txt", "r")
+    if not f then return nil, "origin_missing" end
+    local text = f.readAll(); f.close()
+    local ok, p = pcall(textutils.unserialize, text)
+    if not ok or not config.isPoint(p) or not config.isDirection(p.startDirection) then return nil, "origin_corrupt" end
+    return p.x, p.y, p.z, p.startDirection
 end
 
-function nav.goHome()
-    local returnDir_x = nil
-    local returnDir_z = nil
-    local firstDir = nil
-    local firstDist = ""
-    local secondDir = nil
-    local secondDist = ""
-
-    if nav.direction() == false then
-        print("Cant go Home")
-        return
-    end
-
-    returnDistance()
-
-    if returnDist.x > 0 then
-        returnDir_x = 1
-    else
-        returnDir_x = 3
-    end
-    if returnDist.z > 0 then
-        returnDir_z = 2
-    else
-        returnDir_z = 0
-    end
-
-    if returnDir_x == (direction + 2) % 4 then
-        firstDir = returnDir_x
-        firstDist = "x"
-        secondDir = returnDir_z
-        secondDist = "z"
-    elseif returnDir_z == (direction + 2) % 4 then
-        firstDir = returnDir_z
-        firstDist = "z"
-        secondDir = returnDir_x
-        secondDist = "x"
-    end
-
-    local first = math.abs(returnDist[firstDist]) - moveInDirection(math.abs(returnDist[firstDist]), firstDir)
-    local second = math.abs(returnDist[secondDist]) - moveInDirection(math.abs(returnDist[secondDist]), secondDir)
-    if first == 0 and second == 0 then
-        local _, _, _, startDirection = nav.getOrigin()
-        turnToDirection(startDirection)
-        return true
-    else
-        return false
-    end
+function nav.goHome(options)
+    local x, y, z, d = nav.getOrigin()
+    if not x then return false, y end
+    local o = {}
+    for key, value in pairs(options or {}) do o[key] = value end
+    o.direction = d
+    return nav.moveToCoord(x, y, z, o)
 end
 
 return nav
