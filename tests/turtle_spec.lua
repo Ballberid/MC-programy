@@ -27,6 +27,7 @@ local function reset()
     for _, name in ipairs(modules) do package.loaded[name] = nil end
     package.loaded.fleet_motion = nil
     package.loaded.building, package.loaded.floor_plan = nil, nil
+    package.loaded.floor_access = nil
     W = { x = 0, y = 0, z = 0, d = 0, fuel = 1000, limit = 2000,
         blocks = {}, chests = {}, slots = {}, selected = 1, moves = 0, gpsCalls = 0,
         files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0,
@@ -128,18 +129,20 @@ local function reset()
         if item.count == 0 then table.remove(chest.items, 1) end
         return true
     end
-    turtle.placeDown = function()
-        local point = adjacent("down")
+    local function place(side)
+        local point = adjacent(side)
         local k = key(point)
         local item = W.slots[W.selected]
         if W.placeFailAt == k then return false, "Entity obstructing placement" end
-        if detect("down") or not item then return false, "Cannot place" end
+        if detect(side) or not item then return false, "Cannot place" end
         W.blocks[k], W.blockNames[k] = true, item.name
         W.placements[#W.placements + 1] = point
         item.count = item.count - 1
         if item.count == 0 then W.slots[W.selected] = nil end
         return true
     end
+    turtle.placeDown = function() return place("down") end
+    turtle.placeUp = function() return place("up") end
     local function drop(side, amount)
         local chest = W.chests[key(adjacent(side))]
         local item = W.slots[W.selected]

@@ -40,7 +40,7 @@ local function newJob(kind)
             seen[selected[i]] = true
         end
     else for i = 1, count do selected[i] = ids[i] end end
-    if kind == "floor" then print("Rohy su bloky podlahy s rovnakym Y; turtle chodi na Y+1.") end
+    if kind == "floor" then print("Rohy su bloky podlahy s rovnakym Y; turtle chodi na Y+1 alebo Y-1.") end
     local a = dialog.point("Prvy roh oblasti", true)
     local b = dialog.point("Protilahly roh oblasti", true)
     local block

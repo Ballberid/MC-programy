@@ -21,9 +21,10 @@ Ak ešte nemáš nastavené truhly, spusti `setup`. Pre stavanie potrebuješ:
 
 Pri truhle zadávaj **miesto, kde stojí turtle**, jej smer a stranu truhly.
 Origin určuje miesto návratu po práci. Nechaj voľné prístupové cesty a priestor
-nad plánovanou podlahou; turtle pri tejto úlohe nekopá. Potrebuje dostupné GPS,
+nad alebo pod plánovanou podlahou; turtle pri tejto úlohe nekopá. Potrebuje dostupné GPS,
 modem a počiatočné palivo na overenie cesty k palivovej truhle aj späť.
-Vyhradené palivové sloty sa pri naberaní stavebného materiálu preskočia.
+Vyhradené palivové sloty sa pri naberaní stavebného materiálu preskočia. Ak nemáš
+žiadne vyhradené, počas stavby nechá jeden servisný slot pre palivo.
 
 Táto prvá verzia je určená pre bežné plné bloky, napríklad stone, cobblestone,
 bricks alebo oak_planks. Použi bloky, ktoré zostanú na svojom mieste bez podpory;
@@ -43,12 +44,15 @@ Zadaj dva protiľahlé rohy obdĺžnika. Sú to súradnice **blokov podlahy**,
 oba rohy majú **rovnaké Y** a hranice sú zahrnuté.
 
 Príklad: `(100,63,100)` a `(104,63,104)` vytvoria podlahu **5×5 = 25 blokov**.
-Turtle sa pri kladení pohybuje na **Y=64**, teda o blok vyššie. Začne nad prvým
-zadaným rohom a prejde celú plochu cikcakom. Pri samostatnom programe môže mať
+Turtle sa pri kladení pohybuje na **Y=64** a kladie pod seba, alebo na **Y=62**
+a kladie nad seba. Skúsi prístup k prvému zadanému rohu zhora aj zdola, potom
+pokračuje cikcakom zo strany, ktorá fungovala. Pri samostatnom programe môže mať
 origin aj nad podlahou; jeho samotné miesto nesmie byť vyplnené blokom.
 
-Pri otázke na blok nechaj prázdny Enter. Turtle navštívi `materials`, vezme jeden
-kus ako vzorku a vráti ho do truhly. Alternatívne zadaj celé ID, napríklad
+Pri otázke na blok nechaj prázdny Enter. Ak máš stavebný blok v práve vybranom
+slote, použije ho ako vzorku; pred spustením `build` preto vyber slot so správnym
+blokom. Ak je slot prázdny, turtle navštívi `materials`, vezme jeden kus ako vzorku
+a vráti ho do truhly. Alternatívne zadaj celé ID, napríklad
 `minecraft:stone`. S konkrétnym ID vie využiť aj materiál, ktorý už má v inventári,
 a skontrolovať hotovú podlahu pri prázdnej materiálovej truhle.
 
@@ -59,14 +63,20 @@ Potom zvoľ automatické určenie smeru alebo zadaj skutočný smer ručne.
 
 Turtle priebežne kontroluje palivo aj cestu k palivovej truhle. Úvodný cieľ paliva
 je dvojnásobok odhadu práce, presunov, zásobovania a rezervy, obmedzený nádržou.
-Ak už má dosť, netankuje. Pri nedostatku materiálu berie najviac stack naraz,
-pri menšom zvyšku len potrebný počet. Po zásobovaní sa vráti presne nad
-rozpracované miesto. Keď zostane v truhle menej než stack, využije aj túto zásobu.
+Počet zásobovacích ciest počíta podľa kapacity dostupných slotov; rezervu na
+obchádzanie pridá k celému odhadu, nie ku každému stacku zvlášť. Vypíše aktuálne
+palivo, cieľový odhad a počet dávok. Ak už má dosť, netankuje.
+Pred odchodom na stavbu naberie materiál do dostupných slotov, najviac na zostávajúcu
+prácu. To isté zopakuje po spotrebovaní zásoby. Po zásobovaní sa vráti presne nad
+alebo pod rozpracované miesto. Využije aj menšiu dostupnú zásobu.
 Stavebné drevo v inventári chráni pred automatickým spálením.
 
 Celú budúcu rovinu podlahy vylúči z navigácie, aby si položenými blokmi
 nezablokovala cestu používanú na návrat alebo zásobovanie. Overí polohu a výsledok
 každého položenia; až potom miesto započíta medzi hotové.
+Prístup zhora/zdola má obchádzku najviac dva bloky, najviac osem preplánovaní
+a limit krokov odvodený od vzdialenosti. Po neúspešnom pokuse sa vráti na
+overené miesto a až potom skúsi druhú stranu. Prekážky automaticky nebúra.
 
 - Rovnaký existujúci blok preskočí a započíta ako hotové miesto.
 - Pri inom bloku, prekážke v trase, chýbajúcom materiáli alebo chybe položenia
@@ -89,8 +99,8 @@ Tu sú povinné palivová, materiálová aj vykladacia stanica. Všetky vybrané
 používajú rovnaký materiál a dostanú vlastné neprekrývajúce sa segmenty.
 
 Pri tuneli vyber pracovné poschodie, ktorého výstup je v priestore pre turtle:
-pri podlahe na Y=63 teda výstup na Y=64. Doky, truhly, šachtu aj prístupové
-koridory umiestni mimo plochy podlahy a priestoru nad ňou. Prístup k spoločným
+pri podlahe na Y=63 teda výstup na Y=64 alebo Y=62. Doky, truhly, šachtu aj prístupové
+koridory umiestni mimo plochy podlahy a priestoru nad aj pod ňou. Prístup k spoločným
 staniciam a tunelu riadi servisná rezervácia; samotné stavanie prebieha súbežne.
 
 Monitor a `receiver fleet ID_PC` ukazujú hotové/zostávajúce miesta a položené
@@ -103,7 +113,7 @@ Detail rozlišuje `Polozene` a `Existujuce`. Pre samostatnú turtle stačí dote
 `build.lua` zobrazuje menu stavebných programov zo zoznamu `build_programs.lua`.
 Nový stavebný program do menu pridáš položkou s názvom, popisom a príkazom v tomto
 zozname a jeho súborom v update manifeste. `floor.lua` obsahuje dialóg,
-`floor_plan.lua` plán plochy a `building.lua` prácu:
+`floor_plan.lua` plán plochy, `floor_access.lua` prístup zhora/zdola a `building.lua` prácu:
 
 ```lua
 local ok, err, progress = require("building").run(

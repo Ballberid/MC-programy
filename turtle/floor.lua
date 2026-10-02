@@ -3,14 +3,16 @@ local dialog = require("fleet_dialog")
 local building = require("building")
 print("STAVANIE PODLAHY")
 print("Rohy su BLOKY podlahy, oba maju rovnake Y.")
-print("Turtle sa pohybuje na Y+1. Priprav truhlu materials cez setup.")
+print("Turtle kladie zhora alebo zdola. Priprav truhlu materials cez setup.")
 local a = dialog.point("Prvy roh podlahy", true)
 local b = dialog.point("Protilahly roh podlahy", true)
 local box, reason = building.validateArea(a, b)
 if not box then error(reason, 0) end
-local name = dialog.text("ID bloku, napr. minecraft:stone; Enter = vzorka z truhly", "")
+local sample = turtle.getItemDetail(turtle.getSelectedSlot())
+if sample then print("Vzorka vo vybranom slote: " .. sample.name) end
+local name = dialog.text("ID bloku; Enter = vybrany slot alebo vzorka z truhly", "")
 if name == "" then name = nil end
-print("Plocha " .. box.size.x .. "x" .. box.size.z .. "; " .. box.volume .. " blokov. Turtle Y=" .. (a.y+1))
+print("Plocha " .. box.size.x .. "x" .. box.size.z .. "; " .. box.volume .. " blokov. Turtle Y=" .. (a.y+1) .. " alebo " .. (a.y-1))
 if not dialog.yes("Zacat stavanie?", false) then return end
 local heading
 if not dialog.yes("Zistit smer automaticky?", true) then

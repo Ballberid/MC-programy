@@ -23,6 +23,7 @@ Stavanie jednoduchej podlahy:
 Samostatna turtle: setup (nastav fuel a materials), potom build a vyber 1 Podlaha.
 Build zobrazi dostupne stavebne programy; 0 ukonci menu. Priamo floor tiez funguje.
 Hlavny PC: fleet, volba 9 podlaha; turtle maju spusteny worker.
-Rohy su suradnice BLOKOV podlahy, oba maju rovnake Y. Turtle chodi na Y+1.
+Rohy su suradnice BLOKOV podlahy, oba maju rovnake Y. Turtle chodi na Y+1 alebo Y-1.
+Vzorku mozes dat do vybraneho slotu; pri vybere bloku potom staci Enter.
 Materialova truhla obsahuje jeden druh plneho stavebneho bloku.
 Podrobny navod je v PODLAHA_NAVOD.md.

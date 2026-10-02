@@ -150,7 +150,8 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading])`, `stepTo(point,box,[progress])` |
 | `quarry_entry.lua` | Výber a overovanie alternatívnych vstupov do kvádra |
 | `quarry.lua` | Herný dialóg na vykopanie oblasti |
-| `floor_plan.lua` | `new(a,b)`, `cell(box,index,first)`, `protected(box)`; bloky podlahy a priestor pre turtle nad nimi |
+| `floor_plan.lua` | `new(a,b)`, `cell(box,index,first)`, `protected(box)`; bloky podlahy a priestor pre turtle nad aj pod nimi |
+| `floor_access.lua` | Ohraničený prístup k bloku podlahy zhora alebo zdola, kladenie pod seba alebo nad seba |
 | `building.lua` | `validateArea(a,b)`, `run(a,b,[blockName],[heading],[wholeArea])`; vráti úspech, chybu a priebeh stavby |
 | `floor.lua` | Herný dialóg na položenie obdĺžnikovej podlahy |
 | `build.lua`, `build_programs.lua` | Menu stavebných programov a zoznam jeho možností; spúšťa sa cez `build` |

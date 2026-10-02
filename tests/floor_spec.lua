@@ -69,9 +69,58 @@ test("floor failed placement never counts an unfinished cell", function()
     eq(ok,false); assert(err:find("place_failed",1,true)); eq(p.completed,1); eq(p.placed,1); eq(p.returnedHome,true)
 end)
 test("floor walking obstacle stops without digging or drifting", function()
-    local W = setup(64); W.blocks["5,0,0"]=true
+    local W = setup(64); W.blocks["5,0,0"]=true; W.blocks["5,-2,0"]=true
     local ok, err, p = require("building").run(a,b,"minecraft:stone",0)
     eq(ok,false); assert(err:find("floor_travel_failed",1,true)); eq(p.completed,1); eq(#W.digs,0); eq(p.returnedHome,true)
+end)
+test("floor uses selected inventory sample and loads a batch before entry", function()
+    local W=setup(100)
+    W.slots[1]={name="minecraft:stone",count=1}
+    local original=turtle.placeDown; local firstCount
+    turtle.placeDown=function()
+        firstCount=firstCount or require("inventory").count("minecraft:stone")
+        return original()
+    end
+    local ok,err,p=require("building").run(a,b,nil,0)
+    assert(ok,err); eq(firstCount,6); eq(p.placed,6)
+    eq(W.chests["-3,0,0"].items[1].count,95)
+end)
+test("floor builds from underneath without crossing its own plane", function()
+    local W,c=setup(64)
+    W.y=-2
+    c.start.y,c.home.y=-2,-2
+    for _,s in pairs(c.stations) do s.y=-2 end
+    assert(require("config").save(c))
+    W.chests["3,-2,0"],W.chests["3,0,0"]=W.chests["3,0,0"],nil
+    W.chests["-3,-2,0"],W.chests["-3,0,0"]=W.chests["-3,0,0"],nil
+    W.chests["0,-2,3"],W.chests["0,0,3"]=W.chests["0,0,3"],nil
+    for x=4,6 do for z=0,1 do W.blocks[x..",0,"..z]=true end end
+    local ok,err,p=require("building").run(a,b,"minecraft:stone",0)
+    assert(ok,err); eq(p.placed,6); eq(W.y,-2); eq(#W.digs,0)
+end)
+test("floor switches below when the first upper stand is obstructed", function()
+    local W=setup(64); W.blocks["4,0,0"]=true
+    local ok,err,p=require("building").run(a,b,"minecraft:stone",0)
+    assert(ok,err); eq(p.placed,6); eq(p.returnedHome,true); eq(#W.digs,0)
+end)
+test("floor 4000 block fuel estimate uses inventory capacity and skips refuel at 30k", function()
+    local W=setup(5000); W.fuel=30000
+    local original=turtle.placeDown
+    local fuelAtFirst,itemsAtFirst
+    turtle.placeDown=function()
+        fuelAtFirst=fuelAtFirst or W.fuel
+        itemsAtFirst=itemsAtFirst or require("inventory").count("minecraft:stone")
+        return original()
+    end
+    local stopped=false
+    env.navReady().setRuntime(nil,function()
+        local p=require("telemetry").getProgress()
+        if p and p.completed==1 and not stopped then stopped=true; return false,"test_stop" end
+        return true
+    end)
+    local ok,err,p=require("building").run(a,{x=83,y=-1,z=49},"minecraft:stone",0)
+    eq(ok,false); eq(p.total,4000); eq(p.startFuelTarget,nil); assert(p.startFuelRequired<30000)
+    eq(W.refuelCounts,nil); assert(fuelAtFirst<30000); eq(itemsAtFirst,960); eq(p.returnedHome,true)
 end)
 test("floor rejects chest in placement and walking layers", function()
     setup(64)
@@ -116,6 +165,25 @@ test("floor keeps reserved fuel slot empty while unloading other items", functio
     for slot=1,15 do W.slots[slot]={name="minecraft:dirt",count=64} end
     local ok,err,p=require("building").run(a,b,"minecraft:stone",0)
     assert(ok,err); eq(p.placed,6); eq(W.slots[16],nil); assert(#W.chests["0,0,3"].items>0)
+end)
+test("floor full material batch retains a slot for mid-job refuelling", function()
+    local W=setup(5000)
+    local original=turtle.placeDown
+    local placements=0
+    turtle.placeDown=function()
+        local ok,err=original()
+        if ok then placements=placements+1; if placements==1 then W.fuel=26 end end
+        return ok,err
+    end
+    local stopped=false
+    env.navReady().setRuntime(nil,function()
+        local p=require("telemetry").getProgress()
+        if p and p.completed==2 and not stopped then stopped=true; return false,"test_stop" end
+        return true
+    end)
+    local ok,err,p=require("building").run(a,{x=43,y=-1,z=24},"minecraft:stone",0)
+    eq(ok,false); eq(err,"test_stop"); eq(p.completed,2); assert(W.refuelCounts and #W.refuelCounts>0)
+    eq(p.returnedHome,true); eq(#require("config").load().fuelSlots,0)
 end)
 test("floor stop checkpoint retreats without another placement", function()
     setup(64); local nav=env.navReady(); local stopped=false

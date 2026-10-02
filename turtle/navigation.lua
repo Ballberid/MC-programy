@@ -98,7 +98,7 @@ local function rawMove(x, y, z, options)
     local permitted, denied = nav.checkpoint()
     if not permitted then return false, denied end
     if options.direction ~= nil and not config.isDirection(options.direction) then return false, "invalid_direction" end
-    for _, name in ipairs({ "reserve", "maxMoves", "maxDetour" }) do
+    for _, name in ipairs({ "reserve", "maxMoves", "maxDetour", "maxReplans" }) do
         local value = options[name]
         if value ~= nil and (type(value) ~= "number" or value ~= value or value == math.huge or value < 0 or value % 1 ~= 0) then
             return false, "invalid_option:" .. name
@@ -152,7 +152,7 @@ local function rawMove(x, y, z, options)
             if not success then
                 paths.mark(nextPoint, false)
                 replans = replans + 1
-                if replans > settings.navigation.maxReplans then return stop("replan_limit", goal, moved) end
+                if replans > (options.maxReplans or settings.navigation.maxReplans) then return stop("replan_limit", goal, moved) end
                 obstructed = true
                 telemetry.emit("warning", "obstacle", nextPoint, true)
                 break

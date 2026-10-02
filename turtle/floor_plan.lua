@@ -9,7 +9,7 @@ function plan.new(a, b)
     return box
 end
 function plan.protected(box)
-    return { min = { x = box.min.x, y = box.min.y, z = box.min.z },
+    return { min = { x = box.min.x, y = box.min.y - 1, z = box.min.z },
         max = { x = box.max.x, y = box.max.y + 1, z = box.max.z } }
 end
 function plan.cell(box, index, first)

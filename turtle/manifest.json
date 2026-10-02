@@ -35,6 +35,7 @@
     { "source": "fleet.lua", "target": "fleet.lua", "roles": ["controller"] },
     { "source": "floor_plan.lua", "target": "floor_plan.lua", "roles": ["turtle", "controller"] },
     { "source": "building.lua", "target": "building.lua", "roles": ["turtle"] },
+    { "source": "floor_access.lua", "target": "floor_access.lua", "roles": ["turtle"] },
     { "source": "floor.lua", "target": "floor.lua", "roles": ["turtle"] },
     { "source": "build_programs.lua", "target": "build_programs.lua", "roles": ["turtle"] },
     { "source": "build.lua", "target": "build.lua", "roles": ["turtle"] }
