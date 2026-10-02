@@ -18,8 +18,15 @@ local heading
 if not dialog.yes("Zistit smer automaticky?", true) then
     heading = dialog.number("Smer: 0 sever, 1 vychod, 2 juh, 3 zapad", 0, 0, 3)
 end
-local ok, err, progress = building.run(a, b, name, heading)
+local function waitForMaterials(block, progress)
+    print("Hotove " .. progress.completed .. "/" .. progress.total .. "; zostava " .. progress.remaining)
+    print("Dopln materialovu truhlu blokom " .. block .. ".")
+    print("1 - Truhla je doplnena, pokracovat")
+    print("0 - Zrusit stavanie")
+    return dialog.number("Volba", 0, 0, 1) == 1
+end
+local ok, err, progress = building.run(a, b, name, heading, nil, waitForMaterials)
 if not ok then
-    print("Chyba: " .. tostring(err))
+    print(err == "cancelled_by_user" and "Stavanie zrusene." or ("Chyba: " .. tostring(err)))
     if progress then print("Hotove " .. progress.completed .. "/" .. progress.total .. "; navrat " .. tostring(progress.returnedHome)) end
 end

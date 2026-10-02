@@ -63,6 +63,49 @@ test("floor uses partial source then stops with accurate counters", function()
     eq(ok,false); eq(err,"materials_missing"); eq(p.placed,2); eq(p.completed,2); eq(p.remaining,4)
     eq(p.returnedHome,true); eq(#W.digs,0)
 end)
+test("floor waits at home and resumes the unfinished cell after refill", function()
+    local W=setup(2)
+    local waits=0
+    local ok,err,p=require("building").run(a,b,"minecraft:stone",0,nil,function(name,progress)
+        waits=waits+1
+        eq(name,"minecraft:stone"); eq(progress.phase,"waiting_materials")
+        eq(progress.completed,2); eq(progress.remaining,4); eq(progress.returnedHome,true)
+        eq(W.x,0); eq(W.y,0); eq(W.z,0); eq(W.d,0)
+        local packet=W.packets[#W.packets]
+        eq(packet.activity,"waiting_materials"); eq(packet.progress.completed,2)
+        W.chests["-3,0,0"].items={{name=name,count=4}}
+        return true
+    end)
+    assert(ok,err); eq(waits,1); eq(p.placed,6); eq(p.completed,6); eq(p.returnedHome,true)
+    eq(#W.placements,6)
+    local seen={}
+    for _,point in ipairs(W.placements) do
+        local k=point.x..","..point.y..","..point.z
+        assert(not seen[k]); seen[k]=true
+    end
+end)
+test("floor empty refill confirmation waits again at home", function()
+    local W=setup(2); local waits=0
+    local ok,err,p=require("building").run(a,b,"minecraft:stone",0,nil,function(name,progress)
+        waits=waits+1
+        eq(W.x,0); eq(W.y,0); eq(W.z,0); eq(progress.completed,2)
+        if waits==2 then W.chests["-3,0,0"].items={{name=name,count=4}} end
+        assert(waits<=2)
+        return true
+    end)
+    assert(ok,err); eq(waits,2); eq(p.placed,6); eq(p.completed,6)
+end)
+test("floor user can cancel while waiting at home", function()
+    local W=setup(2); local waits=0
+    local ok,err,p=require("building").run(a,b,"minecraft:stone",0,nil,function(_,progress)
+        waits=waits+1; eq(W.x,0); eq(W.z,0); eq(progress.completed,2)
+        return false
+    end)
+    eq(ok,false); eq(err,"cancelled_by_user"); eq(waits,1)
+    eq(p.placed,2); eq(p.remaining,4); eq(p.returnedHome,true)
+    eq(require("config").load().protectedItems["minecraft:stone"],nil)
+    eq(#require("config").load().fuelSlots,0)
+end)
 test("floor failed placement never counts an unfinished cell", function()
     local W = setup(64); W.placeFailAt="5,-1,0"
     local ok, err, p = require("building").run(a,b,"minecraft:stone",0)

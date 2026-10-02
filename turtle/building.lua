@@ -29,12 +29,13 @@ function building.validateArea(a, b)
     return box
 end
 
-function building.run(a, b, blockName, heading, wholeArea)
+function building.run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
     local box, err = building.validateArea(a, b)
     if not box then return false, err end
     if blockName ~= nil and (type(blockName) ~= "string" or not blockName:match("^[%w_%-]+:[%w_/%.-]+$")) then
         return false, "invalid_block_name"
     end
+    if onMaterialsMissing ~= nil and type(onMaterialsMissing) ~= "function" then return false, "invalid_materials_handler" end
     local original = config.load()
     local c = require("fleet_store").copy(original)
     local selected = turtle.getSelectedSlot()
@@ -66,12 +67,11 @@ function building.run(a, b, blockName, heading, wholeArea)
     local function routeCost(target, from)
         return nav.knownDistance(target, from) or (nav.estimateDistance(target, from) + 6 * c.navigation.maxDetour)
     end
-    local function travel(target, direct)
-        local cost = direct and 1 or routeCost(target)
-        local ok, reason = supplies.ensure({ moves = cost, endpoint = direct and target or nil })
+    local function travel(target, knownOnly)
+        local ok, reason = supplies.ensure({ moves = routeCost(target) })
         if not ok then return false, reason end
         local options = assert(supplies.navigationOptions())
-        if direct then options.maxMoves, options.maxDetour = 1, 0 end
+        options.knownOnly = knownOnly == true
         return nav.moveToCoord(target.x, target.y, target.z, options)
     end
     local function capacity()
@@ -109,6 +109,36 @@ function building.run(a, b, blockName, heading, wholeArea)
         local filled, fillErr = stations.takeMaterials({ [blockName] = math.min(p.remaining, capacity()) }, options)
         telemetry.log("Material v inventari: " .. inv.count(blockName) .. "; zostava " .. p.remaining)
         return filled, fillErr
+    end
+    local function supplyOrWait()
+        local supplied, reason = restock()
+        if supplied or reason ~= "materials_missing" or not onMaterialsMissing then return supplied, reason end
+        local workPoint = nav.getPosition()
+        p.phase = "returning_for_materials"
+        local home, homeErr = travel(c.home)
+        if not home then return false, homeErr end
+        local turned, turnErr = nav.turnToDirection(c.home.direction)
+        if not turned then return false, turnErr end
+        p.returnedHome = true
+        while true do
+            p.phase = "waiting_materials"
+            telemetry.setActivity("waiting_materials")
+            telemetry.log("Dosiel material " .. blockName .. ". Som doma a cakam na doplnenie truhly.")
+            if not onMaterialsMissing(blockName, p) then return false, "cancelled_by_user" end
+            local allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
+            p.phase = "restocking"
+            supplied, reason = restock(true)
+            if supplied and inv.count(blockName) > 0 then break end
+            if reason ~= "materials_missing" then return false, reason or "materials_missing" end
+            telemetry.log("Truhla stale nema potrebny material. Cakam dalej.")
+        end
+        p.phase, p.returnedHome = "resuming", false
+        local resumed, resumeErr = travel(workPoint, true)
+        if not resumed then return false, resumeErr end
+        local restored, restoreErr = nav.turnToDirection(workPoint.direction)
+        if not restored then return false, restoreErr end
+        p.phase = "building"
+        return true
     end
     local function work()
         if blockName then
@@ -173,7 +203,7 @@ function building.run(a, b, blockName, heading, wholeArea)
                 end
                 p.skipped = p.skipped + 1
             else
-                local supplied, supplyErr = restock(); if not supplied then return false, supplyErr end
+                local supplied, supplyErr = supplyOrWait(); if not supplied then return false, supplyErr end
                 allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
                 synced, syncErr = nav.sync(); if not synced then return false, syncErr end
                 if nav.distance(nav.getPosition(), stand) ~= 0 then return false, "work_position_changed" end

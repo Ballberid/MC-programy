@@ -79,7 +79,11 @@ a limit krokov odvodený od vzdialenosti. Po neúspešnom pokuse sa vráti na
 overené miesto a až potom skúsi druhú stranu. Prekážky automaticky nebúra.
 
 - Rovnaký existujúci blok preskočí a započíta ako hotové miesto.
-- Pri inom bloku, prekážke v trase, chýbajúcom materiáli alebo chybe položenia
+- Keď pri samostatnom `build`/`floor` dôjde materiál, vráti sa na origin a čaká.
+  **1** potvrdí doplnenie materiálovej truhly, **0** zruší stavanie. Po potvrdení
+  truhlu znovu skontroluje, naberie materiál a vráti sa k rozpracovanému bloku.
+  Ak je stále prázdna, znovu čaká doma. Priebeh zostáva zachovaný.
+- Pri inom bloku, prekážke v trase alebo chybe položenia
   sa zastaví, oznámi dôvod a pokúsi sa vrátiť na origin bez kopania.
 - Po úspechu vráti zvyšný stavebný materiál do zdrojovej truhly a ide domov.
 
@@ -127,6 +131,12 @@ Výsledok obsahuje `total`, `completed`, `remaining`, `placed`, `skipped`,
 `phase` a `returnedHome`. `test check` ukazuje pripravenosť knižníc a nastavené
 stanice bez pohybu; voľba **6** v `test` overuje prístup k truhlám.
 Pred veľkou podlahou skús v hre plochu **3×3**.
+
+Knižnica prijíma aj šiesty argument `onMaterialsMissing(blockName, progress)`.
+Volá sa po návrate na origin; `true` skúsi doplniť materiál a pokračovať,
+`false` prácu zruší. Samostatný program `floor` takto zobrazuje čakacie menu.
+Bez tohto obslužného argumentu zostáva knižnica neinteraktívna a nedostatok
+materiálu vráti ako chybu.
 
 Automatické testy bežia v simulovanom CC prostredí. Overujú dopĺňanie, existujúce
 bloky, prekážky, chyby položenia, ochranu dreva, návrat aj dve súbežné turtle.
