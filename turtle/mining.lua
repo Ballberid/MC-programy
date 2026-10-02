@@ -4,8 +4,10 @@ local nav = require("navigation")
 local position = require("position")
 local supplies = require("supplies")
 local stations = require("stations")
+local fuel = require("fuel")
 local telemetry = require("telemetry")
 local mining = {}
+local quarryEntry = require("quarry_entry")
 local maxAttempts = 32
 
 local function facing(target)
@@ -96,12 +98,24 @@ end
 
 local function travel(target)
     local c = config.load()
+    local start = nav.getPosition()
+    telemetry.log("Presun z " .. start.x .. "," .. start.y .. "," .. start.z
+        .. " na " .. target.x .. "," .. target.y .. "," .. target.z
+        .. "; palivo " .. tostring(fuel.level()), "info")
     local distance = nav.knownDistance(target) or (nav.distance(nav.getPosition(), target) + 6 * c.navigation.maxDetour)
     local ready, err = supplies.ensure({ moves = distance, freeSlots = 2, unloadFuel = true })
-    if not ready then return false, err end
+    if not ready then
+        telemetry.log("Presun zastaveny pri kontrole zasob: " .. tostring(err), "error")
+        return false, err
+    end
     local options, optionsErr = supplies.navigationOptions()
     if not options then return false, optionsErr end
-    return nav.moveToCoord(target.x, target.y, target.z, options)
+    local moved, moveErr, details = nav.moveToCoord(target.x, target.y, target.z, options)
+    if not moved then
+        telemetry.log("Navigacia zastavena: " .. tostring(moveErr)
+            .. "; prejdene kroky " .. tostring(details and details.moved or 0), "error")
+    end
+    return moved, moveErr, details
 end
 
 function mining.validateArea(a, b)
@@ -149,18 +163,15 @@ function mining.run(a, b, heading)
     local unloaded, unloadErr = stations.unload({}, options)
     if not unloaded then return fail(unloadErr) end
 
-    local entry = cuboid.entry(box, nav.getPosition())
+    telemetry.setActivity("quarry_refuel")
+    telemetry.log("Doplnam palivo pre kopanie do limitu " .. tostring(turtle.getFuelLimit()), "info")
+    local filled, fillErr = stations.fillFuel(options)
+    if not filled then return fail(fillErr) end
+    telemetry.log("Palivo po doplneni a navrate: " .. tostring(fuel.level()), "info")
+
     progress.phase = "entry"
-    if cuboid.contains(box, nav.getPosition()) then
-        local joined, joinErr = connectInside(entry, box, progress)
-        if not joined then return fail(joinErr) end
-    else
-        local above = { x = entry.x, y = entry.y + 1, z = entry.z }
-        local arrived, arrivalErr = travel(above)
-        if not arrived then return fail("entry_unreachable:" .. tostring(arrivalErr)) end
-        local entered, enterErr = mining.stepTo(entry, box, progress)
-        if not entered then return fail(enterErr) end
-    end
+    local entry, entryErr = quarryEntry.enter(box, progress, travel, mining.stepTo, connectInside)
+    if not entry then return fail(entryErr) end
     for index = 1, box.volume do
         local target = cuboid.cell(box, index, entry)
         if nav.distance(nav.getPosition(), target) > 0 then

@@ -26,12 +26,19 @@ function pathfinding.forgetBlocked()
     for key, free in pairs(cells) do if free == false then cells[key] = nil end end
 end
 
+local function before(a, b)
+    if a.score ~= b.score then return a.score < b.score end
+    -- Equal shortest-path estimates are common across large open quarries.
+    -- Prefer progress toward the goal instead of expanding the whole volume.
+    return a.cost > b.cost
+end
+
 local function push(heap, entry)
     local i = #heap + 1
     heap[i] = entry
     while i > 1 do
         local parent = math.floor(i / 2)
-        if heap[parent].score <= entry.score then break end
+        if not before(entry, heap[parent]) then break end
         heap[i] = heap[parent]; i = parent; heap[i] = entry
     end
 end
@@ -44,8 +51,8 @@ local function pop(heap)
         local i = 1
         while i * 2 <= #heap do
             local child = i * 2
-            if child < #heap and heap[child + 1].score < heap[child].score then child = child + 1 end
-            if heap[i].score <= heap[child].score then break end
+            if child < #heap and before(heap[child + 1], heap[child]) then child = child + 1 end
+            if not before(heap[child], heap[i]) then break end
             heap[i], heap[child] = heap[child], heap[i]; i = child
         end
     end

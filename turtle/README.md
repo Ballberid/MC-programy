@@ -71,10 +71,21 @@ Používa palivovú a vykladaciu stanicu zo setupu; obe musia byť nastavené.
 Knižnice a program automaticky stiahne `update turtle` podľa manifestu.
 Potrebuje mining turtle s nástrojom na kopanie, funkčné GPS a počiatočné palivo
 na overenie truhiel. Do setupu netreba zadávať rozmery výkopu.
+Pred vstupom do výkopu sa pokúsi naplniť nádrž do skutočného limitu turtle.
+Ak zásoba v truhle nestačí na úplné naplnenie, môže pokračovať s čiastočnou zásobou,
+ak má palivo na návrat a rezervu. Počet blokov celého výkopu nie je požiadavkou,
+aby mala všetko palivo naraz; počas práce sa môže opakovane zásobovať.
+Na cestu za palivom pri nízkej zásobe používa už overenú trasu.
+Pri štarte vypisuje `Rezim: plna nadrz + alternativne vstupy.`, aby bolo zrejmé,
+že sa spustila táto verzia programu.
 
 Najprv overí prístup k palivu a vykladacej truhle. Prístup ku kvádru hľadá bežnou
-navigáciou bez kopania k miestu nad vybraným horným rohom. Toto miesto musí byť
-prístupné; **nevykopáva prístupový tunel mimo zadanej oblasti**. Ak po úvodnom
+navigáciou bez kopania: skúša vonkajšie miesta nad hornými rohmi aj vedľa nich,
+zoradené podľa vzdialenosti. Ak je jeden prístup zablokovaný, skúsi ďalší.
+Aspoň jedno z týchto miest musí byť prístupné;
+**nevykopáva prístupový tunel mimo zadanej oblasti**. Horný rohový blok môže byť
+plný — po príchode na susedné miesto ho vykope. Pri každom pokuse vypíše zvlášť
+súradnice miesta pre turtle a rohového bloku. Ak po úvodnom
 servise stojí vo vnútri kvádra, môže sa k hornému rohu prekopať iba v jeho hraniciach.
 
 Oblasť prechádza cikcakom po vrstvách zhora nadol. Každé ďalšie pracovné miesto
@@ -112,9 +123,11 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `fuel.lua` | `level()`, `has(amount)`, `refuel([target],[slots])`, `ensure(amount,[slots])`, `required(workMoves,returnMoves,reserve)`, `slots(settings)` |
 | `inventory.lua` | `freeSlots()`, `freeSlotList()`, `count(name)`, `find(name)`, `select(name)`, `space(name)`, `snapshot()`, `hasMaterials(materials)` |
 | `stations.lua` | `get(name)`, `visit(name,[options])`, `verify(name,[options])`, `refuel(target,[options])`, `unload([keep],[options])`, `takeMaterials(materials,[options])` |
+| | `fillFuel([options])` naplní nádrž v stanici, potom sa vráti; palivo po návrate je znížené o túto cestu |
 | `supplies.lua` | `prepare([heading])`, `check(request)`, `ensure(request)`, `navigationOptions()` |
 | `cuboid.lua` | Normalizácia rohov, rozmery a postupné susedné bunky kvádra |
 | `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading])`, `stepTo(point,box,[progress])` |
+| `quarry_entry.lua` | Výber a overovanie alternatívnych vstupov do kvádra |
 | `quarry.lua` | Herný dialóg na vykopanie oblasti |
 | `telemetry.lua` | `configure(settings,[positionProvider])`, `setActivity(text)`, `emit(level,message,[details],[force])`, `log(message,[level],[details])`, `capture(function,...)` |
 | `network.lua` | Otvorenie dostupných modemov pre rednet |

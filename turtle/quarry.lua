@@ -37,6 +37,7 @@ local settings, configErr = config.load()
 if not settings then error("Najprv spusti setup: " .. tostring(configErr), 0) end
 telemetry.configure(settings.telemetry)
 print("Kopanie kvadra. Velke pismeno = volba po Enter.")
+print("Rezim: plna nadrz + alternativne vstupy.")
 local a, b = corner("Prvy roh"), corner("Druhy protilahly roh")
 local box, areaErr = mining.validateArea(a, b)
 if not box then error("Neplatna oblast: " .. tostring(areaErr), 0) end

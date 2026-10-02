@@ -1,6 +1,6 @@
 package.path = ROOT .. "/turtle/?.lua;" .. package.path
 local realLoadfile = loadfile
-local modules = { "config", "fuel", "inventory", "position", "pathfinding", "navigation", "stations", "supplies", "network", "telemetry", "cuboid", "mining" }
+local modules = { "config", "fuel", "inventory", "position", "pathfinding", "navigation", "stations", "supplies", "network", "telemetry", "cuboid", "mining", "quarry_entry" }
 local W
 local tests = 0
 local function key(p) return p.x .. "," .. p.y .. "," .. p.z end
@@ -628,11 +628,18 @@ test("quarry unloads mined coal and returns with reserve", function()
     assert(W.fuel >= 20)
 end)
 test("quarry obtains chest fuel after excavation has started", function()
-    quarryWorld(); W.fuel = 80
-    local a, b = { x = 2, y = 0, z = 0 }, { x = 80, y = 0, z = 0 }
-    for x = 2, 80 do W.blocks[x .. ",0,0"] = true end
+    quarryWorld(); W.fuel = 80; W.limit = 200
+    local a, b = { x = 2, y = 0, z = 0 }, { x = 11, y = -2, z = 5 }
+    for x = 2, 11 do for y = -2, 0 do for z = 0, 5 do
+        W.blocks[x .. "," .. y .. "," .. z] = true
+    end end end
     local ok, err, progress = require("mining").run(a, b)
-    assert(ok, err); eq(progress.visited, 79); assert(W.refuelAfterDig)
+    if not ok then
+        for _, packet in ipairs(W.packets) do
+            if packet.level == "error" then print(serialize(packet)) end
+        end
+    end
+    assert(ok, err); eq(progress.visited, 180); assert(W.refuelAfterDig)
     assert(not W.chests["-1,0,0"].items[1] or W.chests["-1,0,0"].items[1].count < 64)
     eq(W.x, 0); eq(W.d, 0); eq(W.lostDrops, 0)
 end)
@@ -686,6 +693,104 @@ test("quarry dialog accepts letter cancellation without moving", function()
     local ok, err = pcall(realLoadfile(ROOT .. "/turtle/quarry.lua"))
     print, write, read = originalPrint, originalWrite, originalRead
     assert(ok, err); eq(reads, 7); eq(W.moves, 0); eq(#W.digs, 0)
+end)
+
+test("fillFuel consumes sufficient coal from four stacks up to the actual limit", function()
+    quarryWorld(); W.fuel = 237; W.limit = 20000
+    W.chests["-1,0,0"].items = {}
+    for _ = 1, 4 do W.chests["-1,0,0"].items[#W.chests["-1,0,0"].items + 1] = { name = "minecraft:coal", count = 64 } end
+    assert(require("stations").fillFuel(require("supplies").navigationOptions() or {}))
+    eq(W.fuel, 20000); eq(W.x, 0); eq(require("inventory").count("minecraft:coal"), 0)
+    local left = 0
+    for _, item in ipairs(W.chests["-1,0,0"].items) do left = left + item.count end
+    eq(left, 8)
+end)
+test("fillFuel accepts an exhausted chest when partial fuel still permits return", function()
+    quarryWorld(); W.fuel = 237; W.chests["-1,0,0"].items = { { name = "minecraft:coal", count = 2 } }
+    assert(require("stations").fillFuel())
+    eq(W.fuel, 397); eq(W.x, 0); eq(#W.chests["-1,0,0"].items, 0)
+end)
+test("fillFuel at a distant station does not request capacity beyond its tank", function()
+    configured({ fuel = { x = 2, y = 0, z = 0, direction = 1, side = "front" } })
+    W.chests["3,0,0"] = { items = { { name = "minecraft:coal", count = 64 } } }
+    navReady()
+    assert(require("stations").fillFuel())
+    eq(W.fuel, W.limit - 2); eq(W.x, 0); eq(W.d, 0)
+end)
+test("reported 62x8x62 quarry coordinates permit entry with 237 fuel", function()
+    W.x, W.y, W.z = 7533, 68, -2505
+    local c = require("config").defaults()
+    c.start = { x = W.x, y = W.y, z = W.z, direction = 0 }
+    c.home = c.start
+    c.stations.fuel = { x = W.x, y = W.y, z = W.z, direction = 3, side = "front" }
+    c.stations.output = { x = W.x, y = W.y, z = W.z, direction = 0, side = "front" }
+    assert(require("config").save(c))
+    W.chests["7532,68,-2505"] = { items = { { name = "minecraft:coal", count = 64 } } }
+    W.chests["7533,68,-2506"] = { items = {} }
+    for x = 7489, 7550 do for z = -2559, -2498 do W.blocks[x .. ",67," .. z] = true end end
+    W.fuel = 237
+    local nav = navReady()
+    assert(require("supplies").prepare())
+    local box = assert(require("mining").validateArea({ x = 7489, y = 67, z = -2498 }, { x = 7550, y = 60, z = -2559 }))
+    eq(box.volume, 30752)
+    local progress = { dug = 0 }
+    local target, err = require("quarry_entry").enter(box, progress, function(p)
+        local options = assert(require("supplies").navigationOptions())
+        return nav.moveToCoord(p.x, p.y, p.z, options)
+    end, require("mining").stepTo, function() error("outside box") end)
+    assert(target, err); eq(target.x, 7550); eq(target.y, 67); eq(target.z, -2498)
+    eq(progress.dug, 1); eq(#progress.entryAttempts, 1); eq(W.moves, 25)
+    matchesWorld(nav)
+end)
+test("large known open quarry return route does not exhaust the node limit", function()
+    local paths = require("pathfinding")
+    for x = 7489, 7550 do for y = 60, 67 do for z = -2559, -2498 do
+        paths.mark({ x = x, y = y, z = z }, true)
+    end end end
+    local route, err = paths.find({ x = 7489, y = 60, z = -2559 }, { x = 7550, y = 67, z = -2498 }, { knownOnly = true, maxNodes = 200 })
+    assert(route, err); eq(#route, 129)
+end)
+
+test("quarry enters solid flat ground after a blocked side approach", function()
+    quarryWorld()
+    for x = 1, 5 do for z = -2, 3 do
+        W.blocks[x .. ",0," .. z] = true
+    end end
+    local a, b = { x = 2, y = -1, z = 0 }, { x = 3, y = 0, z = 1 }
+    for x = 2, 3 do for z = 0, 1 do W.blocks[x .. ",-1," .. z] = true end end
+    local mining, cuboid = require("mining"), require("cuboid")
+    local ok, err, progress = mining.run(a, b)
+    assert(ok, err); eq(progress.visited, 8); assert(#progress.entryAttempts > 1)
+    local box = assert(cuboid.new(a, b))
+    for _, p in ipairs(W.digs) do assert(cuboid.contains(box, p)) end
+    eq(W.blocks["1,0,0"], true); eq(W.blocks["4,0,0"], true); eq(W.x, 0)
+end)
+test("quarry uses side entrance when the upper approach is blocked", function()
+    quarryWorld(); W.blocks["2,0,0"] = true; W.blocks["2,1,0"] = true
+    local ok, err = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    assert(ok, err); eq(#W.digs, 1); eq(W.blocks["2,1,0"], true)
+end)
+test("all blocked entrances stop after the finite set without digging outside", function()
+    quarryWorld()
+    local cuboid = require("cuboid")
+    local p = { x = 2, y = 0, z = 0 }
+    local box = assert(cuboid.new(p, p))
+    W.blocks[key(p)] = true
+    local approaches = cuboid.approaches(box, require("navigation").getPosition())
+    eq(#approaches, 5)
+    for _, a in ipairs(approaches) do W.blocks[key(a.stand)] = true end
+    local ok, err, progress = require("mining").run(p, p)
+    eq(ok, false); eq(err, "entry_unreachable:all_approaches_blocked")
+    eq(#progress.entryAttempts, 5); eq(#W.digs, 0); eq(progress.visited, 0); eq(W.x, 0)
+end)
+test("entry does not retry a GPS or fuel failure at every corner", function()
+    quarryWorld()
+    local box = assert(require("cuboid").new({ x = 2, y = 0, z = 0 }, { x = 4, y = -1, z = 2 }))
+    local attempts = 0
+    local entry, err = require("quarry_entry").enter(box, {}, function()
+        attempts = attempts + 1; return false, "gps_unavailable"
+    end, function() error("must not dig") end, function() error("not inside") end)
+    eq(entry, nil); eq(err, "entry_unreachable:gps_unavailable"); eq(attempts, 1)
 end)
 
 local function updaterEnvironment()

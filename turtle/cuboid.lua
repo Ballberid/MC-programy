@@ -30,6 +30,37 @@ function cuboid.entry(box, p)
     }
 end
 
+-- All exterior neighbours of the upper corners, ordered by distance from
+-- the turtle. Include both sides for a box only one block wide/deep.
+function cuboid.approaches(box, from)
+    local approaches, seen = {}, {}
+    local function add(cell, stand)
+        if cuboid.contains(box, stand) then return end
+        local key = stand.x .. "," .. stand.y .. "," .. stand.z .. ":" .. cell.x .. "," .. cell.z
+        if seen[key] then return end
+        seen[key] = true
+        approaches[#approaches + 1] = {
+            cell = cell, stand = stand, order = #approaches + 1,
+            distance = math.abs(stand.x - from.x) + math.abs(stand.y - from.y) + math.abs(stand.z - from.z),
+        }
+    end
+    for _, x in ipairs({ box.min.x, box.max.x }) do
+        for _, z in ipairs({ box.min.z, box.max.z }) do
+            local cell = { x = x, y = box.max.y, z = z }
+            add(cell, { x = x, y = cell.y + 1, z = z })
+            for _, d in ipairs({ -1, 1 }) do
+                add(cell, { x = x + d, y = cell.y, z = z })
+                add(cell, { x = x, y = cell.y, z = z + d })
+            end
+        end
+    end
+    table.sort(approaches, function(a, b)
+        if a.distance == b.distance then return a.order < b.order end
+        return a.distance < b.distance
+    end)
+    return approaches
+end
+
 -- Adjacent snake cells on each layer; alternate the complete layer traversal
 -- so the next layer starts directly below the end of the previous one.
 function cuboid.cell(box, index, entry)

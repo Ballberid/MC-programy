@@ -76,10 +76,22 @@ end
 function stations.refuel(target, options)
     local c, configErr = settings()
     if not c then return false, configErr end
+    local o = {}
+    for key, value in pairs(options or {}) do o[key] = value end
+    -- When the tank is low, do not spend the verified return budget exploring
+    -- a speculative shortcut. Use the known fuel route if one is available.
+    if o.knownOnly == nil and c.stations.fuel and nav.knownDistance(c.stations.fuel) then o.knownOnly = true end
     return withVisit("fuel", function(station, start)
         local distance, err = nav.knownDistance(start)
         if not distance then return false, err end
-        local required = target + distance
+        -- nil means fill the tank AT the station; a full tank cannot include
+        -- extra capacity for the subsequent trip back to the work point.
+        local required = target == nil and turtle.getFuelLimit() or target + distance
+        local minimum = distance + (options and options.reserve or c.navigation.reserve) + 2
+        local function partialOrError(reason)
+            if options and options.allowPartial and fuel.has(minimum) then return true end
+            return false, reason
+        end
         if fuel.level() ~= "unlimited" and required > turtle.getFuelLimit() then return false, "fuel_target_exceeds_limit" end
         fuel.refuel(required, fuel.slots(c))
         -- At most 16 newly collected stacks. Empty/full/mixed chests terminate.
@@ -89,9 +101,9 @@ function stations.refuel(target, options)
             for _, candidate in ipairs(fuel.slots(c)) do
                 if turtle.getItemCount(candidate) == 0 then slot = candidate; break end
             end
-            if not slot then return false, "no_slot_for_fuel" end
+            if not slot then return partialOrError("no_slot_for_fuel") end
             turtle.select(slot)
-            if not transfer(station.side, true, 64) then return false, "fuel_chest_empty" end
+            if not transfer(station.side, true, 64) then return partialOrError("fuel_chest_empty") end
             if not turtle.refuel(0) then
                 if not transfer(station.side, false, turtle.getItemCount(slot)) then return false, "unexpected_fuel_item_cannot_return" end
                 return false, "fuel_chest_contains_nonfuel"
@@ -105,8 +117,16 @@ function stations.refuel(target, options)
                 if turtle.getItemCount(slot) > 0 then return false, "unused_fuel_cannot_return" end
             end
         end
-        return fuel.has(required), "fuel_transfer_limit"
-    end, options)
+        if fuel.has(required) then return true end
+        return partialOrError("fuel_transfer_limit")
+    end, o)
+end
+
+function stations.fillFuel(options)
+    if fuel.level() == "unlimited" then return true end
+    local o = { allowPartial = true }
+    for key, value in pairs(options or {}) do o[key] = value end
+    return stations.refuel(nil, o)
 end
 
 function stations.unload(keep, options)
