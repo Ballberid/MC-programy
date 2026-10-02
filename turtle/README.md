@@ -32,6 +32,12 @@ prípadne obmedzený výstup nahor, a pokúsi sa vrátiť na pôvodné miesto aj
 Ak to priestor nedovolí, zvoľ v setup ručné zadanie smeru. Ručný smer je tvoja
 informácia o skutočnej orientácii turtle, nie príkaz na jej otočenie.
 
+Otázky áno/nie zobrazujú `A/n` alebo `a/N`. Veľké písmeno označuje predvolenú
+odpoveď po prázdnom Enteri: `A/n` znamená áno, `a/N` znamená nie.
+Pre áno stačí `a` alebo `y`, pre nie `n`, bez ohľadu na veľkosť písmen.
+Prijímajú sa aj celé slová `ano`, `Áno`, `yes`, `nie`, `no`. Neplatná odpoveď
+zopakuje otázku. Odpoveď sa píše na samostatnom riadku za krátkym `> `.
+
 Orientácia: `0 = North (-Z)`, `1 = East (+X)`, `2 = South (+Z)`, `3 = West (-X)`.
 Y je výška, nezávislá od orientácie.
 

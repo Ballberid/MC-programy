@@ -471,6 +471,61 @@ test("supplies refuels, unloads and obtains material at same origin", function()
     assert(require("inventory").freeSlots() >= 3); eq(W.d, 0)
 end)
 
+local function runSetup(answers)
+    local originalPrint, originalWrite, originalRead = print, write, read
+    local heading, reads, column = "not_called", 0, 0
+    local prompts = {}
+    package.loaded.navigation = {
+        init = function(value) heading = value; return true end,
+        getPosition = function() return { x = 0, y = 0, z = 0, direction = 1 } end,
+        configure = function() end,
+    }
+    package.loaded.telemetry = { log = function() end }
+    print = function(text) prompts[#prompts + 1] = tostring(text); column = 0 end
+    write = function(text)
+        -- Every input prompt must start on its own line and be short enough
+        -- to leave room even on a narrow terminal.
+        eq(column, 0); eq(text, "> "); column = #text
+    end
+    read = function()
+        eq(column, 2)
+        reads = reads + 1; column = 0
+        assert(answers[reads] ~= nil, "unexpected question " .. reads)
+        return answers[reads]
+    end
+    local ok, err = pcall(realLoadfile(ROOT .. "/turtle/setup.lua"))
+    print, write, read = originalPrint, originalWrite, originalRead
+    assert(ok, err); eq(reads, #answers)
+    return heading, require("config").load(), table.concat(prompts, "\n")
+end
+test("setup accepts Ano without asking for manual heading", function()
+    local heading, c = runSetup({ "Ano", "Ano", "Nie", "Nie", "Nie", "", "", "Nie", "" })
+    eq(heading, nil); eq(c.home.direction, 1); eq(c.telemetry.enabled, false)
+end)
+test("setup accepts accented uppercase yes and letter choices", function()
+    local heading = runSetup({ "  ÁNO  ", "Y", "N", "n", "n", "", "", "N", "" })
+    eq(heading, nil)
+end)
+test("setup Enter defaults are consistent", function()
+    local heading, c, prompts = runSetup({ "", "", "", "", "n", "", "", "n", "" })
+    eq(heading, nil); eq(c.stations.materials, nil); eq(c.stations.output, nil)
+    assert(prompts:find("Zistit smer automaticky cez GPS? [A/n]", 1, true))
+    assert(prompts:find("Nastavit tuto stanicu? [a/N]", 1, true))
+    assert(not prompts:find("1 = Ano", 1, true))
+end)
+test("setup accepts a and y interchangeably", function()
+    local heading = runSetup({ "a", "y", "n", "n", "n", "", "", "n", "" })
+    eq(heading, nil)
+end)
+test("setup invalid yes/no reprompts instead of silently selecting no", function()
+    local heading = runSetup({ "maybe", "ano", "ano", "nie", "nie", "nie", "", "", "nie", "" })
+    eq(heading, nil)
+end)
+test("setup explicit no selects manual heading", function()
+    local heading = runSetup({ "Nie", "3", "ano", "nie", "nie", "nie", "", "", "nie", "" })
+    eq(heading, 3)
+end)
+
 local function updaterEnvironment()
     local manifest = { version = 1, files = {
         { source = "fuel.lua", target = "fuel.lua", roles = { "turtle" } },

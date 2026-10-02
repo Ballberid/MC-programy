@@ -3,10 +3,19 @@ local nav = require("navigation")
 local telemetry = require("telemetry")
 local names = { [0] = "North (-Z)", "East (+X)", "South (+Z)", "West (-X)" }
 
+local function ask(prompt)
+    print(prompt)
+    write("> ")
+    return read()
+end
+
+local function normalize(value)
+    return value:gsub("Á", "a"):gsub("á", "a"):lower():match("^%s*(.-)%s*$")
+end
+
 local function number(prompt, default, minimum, maximum)
     while true do
-        write(prompt .. (default ~= nil and " [" .. default .. "]" or "") .. ": ")
-        local text = read()
+        local text = normalize(ask(prompt .. (default ~= nil and " [Enter = " .. default .. "]" or "")))
         local value = text == "" and default or tonumber(text)
         if value and value % 1 == 0 and math.abs(value) ~= math.huge
             and (not minimum or value >= minimum) and (not maximum or value <= maximum) then return value end
@@ -15,9 +24,13 @@ local function number(prompt, default, minimum, maximum)
 end
 
 local function yes(prompt, default)
-    write(prompt .. (default and " [A/n]: " or " [a/N]: "))
-    local value = read():lower()
-    return value == "a" or value == "y" or (value == "" and default)
+    while true do
+        local value = normalize(ask(prompt .. (default and " [A/n]" or " [a/N]")))
+        if value == "" then return default end
+        if value == "a" or value == "ano" or value == "y" or value == "yes" then return true end
+        if value == "n" or value == "nie" or value == "no" then return false end
+        print("Neplatna odpoved. Zadaj a/y alebo n.")
+    end
 end
 
 local function heading(default)
@@ -35,6 +48,8 @@ end
 
 if not turtle then error("Setup spusti na turtle.", 0) end
 print("Craftoria turtle - setup")
+print("Ano = a alebo y, nie = n.")
+print("Velke pismeno v A/n alebo a/N = volba po Enter.")
 print("Zistovanie smeru moze urobit skusobny pohyb a vratit sa.")
 local manual
 if not yes("Zistit smer automaticky cez GPS?", true) then manual = heading() end
@@ -57,8 +72,8 @@ for _, entry in ipairs({ { "materials", "Material na stavanie" }, { "output", "V
         if yes("Je truhla vedla STARTOVACEJ polohy?", true) then
             local side
             repeat
-                write("Strana od povodneho smeru (front/right/back/left): ")
-                side = read():lower()
+                side = normalize(ask("Strana od povodneho smeru (front/right/back/left):"))
+                if offsets[side] == nil then print("Zadaj front, right, back alebo left.") end
             until offsets[side] ~= nil
             station = {
                 x = c.start.x, y = c.start.y, z = c.start.z,
@@ -69,9 +84,9 @@ for _, entry in ipairs({ { "materials", "Material na stavanie" }, { "output", "V
             station = point()
             local side
             repeat
-                write("Truhla z pristupovej polohy (front/up/down) [front]: ")
-                side = read():lower()
+                side = normalize(ask("Truhla z pristupovej polohy (front/up/down) [Enter = front]:"))
                 if side == "" then side = "front" end
+                if side ~= "front" and side ~= "up" and side ~= "down" then print("Zadaj front, up alebo down.") end
             until side == "front" or side == "up" or side == "down"
             station.side = side
         end
@@ -86,8 +101,7 @@ if c.telemetry.enabled then
         c.telemetry.receiverId = number("ID prijimaca", nil, 0)
     end
 end
-write("Nazov turtle (prazdne = ponechat): ")
-local label = read()
+local label = ask("Nazov turtle (prazdne = ponechat):")
 if label ~= "" then os.setComputerLabel(label) end
 local saved, reason = config.save(c)
 if not saved then error("Ulozenie zlyhalo: " .. tostring(reason), 0) end
