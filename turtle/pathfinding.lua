@@ -1,5 +1,13 @@
 local pathfinding = {}
 local cells = {}
+local avoid
+-- Reserve a future construction volume without allocating every cell.
+-- It survives map resets and obstacle refreshes until the caller restores it.
+function pathfinding.setAvoid(box)
+    local previous = avoid
+    avoid = box
+    return previous
+end
 local directions = {
     { x = 1, y = 0, z = 0 }, { x = -1, y = 0, z = 0 },
     { x = 0, y = 0, z = 1 }, { x = 0, y = 0, z = -1 },
@@ -65,6 +73,9 @@ function pathfinding.find(start, goal, options)
     options = options or {}
     local bounds = options.bounds
     local function allowed(p)
+        if avoid and p.x >= avoid.min.x and p.x <= avoid.max.x
+            and p.y >= avoid.min.y and p.y <= avoid.max.y
+            and p.z >= avoid.min.z and p.z <= avoid.max.z then return false end
         if bounds then
             for _, axis in ipairs({ "x", "y", "z" }) do
                 if p[axis] < bounds.min[axis] or p[axis] > bounds.max[axis] then return false end

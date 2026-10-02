@@ -1,7 +1,10 @@
 # Craftoria turtle knižnice
 
-Modulárny základ pre CC:Tweaked s programom `quarry` na kopanie kvádra.
-Stavací program ešte nie je súčasťou.
+Modulárny základ pre CC:Tweaked s programom `quarry` na kopanie kvádra
+a menu `build` na výber stavebného programu (zatiaľ podlaha `floor`).
+Postup opisuje [PODLAHA_NAVOD.md](PODLAHA_NAVOD.md).
+Viac turtle môže riadiť hlavný PC programom `fleet`; stavbu a inštaláciu opisuje
+[FLEET_NAVOD.md](FLEET_NAVOD.md).
 Knižnice sa načítavajú cez `require("navigation")` atď. Súbory nainštaluj do rovnakého
 pracovného priečinka a programy spúšťaj z neho. Dáta sa ukladajú do `data/`.
 
@@ -73,8 +76,8 @@ Používa palivovú a vykladaciu stanicu zo setupu; obe musia byť nastavené.
 Knižnice a program automaticky stiahne `update turtle` podľa manifestu.
 Potrebuje mining turtle s nástrojom na kopanie, funkčné GPS a počiatočné palivo
 na overenie truhiel. Do setupu netreba zadávať rozmery výkopu.
-Pred vstupom do výkopu sa pokúsi naplniť nádrž do skutočného limitu turtle.
-Ak zásoba v truhle nestačí na úplné naplnenie, môže pokračovať s čiastočnou zásobou,
+Pred vstupom do výkopu doplní palivo podľa odhadu uvedeného nižšie.
+Ak zásoba v truhle nestačí na celý cieľ, môže pokračovať s čiastočnou zásobou,
 ak má palivo na návrat a rezervu. Počet blokov celého výkopu nie je požiadavkou,
 aby mala všetko palivo naraz; počas práce sa môže opakovane zásobovať.
 Na cestu za palivom pri nízkej zásobe používa už overenú trasu.
@@ -83,7 +86,17 @@ zistí výdatnosť jedného kusu a zvyšný potrebný počet spotrebuje naraz.
 Pri štarte vypisuje `Rezim: stacky paliva + lokalny vstup/prvy roh.`, aby bolo zrejmé,
 že sa spustila táto verzia programu.
 
-Najprv overí prístup k palivu a vykladacej truhle, doplní palivo a vráti sa na miesto,
+Najprv overí prístup k palivu a vykladacej truhle. Úvodné tankovanie preskočí,
+ak palivo pokryje `2 × (objem výkopu + presuny + cesta k palivu a späť + rezervy)`.
+Presuny zahŕňajú vstup, konečné vyloženie a návrat domov; pre neoverené cesty
+sa pridá aj rezerva na obchádzanie. Inak doplní iba na tento cieľ, obmedzený
+kapacitou nádrže a dostupným palivom. Pri cieli nad kapacitou naplní nádrž;
+zásoba po návrate z tankovania je znížená o palivo spotrebované na túto cestu.
+Kontroly zásob pri každom kroku zostávajú aktívne; dvojnásobný odhad
+nie záruka pri opakovanom vykladaní alebo prekážkach. Pri štarte sa vypíše
+vypočítaná potrebná zásoba, ak tankovanie preskočí.
+Overenie prístupu k palivovej truhle môže prebehnúť aj bez tankovania.
+Potom sa vráti na miesto,
 kde bola turtle pri štarte úlohy. Ak je priamo pod ňou blok patriaci do výkopu,
 vykope ho, vstúpi do oblasti a prekope sa k prvému zadanému rohu iba cez bloky
 vo vnútri oblasti. Tak môže vstúpiť aj uprostred plochy s neprístupnými okrajmi.
@@ -127,7 +140,7 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `config.lua` | `defaults()`, `load()`, `save(settings)` |
 | `position.lua` | Vnútorné sledovanie polohy, GPS, zisťovanie smeru |
 | `navigation.lua` | `init([heading])`, `getPosition()`, `sync()`, `turnToDirection(d)`, `moveToCoord(x,y,z,[options])`, `step(side,[options])`, `knownDistance(point,[from])`, `setOrigin()`, `getOrigin()`, `goHome([options])` |
-| `pathfinding.lua` | Ohraničené A*, mapa priechodných a zablokovaných miest |
+| `pathfinding.lua` | Ohraničené A*, mapa priechodných miest; `setAvoid(box)` rezervuje stavebnú oblasť a vracia predchádzajúcu rezerváciu |
 | `fuel.lua` | `level()`, `has(amount)`, `refuel([target],[slots])`, `ensure(amount,[slots])`, `required(workMoves,returnMoves,reserve)`, `slots(settings)` |
 | `inventory.lua` | `freeSlots()`, `freeSlotList()`, `count(name)`, `find(name)`, `select(name)`, `space(name)`, `snapshot()`, `hasMaterials(materials)` |
 | `stations.lua` | `get(name)`, `visit(name,[options])`, `verify(name,[options])`, `refuel(target,[options])`, `unload([keep],[options])`, `takeMaterials(materials,[options])` |
@@ -137,6 +150,10 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading])`, `stepTo(point,box,[progress])` |
 | `quarry_entry.lua` | Výber a overovanie alternatívnych vstupov do kvádra |
 | `quarry.lua` | Herný dialóg na vykopanie oblasti |
+| `floor_plan.lua` | `new(a,b)`, `cell(box,index,first)`, `protected(box)`; bloky podlahy a priestor pre turtle nad nimi |
+| `building.lua` | `validateArea(a,b)`, `run(a,b,[blockName],[heading],[wholeArea])`; vráti úspech, chybu a priebeh stavby |
+| `floor.lua` | Herný dialóg na položenie obdĺžnikovej podlahy |
+| `build.lua`, `build_programs.lua` | Menu stavebných programov a zoznam jeho možností; spúšťa sa cez `build` |
 | `telemetry.lua` | `configure(settings,[positionProvider])`, `setActivity(text)`, `emit(level,message,[details],[force])`, `log(message,[level],[details])`, `capture(function,...)` |
 | `network.lua` | Otvorenie dostupných modemov pre rednet |
 | `setup.lua`, `test.lua` | Herné programy na nastavenie a diagnostiku |
@@ -264,6 +281,7 @@ Palivo a voľné sloty sú na samostatných riadkoch, pred stavom a súradnicami
 Dlhší stav, súradnice a správy sa zalamujú podľa šírky obrazovky.
 Externý monitor používa mierku písma 0.5; pocket computer mierku písma meniť nevie.
 Pri kopaní navyše zobrazuje `Hotove: dokončené/celkom`, `Zostava` a `Rozbite bloky`.
+Pri podlahe zobrazuje hotové/zostávajúce miesta, `Polozene` a `Existujuce` bloky.
 Hotové miesta zahŕňajú aj prázdne bunky a vstupný tunel v oblasti; každá bunka sa
 počíta iba raz. Rozbité bloky počítajú skutočné kopanie vrátane padajúceho piesku
 a štrku, preto sa môžu líšiť od počtu hotových miest. Údaje zostávajú v každej

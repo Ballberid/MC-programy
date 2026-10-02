@@ -4,6 +4,10 @@ local fuel = require("fuel")
 local inv = require("inventory")
 local telemetry = require("telemetry")
 local stations = {}
+local acquire, release
+function stations.setRuntime(lockHandler, releaseHandler)
+    acquire, release = lockHandler, releaseHandler
+end
 
 local function settings()
     return config.load()
@@ -47,6 +51,10 @@ local function withVisit(name, action, options)
         if not ok then return false, err end
     end
     local start = nav.getPosition()
+    if acquire then
+        local ok, err = acquire("service")
+        if not ok then return false, err end
+    end
     local selected = turtle.getSelectedSlot()
     local o = {}
     for key, value in pairs(options or {}) do o[key] = value end
@@ -66,6 +74,7 @@ local function withVisit(name, action, options)
         maxMoves = o.maxMoves, maxDetour = o.maxDetour, direction = start.direction,
     })
     if not returned then return false, "return_failed:" .. tostring(returnErr), actionErr end
+    if release then release("service") end
     return actionOK, actionErr
 end
 
@@ -159,23 +168,33 @@ function stations.unload(keep, options)
 end
 
 function stations.takeMaterials(materials, options)
+    local c, configErr = settings()
+    if not c then return false, configErr end
+    local reserved = {}
+    for _, slot in ipairs(c.fuelSlots) do reserved[slot] = true end
     return withVisit("materials", function(station)
         if inv.hasMaterials(materials) then return true end
         local before = {}
         for slot = 1, 16 do before[slot] = turtle.getItemDetail(slot) end
         local reason = "materials_missing"
         for _ = 1, 16 do
-            local slot = inv.freeSlotList()[1]
+            local slot
+            for _, candidate in ipairs(inv.freeSlotList()) do
+                if not reserved[candidate] then slot = candidate; break end
+            end
             if not slot then
                 for candidate = 1, 16 do
                     local item = turtle.getItemDetail(candidate)
-                    if item and materials[item.name] and inv.count(item.name) < materials[item.name]
+                    if not reserved[candidate] and item and materials[item.name] and inv.count(item.name) < materials[item.name]
                         and turtle.getItemSpace(candidate) > 0 then slot = candidate; break end
                 end
             end
             if not slot then reason = "inventory_full"; break end
             turtle.select(slot)
-            if not transfer(station.side, true, math.min(64, turtle.getItemSpace(slot))) then break end
+            local needed = 0
+            for name, amount in pairs(materials) do needed = math.max(needed, amount - inv.count(name)) end
+            if not options or not options.exactMaterials then needed = 64 end
+            if not transfer(station.side, true, math.min(64, needed, turtle.getItemSpace(slot))) then break end
             if inv.hasMaterials(materials) then break end
         end
         -- Suck may choose another acceptable slot. Inspect ALL slot deltas,
@@ -192,7 +211,51 @@ function stations.takeMaterials(materials, options)
                 end
             end
         end
-        if not inv.hasMaterials(materials) then return false, reason end
+        if not inv.hasMaterials(materials) then
+            if not options or not options.allowPartialMaterials then return false, reason end
+            for name, amount in pairs(materials) do
+                if amount > 0 and inv.count(name) == 0 then return false, reason end
+            end
+        end
+        return true
+    end, options)
+end
+
+-- A dedicated chest contains one building block type. Sample one item and
+-- return it, inspecting all slots because suck may choose a different slot.
+function stations.discoverMaterial(options)
+    local ok, value = withVisit("materials", function(station)
+        local slot = inv.freeSlotList()[1]
+        if not slot then return false, "inventory_full" end
+        local before = {}
+        for i = 1, 16 do before[i] = turtle.getItemCount(i) end
+        turtle.select(slot)
+        if not transfer(station.side, true, 1) then return false, "materials_chest_empty" end
+        for i = 1, 16 do
+            if turtle.getItemCount(i) > before[i] then
+                local item = turtle.getItemDetail(i)
+                turtle.select(i)
+                transfer(station.side, false, 1)
+                if turtle.getItemCount(i) ~= before[i] then return false, "material_sample_cannot_return" end
+                return true, item.name
+            end
+        end
+        return false, "material_sample_missing"
+    end, options)
+    if not ok then return nil, value end
+    return value
+end
+
+function stations.returnMaterial(name, options)
+    return withVisit("materials", function(station)
+        for slot = 1, 16 do
+            local item = turtle.getItemDetail(slot)
+            if item and item.name == name then
+                turtle.select(slot)
+                transfer(station.side, false, item.count)
+                if turtle.getItemCount(slot) > 0 then return false, "materials_chest_full" end
+            end
+        end
         return true
     end, options)
 end

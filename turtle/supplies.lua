@@ -86,7 +86,7 @@ function supplies.ensure(request)
         elseif need == "space" or need == "materials" then
             local service = c.stations[need == "space" and "output" or "materials"]
             if not service then return false, "station_missing:" .. need end
-            local distance = nav.knownDistance(service) or (nav.distance(nav.getPosition(), service) + 6 * c.navigation.maxDetour)
+            local distance = nav.knownDistance(service) or (nav.estimateDistance(service) + 6 * c.navigation.maxDetour)
             -- Include the trip to the service station, not just future work.
             local target = info.requiredFuel + 2 * distance
             if fuel.level() ~= "unlimited" then target = math.min(target, turtle.getFuelLimit()) end

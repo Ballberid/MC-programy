@@ -7,6 +7,22 @@ Potom spusti podla zariadenia:
 Turtle:          update turtle
 Pocket computer alebo PC na zobrazovanie: update receiver
 PC ako router:  update router
+Hlavny riadiaci PC: update controller
 
 Po aktualizacii spusti reboot.
 Na pocket computer alebo zobrazovacom PC potom spusti receiver.
+
+Riadenie viac turtle:
+Na hlavnom PC: fleet_setup, potom fleet (vypise svoje ID).
+Na kazdej turtle v jej doku: worker ID_HLAVNEHO_PC
+Na tablete: receiver fleet ID_HLAVNEHO_PC
+Sipky prepnu turtle, 0 vrati celkovy prehlad.
+Podrobny navod na monitory, tunel a truhly je vo FLEET_NAVOD.md.
+
+Stavanie jednoduchej podlahy:
+Samostatna turtle: setup (nastav fuel a materials), potom build a vyber 1 Podlaha.
+Build zobrazi dostupne stavebne programy; 0 ukonci menu. Priamo floor tiez funguje.
+Hlavny PC: fleet, volba 9 podlaha; turtle maju spusteny worker.
+Rohy su suradnice BLOKOV podlahy, oba maju rovnake Y. Turtle chodi na Y+1.
+Materialova truhla obsahuje jeden druh plneho stavebneho bloku.
+Podrobny navod je v PODLAHA_NAVOD.md.

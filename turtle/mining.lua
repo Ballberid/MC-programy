@@ -58,6 +58,8 @@ function mining.stepTo(target, box, progress)
     if not config.isPoint(target) or not cuboid.contains(box, target) then return false, "dig_outside_area" end
     if not adjacentPoint(target) then return false, "dig_target_not_adjacent" end
     for attempt = 1, maxAttempts do
+        local permitted, denied = nav.checkpoint()
+        if not permitted then return false, denied end
         local ready, reason = supplies.ensure({ moves = 1, freeSlots = 2, endpoint = target, unloadFuel = true })
         if not ready then return false, reason end
         if not adjacentPoint(target) then return false, "work_position_changed" end
@@ -117,7 +119,7 @@ local function travel(target, knownOnly)
     telemetry.log("Presun z " .. start.x .. "," .. start.y .. "," .. start.z
         .. " na " .. target.x .. "," .. target.y .. "," .. target.z
         .. "; palivo " .. tostring(fuel.level()), "info")
-    local distance = nav.knownDistance(target) or (nav.distance(nav.getPosition(), target) + 6 * c.navigation.maxDetour)
+    local distance = nav.knownDistance(target) or (nav.estimateDistance(target) + 6 * c.navigation.maxDetour)
     local ready, err = supplies.ensure({ moves = distance, freeSlots = 2, unloadFuel = true })
     if not ready then
         telemetry.log("Presun zastaveny pri kontrole zasob: " .. tostring(err), "error")
@@ -183,11 +185,35 @@ function mining.run(a, b, heading)
     local unloaded, unloadErr = stations.unload({}, options)
     if not unloaded then return fail(unloadErr) end
 
-    telemetry.setActivity("quarry_refuel")
-    telemetry.log("Doplnam palivo pre kopanie do limitu " .. tostring(turtle.getFuelLimit()), "info")
-    local filled, fillErr = stations.fillFuel(options)
-    if not filled then return fail(fillErr) end
-    telemetry.log("Palivo po doplneni a navrate: " .. tostring(fuel.level()), "info")
+    -- Double the entire estimate: work, travel and safety reserves.
+    local function routeCost(from, target)
+        return nav.knownDistance(target, from)
+            or (nav.estimateDistance(target, from) + 6 * c.navigation.maxDetour)
+    end
+    local lastCell = cuboid.cell(box, box.volume, a)
+    local required = 2 * (box.volume + routeCost(nav.getPosition(), workStart)
+        + routeCost(workStart, a) + routeCost(lastCell, output)
+        + routeCost(output, c.home) + 2 * routeCost(nav.getPosition(), c.stations.fuel)
+        + c.navigation.reserve)
+    progress.startFuelRequired = required
+    if not fuel.has(required) then
+        telemetry.setActivity("quarry_refuel")
+        -- refuel(target) also reserves the trip back from the fuel station.
+        local returnDistance = nav.knownDistance(c.stations.fuel)
+        if not returnDistance then return fail("fuel_route_unknown") end
+        local limit = turtle.getFuelLimit()
+        local target = math.min(required, math.max(0, limit - returnDistance))
+        progress.startFuelTarget = target
+        options.allowPartial = true
+        telemetry.log("Doplnam palivo: ciel po navrate " .. target
+            .. "; odhad " .. required .. "; limit " .. limit, "info")
+        local filled, fillErr = stations.refuel(target, options)
+        if not filled then return fail(fillErr) end
+        telemetry.log("Palivo po doplneni a navrate: " .. tostring(fuel.level()), "info")
+    else
+        telemetry.log("Palivo staci, tankovanie preskakujem: " .. tostring(fuel.level())
+            .. "; odhad s rezervou " .. required, "info")
+    end
 
     if nav.distance(nav.getPosition(), workStart) > 0 then
         local restored, restoreErr = travel(workStart, true)

@@ -6,6 +6,20 @@ local telemetry = require("telemetry")
 local nav = {}
 local settings = config.defaults()
 local movesSinceGPS = 0
+local journey, checkpoint, estimator
+
+function nav.setRuntime(moveHandler, checkHandler, estimateHandler)
+    journey, checkpoint, estimator = moveHandler, checkHandler, estimateHandler
+end
+function nav.checkpoint()
+    if checkpoint then return checkpoint() end
+    return true
+end
+function nav.estimateDistance(target, from)
+    from = from or position.get()
+    if estimator then return estimator(from, target) end
+    return paths.distance(from, target)
+end
 
 function nav.configure(c)
     settings = c or settings
@@ -77,10 +91,12 @@ local function detect(side)
     return ({ front = turtle.detect, up = turtle.detectUp, down = turtle.detectDown })[side]()
 end
 
-function nav.moveToCoord(x, y, z, options)
+local function rawMove(x, y, z, options)
     local goal = { x = x, y = y, z = z }
     options = options or {}
     if not config.isPoint(goal) then return false, "invalid_target" end
+    local permitted, denied = nav.checkpoint()
+    if not permitted then return false, denied end
     if options.direction ~= nil and not config.isDirection(options.direction) then return false, "invalid_direction" end
     for _, name in ipairs({ "reserve", "maxMoves", "maxDetour" }) do
         local value = options[name]
@@ -114,6 +130,8 @@ function nav.moveToCoord(x, y, z, options)
         if not route then return stop(routeErr, goal, moved) end
         local obstructed = false
         for _, nextPoint in ipairs(route) do
+            local permitted, denied = nav.checkpoint()
+            if not permitted then return stop(denied, goal, moved) end
             if moved >= maxMoves then return stop("move_limit", goal, moved) end
             local returnCost = nav.knownDistance(anchor)
             if not returnCost then return stop("return_route_lost", goal, moved) end
@@ -158,6 +176,11 @@ function nav.moveToCoord(x, y, z, options)
     end
     telemetry.setActivity("arrived")
     return true, nil, { position = position.get(), moved = moved }
+end
+
+function nav.moveToCoord(x, y, z, options)
+    if journey and position.get() then return journey({ x = x, y = y, z = z }, options or {}, rawMove) end
+    return rawMove(x, y, z, options)
 end
 
 -- Single steps also obey coordinate tracking and reserve checks.

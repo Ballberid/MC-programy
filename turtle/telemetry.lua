@@ -7,10 +7,19 @@ local lastSent = -math.huge
 local sequence = 0
 local activity = "idle"
 local progress
+local context
+function telemetry.setContext(value) context = value end
+function telemetry.getActivity() return activity end
 
 -- Retain job counters during navigation, unloading and refuelling messages.
 function telemetry.setProgress(value)
     progress = value
+end
+function telemetry.getProgress()
+    if not progress then return nil end
+    return { completed = progress.completed, total = progress.total,
+        remaining = progress.remaining, dug = progress.dug, phase = progress.phase,
+        placed = progress.placed, skipped = progress.skipped, taskType = progress.taskType, block = progress.block }
 end
 
 function telemetry.configure(settings, positionProvider)
@@ -37,12 +46,10 @@ function telemetry.emit(level, message, details, force)
             level = level, message = tostring(message), details = details,
             position = provider and provider() or nil,
             fuel = turtle.getFuelLevel(), inventory = inv.snapshot(),
+            context = context,
         }
         if progress then
-            packet.progress = {
-                completed = progress.completed, total = progress.total,
-                remaining = progress.remaining, dug = progress.dug, phase = progress.phase,
-            }
+            packet.progress = telemetry.getProgress()
         end
         if options.receiverId then rednet.send(options.receiverId, packet, options.protocol)
         else rednet.broadcast(packet, options.protocol) end

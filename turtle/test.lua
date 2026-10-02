@@ -27,6 +27,9 @@ local function check()
     if c then nav.configure(c) end
     print("Palivo: " .. tostring(fuel.level()))
     print("Volne sloty: " .. inv.freeSlots())
+    local builderOK, builderErr = pcall(require, "building")
+    print("Stavanie podlahy: " .. (builderOK and "OK" or tostring(builderErr)))
+    if c then print("Materialova stanica: " .. (c.stations.materials and "nastavena" or "chyba")) end
     for _, item in ipairs(inv.snapshot().items) do print(item.slot .. ": " .. item.name .. " x" .. item.count) end
     local p, gpsErr = require("position").locate()
     print("GPS: " .. (p and (p.x .. ", " .. p.y .. ", " .. p.z) or tostring(gpsErr)))

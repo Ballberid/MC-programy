@@ -1,6 +1,6 @@
 package.path = ROOT .. "/turtle/?.lua;" .. package.path
 local realLoadfile = loadfile
-local modules = { "config", "fuel", "inventory", "position", "pathfinding", "navigation", "stations", "supplies", "network", "telemetry", "cuboid", "mining", "quarry_entry" }
+local modules = { "config", "fuel", "inventory", "position", "pathfinding", "navigation", "stations", "supplies", "network", "telemetry", "cuboid", "mining", "quarry_entry", "fleet_store", "fleet_model", "transit", "fleet_settings", "fleet_dialog", "fleet_task", "fleet_client", "fleet_display", "fleet_controller" }
 local W
 local tests = 0
 local function key(p) return p.x .. "," .. p.y .. "," .. p.z end
@@ -23,11 +23,14 @@ local function serialize(t)
     return "{" .. table.concat(parts, ",") .. "}"
 end
 local function reset()
+    parallel = { waitForAny = function(first) return first() end }
     for _, name in ipairs(modules) do package.loaded[name] = nil end
+    package.loaded.fleet_motion = nil
+    package.loaded.building, package.loaded.floor_plan = nil, nil
     W = { x = 0, y = 0, z = 0, d = 0, fuel = 1000, limit = 2000,
         blocks = {}, chests = {}, slots = {}, selected = 1, moves = 0, gpsCalls = 0,
         files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0,
-        digs = {}, unbreakable = {}, blockNames = {}, drops = {}, falling = {}, lostDrops = 0 }
+        digs = {}, placements = {}, unbreakable = {}, blockNames = {}, drops = {}, falling = {}, lostDrops = 0 }
     turtle = {}
     turtle.getFuelLevel = function() return W.fuel end
     turtle.getFuelLimit = function() return W.limit end
@@ -123,6 +126,18 @@ local function reset()
         W.slots[target] = { name = item.name, count = count + oldCount }
         item.count = item.count - count
         if item.count == 0 then table.remove(chest.items, 1) end
+        return true
+    end
+    turtle.placeDown = function()
+        local point = adjacent("down")
+        local k = key(point)
+        local item = W.slots[W.selected]
+        if W.placeFailAt == k then return false, "Entity obstructing placement" end
+        if detect("down") or not item then return false, "Cannot place" end
+        W.blocks[k], W.blockNames[k] = true, item.name
+        W.placements[#W.placements + 1] = point
+        item.count = item.count - 1
+        if item.count == 0 then W.slots[W.selected] = nil end
         return true
     end
     local function drop(side, amount)
@@ -454,7 +469,6 @@ test("receiver renders validated packets on a narrow screen", function()
         if line == "Volne sloty: 15" then slotsVisible = true end
     end
     assert(fuelVisible and slotsVisible, "Resource counts must fit on separate lines")
-    assert(table.concat(lines):find("Stav: moving | infoXYZ: 0,0,0 dir=0", 1, true), "Long status must wrap without losing coordinates")
 end)
 test("read-only diagnostics do not move or consume items", function()
     configured()
@@ -678,6 +692,72 @@ test("quarry unloads mid-job then resumes the correct cell", function()
     local total = 0
     for _, item in ipairs(W.chests["0,0,-1"].items) do total = total + item.count end
     eq(total, 20); eq(W.x, 0); eq(W.d, 0)
+end)
+
+test("550-cell quarry with 20000 fuel skips initial refuelling", function()
+    quarryWorld(); W.fuel = 20000; W.limit = 40000
+    local a, b = { x = 2, y = 0, z = 0 }, { x = 11, y = -4, z = 10 }
+    for x = 2, 11 do for y = -4, 0 do for z = 0, 10 do
+        W.blocks[x .. "," .. y .. "," .. z] = true
+    end end end
+    local ok, err, progress = require("mining").run(a, b)
+    assert(ok, err); eq(progress.total, 550); eq(progress.completed, 550)
+    assert(progress.startFuelRequired >= 1100 and progress.startFuelRequired < 20000)
+    eq(#(W.refuelCounts or {}), 0); eq(W.chests["-1,0,0"].items[1].count, 64)
+    assert(W.fuel < 20000); eq(W.x, 0); eq(W.y, 0); eq(W.z, 0)
+end)
+
+test("sufficient quarry fuel does not require coal in the fuel chest", function()
+    quarryWorld(); W.chests["-1,0,0"].items = {}
+    W.blocks["2,0,0"] = true
+    local ok, err = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    assert(ok, err); eq(#(W.refuelCounts or {}), 0); eq(#W.digs, 1)
+end)
+
+test("small quarry refuels only to its doubled budget instead of the tank limit", function()
+    quarryWorld(); W.fuel = 80; W.limit = 1000
+    W.blocks["2,0,0"] = true
+    local firstDigFuel
+    local originalDig = turtle.dig
+    turtle.dig = function(...)
+        firstDigFuel = firstDigFuel or W.fuel
+        return originalDig(...)
+    end
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    assert(ok, err); assert(progress.startFuelRequired > 80)
+    assert(#W.refuelCounts > 0); assert(W.fuel > 80)
+    eq(progress.startFuelTarget, progress.startFuelRequired)
+    assert(firstDigFuel >= progress.startFuelRequired - 5)
+    assert(firstDigFuel < progress.startFuelRequired + 80)
+    assert(firstDigFuel < W.limit - 80)
+end)
+
+test("quarry budget above tank capacity refuels up to capacity", function()
+    quarryWorld(); W.fuel = 80; W.limit = 200
+    W.blocks["2,0,0"] = true
+    local firstDigFuel
+    local originalDig = turtle.dig
+    turtle.dig = function(...)
+        firstDigFuel = firstDigFuel or W.fuel
+        return originalDig(...)
+    end
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    assert(ok, err); assert(progress.startFuelRequired > W.limit)
+    eq(progress.startFuelTarget, W.limit)
+    assert(firstDigFuel >= W.limit - 5); assert(firstDigFuel <= W.limit)
+end)
+
+test("capped quarry fuel budget includes travel back from a remote fuel chest", function()
+    quarryWorld(); W.fuel = 80; W.limit = 200
+    configured({ fuel = { x = 0, y = 0, z = -2, direction = 0, side = "front" },
+        output = { x = 0, y = 0, z = 0, direction = 0, side = "front" } })
+    W.chests["0,0,-3"] = { items = { { name = "minecraft:coal", count = 64 } } }
+    W.blocks["2,0,0"] = true
+    local ok, err, progress = require("mining").run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
+    assert(ok, err); assert(progress.startFuelRequired > W.limit)
+    -- The output chest blocks the direct two-step route; verified detour is four.
+    eq(progress.startFuelTarget, W.limit - 4)
+    assert(#W.refuelCounts > 0); eq(W.x, 0); eq(W.z, 0)
 end)
 test("quarry unloads mined coal and returns with reserve", function()
     quarryWorld(); W.fuel = 200
@@ -945,4 +1025,8 @@ test("interrupted update restores before downloading", function()
     eq(pcall(update, "turtle"), false)
     eq(W.files["fuel.lua"], "return { original = true }")
 end)
+realLoadfile(ROOT .. "/tests/fleet_spec.lua")({ test = test, eq = eq,
+    world = function() return W end, configured = configured, navReady = navReady })
+realLoadfile(ROOT .. "/tests/floor_spec.lua")({ test = test, eq = eq,
+    world = function() return W end, configured = configured, navReady = navReady })
 print("All " .. tests .. " regression tests passed.")

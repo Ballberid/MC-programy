@@ -31,6 +31,13 @@ function entry.enter(box, progress, travel, digStep, connectInside, firstCorner)
         return connect()
     end
     local approaches = cuboid.approaches(box, p, firstCorner)
+    -- Account for the actual route through a service shaft when selecting
+    -- an exterior neighbour of the requested first corner.
+    table.sort(approaches, function(a, b)
+        local da, db = nav.estimateDistance(a.stand), nav.estimateDistance(b.stand)
+        if da == db then return a.order < b.order end
+        return da < db
+    end)
     for index, approach in ipairs(approaches) do
         local stand, target = approach.stand, approach.cell
         telemetry.log("Pristup " .. index .. "/" .. #approaches .. ": turtle na "

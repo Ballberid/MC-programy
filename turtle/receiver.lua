@@ -1,84 +1,92 @@
--- Run on a computer or CC pocket computer: receiver [turtleID] [protocol]
+-- receiver [turtleID] [protocol] or receiver fleet [controllerID]
 local network = require("network")
+local model = require("fleet_model")
+local display = require("fleet_display")
 local args = { ... }
-local filter = args[1] and tonumber(args[1])
-if args[1] and not filter then error("Pouzitie: receiver [turtleID] [protocol]", 0) end
-local protocol = args[2] or "craftoria.turtle.v1"
-local ok, err = network.open()
-if not ok then error("Pripoj modem: " .. tostring(err), 0) end
+local fleetMode = args[1] == "fleet"
+local filter = not fleetMode and args[1] and tonumber(args[1])
+local controller = fleetMode and args[2] and tonumber(args[2])
+if (not fleetMode and args[1] and not filter) or (fleetMode and args[2] and not controller) then
+    error("Pouzitie: receiver [turtleID] [protocol] alebo receiver fleet [ID_PC]", 0)
+end
+local protocol = not fleetMode and args[2] or model.telemetryProtocol
+protocol = protocol or model.telemetryProtocol
+local ok, err = network.open(); if not ok then error("Pripoj modem: " .. tostring(err), 0) end
 local screen = peripheral.find("monitor") or term.current()
 if screen.setTextScale then screen.setTextScale(0.5) end
-local devices = {}
-local lastMessage = "Cakam na telemetriu..."
-
-local function safe(value, max)
-    return tostring(value or "?"):gsub("[%c]", " "):sub(1, max or 160)
-end
-
-local function draw()
-    screen.clear()
-    local width, height = screen.getSize()
-    local line = 1
-    local function out(text, wrap)
-        text = safe(text)
-        repeat
-            if line > height then return end
-            screen.setCursorPos(1, line)
-            screen.write(text:sub(1, width)); line = line + 1
-            text = text:sub(width + 1)
-        until wrap == false or #text == 0
-    end
-    out("Craftoria", false)
-    out(lastMessage, false)
-    local ids = {}
-    for id in pairs(devices) do ids[#ids + 1] = id end
-    table.sort(ids)
-    for _, id in ipairs(ids) do
-        local entry = devices[id]
-        local p = entry.packet
-        local age = math.floor(os.clock() - entry.received)
-        out("#" .. id .. " " .. safe(p.label, 30) .. " (" .. age .. "s od spravy)", false)
-        -- Keep resource counts visible before longer status and coordinate lines.
-        local inventory = type(p.inventory) == "table" and p.inventory or {}
-        out("Palivo: " .. safe(p.fuel))
-        out("Volne sloty: " .. safe(inventory.freeSlots))
-        local progress = p.progress
-        if type(progress) == "table" and type(progress.total) == "number"
-            and type(progress.completed) == "number" and type(progress.remaining) == "number" then
-            out("Hotove: " .. safe(progress.completed) .. "/" .. safe(progress.total))
-            out("Zostava: " .. safe(progress.remaining))
-            out("Rozbite bloky: " .. safe(progress.dug))
-        end
-        out("Stav: " .. safe(p.activity) .. " | " .. safe(p.level))
-        local pos = p.position
-        if type(pos) == "table" then
-            out("XYZ: " .. safe(pos.x) .. "," .. safe(pos.y) .. "," .. safe(pos.z) .. " dir=" .. safe(pos.direction))
-        end
-        out(safe(p.message))
-        out("----------------")
-    end
-end
-
+local devices, snapshot, selection = {}, { workers = {} }, 0
+local hasFleet = false
+local lastFleet = 0
 local function valid(p, sender)
     return type(p) == "table" and p.version == 1 and p.id == sender
         and type(p.message) == "string" and #p.message <= 4096
         and (p.position == nil or type(p.position) == "table")
 end
-
-while true do
-    local sender, packet = rednet.receive(protocol, 1)
-    if sender and (not filter or sender == filter) and valid(packet, sender) then
-        -- Bounded device list for long-running displays.
-        if not devices[sender] then
-            local count, oldestId, oldestTime = 0, nil, math.huge
-            for id, entry in pairs(devices) do
-                count = count + 1
-                if entry.received < oldestTime then oldestId, oldestTime = id, entry.received end
-            end
-            if count >= 32 then devices[oldestId] = nil end
-        end
-        devices[sender] = { packet = packet, received = os.clock() }
-        lastMessage = "Posledna sprava od #" .. sender
+local function validFleet(p, sender)
+    if type(p) ~= "table" or p.version ~= 1 or p.id ~= sender or p.kind ~= "fleet_snapshot"
+        or type(p.workers) ~= "table" or type(p.summary) ~= "table" then return false end
+    local count = 0
+    for id, w in pairs(p.workers) do
+        if type(id) ~= "number" or type(w) ~= "table" or (w.packet ~= nil and type(w.packet) ~= "table") then return false end
+        count = count + 1
     end
-    draw()
+    return count <= 32
 end
+local function draw()
+    if not hasFleet then
+        local summary = { total = 0, completed = 0, remaining = 0, active = 0, failed = 0 }
+        snapshot.workers = {}
+        for id, entry in pairs(devices) do
+            local p = entry.packet
+            snapshot.workers[id] = { packet = p, status = p.activity, age = math.floor(os.clock() - entry.received) }
+            local progress = type(p.progress) == "table" and p.progress or {}
+            if type(progress.total) == "number" and type(progress.completed) == "number" then
+                summary.total, summary.completed = summary.total + progress.total, summary.completed + progress.completed
+            end
+            if p.level == "error" then summary.failed = summary.failed + 1 else summary.active = summary.active + 1 end
+        end
+        summary.remaining = summary.total - summary.completed
+        snapshot.summary = summary
+    else
+        snapshot.message = "PC #" .. controller .. " (" .. math.floor(os.clock()-lastFleet) .. "s od spravy)"
+    end
+    local ids = display.ids(snapshot)
+    if filter then for i, id in ipairs(ids) do if id == filter then selection = i end end
+    elseif not hasFleet and #ids == 1 then selection = 1 end
+    selection = display.draw(screen, snapshot, selection, screen.setTextScale ~= nil)
+end
+local function receive()
+    while true do
+        local sender, packet, receivedProtocol = rednet.receive(nil, 1)
+        if sender and (fleetMode or not filter) and receivedProtocol == model.viewProtocol
+            and (not controller or controller == sender) and validFleet(packet, sender) then
+            controller, snapshot, hasFleet, lastFleet = sender, packet, true, os.clock()
+        elseif sender and not fleetMode and not hasFleet and (not receivedProtocol or receivedProtocol == protocol)
+            and (not filter or sender == filter) and valid(packet, sender) then
+            if not devices[sender] then
+                local count, oldestId, oldestTime = 0, nil, math.huge
+                for id, entry in pairs(devices) do
+                    count = count + 1
+                    if entry.received < oldestTime then oldestId, oldestTime = id, entry.received end
+                end
+                if count >= 32 then devices[oldestId] = nil end
+            end
+            devices[sender] = { packet = packet, received = os.clock() }
+            snapshot.message = "Posledna sprava od #" .. sender
+        end
+        draw()
+    end
+end
+local function input()
+    while true do
+        local event, key = os.pullEvent()
+        local count = #display.ids(snapshot)
+        if event == "key" then
+            if key == keys.right or key == keys.tab then selection = (selection + 1) % (count + 1)
+            elseif key == keys.left then selection = (selection - 1) % (count + 1)
+            elseif key == keys.zero or key == keys.numPad0 then selection = 0 end
+            draw()
+        end
+    end
+end
+parallel.waitForAny(receive, input)

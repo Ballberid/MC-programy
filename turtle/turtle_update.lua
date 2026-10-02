@@ -1,8 +1,8 @@
--- Run update [turtle|receiver|router]. Resolve a commit to avoid mixed versions.
+-- Run update [turtle|receiver|router|controller]. Resolve a commit to avoid mixed versions.
 local args = { ... }
 local role = args[1] or (turtle and "turtle" or "receiver")
-if role ~= "turtle" and role ~= "receiver" and role ~= "router" then
-    error("Pouzitie: update [turtle|receiver|router]", 0)
+if role ~= "turtle" and role ~= "receiver" and role ~= "router" and role ~= "controller" then
+    error("Pouzitie: update [turtle|receiver|router|controller]", 0)
 end
 local repo = "Ballberid/MC-programy"
 local stage, backup, journal = "data/update-stage", "data/update-backup", "data/update-journal.txt"
