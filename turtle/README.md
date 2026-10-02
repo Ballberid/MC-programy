@@ -62,7 +62,9 @@ quarry
 
 Program si vypýta X/Y/Z dvoch protiľahlých rohov. Sú to súradnice blokov, ktoré
 majú patriť do vykopanej oblasti; oba rohy aj hranice sú zahrnuté. Rohy môžu byť
-zadané v ľubovoľnom poradí. Napríklad `(100,50,100)` a `(102,52,104)` znamenajú
+zadané v ľubovoľnom poradí; prvý určuje roh, od ktorého začne prechádzanie.
+Pre kopanie zhora nadol zadaj horný roh ako prvý.
+Napríklad `(100,50,100)` a `(102,52,104)` znamenajú
 oblasť 3 × 3 × 5, teda 45 miest. Pred štartom zobrazí normalizované hranice,
 rozmery a počet miest. Potvrdenie používa `a/N`, takže prázdny Enter kopanie zruší.
 Ďalšia otázka umožní automatické zistenie smeru cez GPS alebo jeho ručné zadanie.
@@ -76,19 +78,25 @@ Ak zásoba v truhle nestačí na úplné naplnenie, môže pokračovať s čiast
 ak má palivo na návrat a rezervu. Počet blokov celého výkopu nie je požiadavkou,
 aby mala všetko palivo naraz; počas práce sa môže opakovane zásobovať.
 Na cestu za palivom pri nízkej zásobe používa už overenú trasu.
-Pri štarte vypisuje `Rezim: plna nadrz + alternativne vstupy.`, aby bolo zrejmé,
+Plnenie nádrže používa `refuel(64)` po stackoch. Pri menšom cieľovom doplnení
+zistí výdatnosť jedného kusu a zvyšný potrebný počet spotrebuje naraz.
+Pri štarte vypisuje `Rezim: stacky paliva + lokalny vstup/prvy roh.`, aby bolo zrejmé,
 že sa spustila táto verzia programu.
 
-Najprv overí prístup k palivu a vykladacej truhle. Prístup ku kvádru hľadá bežnou
-navigáciou bez kopania: skúša vonkajšie miesta nad hornými rohmi aj vedľa nich,
-zoradené podľa vzdialenosti. Ak je jeden prístup zablokovaný, skúsi ďalší.
-Aspoň jedno z týchto miest musí byť prístupné;
-**nevykopáva prístupový tunel mimo zadanej oblasti**. Horný rohový blok môže byť
-plný — po príchode na susedné miesto ho vykope. Pri každom pokuse vypíše zvlášť
-súradnice miesta pre turtle a rohového bloku. Ak po úvodnom
-servise stojí vo vnútri kvádra, môže sa k hornému rohu prekopať iba v jeho hraniciach.
+Najprv overí prístup k palivu a vykladacej truhle, doplní palivo a vráti sa na miesto,
+kde bola turtle pri štarte úlohy. Ak je priamo pod ňou blok patriaci do výkopu,
+vykope ho, vstúpi do oblasti a prekope sa k prvému zadanému rohu iba cez bloky
+vo vnútri oblasti. Tak môže vstúpiť aj uprostred plochy s neprístupnými okrajmi.
+Ak už stojí vo vnútri kvádra, tiež použije vnútornú cestu k prvému rohu.
 
-Oblasť prechádza cikcakom po vrstvách zhora nadol. Každé ďalšie pracovné miesto
+Ak pod turtle ani v jej polohe nie je výkop, ide bežnou navigáciou k **prvému
+zadanému rohu**. Skúša len vonkajšie miesta susediace s týmto rohom a nevyberie
+iný bližší roh. Pri dolnom prvom rohu môže vstúpiť zboku alebo zdola. Pri každom
+pokuse vypíše súradnice miesta pre turtle a rohového bloku.
+**Nikdy nevykopáva prístupový tunel mimo zadanej oblasti.**
+
+Oblasť prechádza cikcakom po vrstvách od prvého rohu: zhora nadol pri hornom
+prvom rohu, zdola nahor pri dolnom. Každé ďalšie pracovné miesto
 je susedný blok. Pri kopaní počíta úspešné presuny, nie počet pokusov. Pred každým
 kopaním kontroluje palivo a aspoň dva prázdne sloty. Podľa potreby navštívi palivo
 alebo vykladaciu truhlu a vráti sa na presnú pracovnú polohu aj smer. Telemetria
@@ -251,6 +259,15 @@ receiver
 podľa miesta na obrazovke. Podporuje najviac 32 záznamov. Použije prvý dostupný
 monitor alebo vlastný terminál. Tablet iného modu musí podporovať CC programy
 a modem/rednet; univerzálne zobrazenie na ľubovoľnom tablete nie je súčasťou.
+
+Palivo a voľné sloty sú na samostatných riadkoch, pred stavom a súradnicami.
+Dlhší stav, súradnice a správy sa zalamujú podľa šírky obrazovky.
+Externý monitor používa mierku písma 0.5; pocket computer mierku písma meniť nevie.
+Pri kopaní navyše zobrazuje `Hotove: dokončené/celkom`, `Zostava` a `Rozbite bloky`.
+Hotové miesta zahŕňajú aj prázdne bunky a vstupný tunel v oblasti; každá bunka sa
+počíta iba raz. Rozbité bloky počítajú skutočné kopanie vrátane padajúceho piesku
+a štrku, preto sa môžu líšiť od počtu hotových miest. Údaje zostávajú v každej
+správe aj počas presunu k truhlám. Pre tieto počítadlá aktualizuj turtle aj prijímač.
 
 Router/opakovač s pripojeným modemom:
 

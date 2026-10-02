@@ -34,8 +34,14 @@ function fuel.refuel(target, slots)
     for _, slot in ipairs(slots) do
         if fuel.has(target) then break end
         turtle.select(slot)
+        local perItem
         while not fuel.has(target) and turtle.refuel(0) do
-            if not turtle.refuel(1) then break end
+            local before = fuel.level()
+            local count = target == limit and 64 or (perItem and math.ceil((target - before) / perItem) or 1)
+            count = math.min(64, turtle.getItemCount(slot), count)
+            if count < 1 or not turtle.refuel(count) then break end
+            local gained = fuel.level() - before
+            if count == 1 and gained > 0 then perItem = gained end
         end
     end
     turtle.select(selected)

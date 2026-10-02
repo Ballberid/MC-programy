@@ -9,6 +9,17 @@ local telemetry = require("telemetry")
 local mining = {}
 local quarryEntry = require("quarry_entry")
 local maxAttempts = 32
+local completedCells = {}
+
+local function markCompleted(target, progress)
+    if not progress or progress.completed == nil then return end
+    local key = target.x .. "," .. target.y .. "," .. target.z
+    if not completedCells[key] then
+        completedCells[key] = true
+        progress.completed = progress.completed + 1
+        progress.remaining = progress.total - progress.completed
+    end
+end
 
 local function facing(target)
     local p = nav.getPosition()
@@ -73,7 +84,11 @@ function mining.stepTo(target, box, progress)
             local options, optionsErr = supplies.navigationOptions()
             if not options then return false, optionsErr end
             local moved, moveErr = nav.step(side, options)
-            if moved then return true end
+            if moved then
+                markCompleted(target, progress)
+                telemetry.emit("info", "quarry_progress", nil)
+                return true
+            end
             if moveErr ~= "no_route" and moveErr ~= "target_unreachable" then return false, moveErr end
         end
         if attempt < maxAttempts then sleep(0.2) end
@@ -96,7 +111,7 @@ local function connectInside(target, box, progress)
     return true
 end
 
-local function travel(target)
+local function travel(target, knownOnly)
     local c = config.load()
     local start = nav.getPosition()
     telemetry.log("Presun z " .. start.x .. "," .. start.y .. "," .. start.z
@@ -110,6 +125,7 @@ local function travel(target)
     end
     local options, optionsErr = supplies.navigationOptions()
     if not options then return false, optionsErr end
+    options.knownOnly = knownOnly == true
     local moved, moveErr, details = nav.moveToCoord(target.x, target.y, target.z, options)
     if not moved then
         telemetry.log("Navigacia zastavena: " .. tostring(moveErr)
@@ -136,7 +152,10 @@ end
 function mining.run(a, b, heading)
     local box, err = mining.validateArea(a, b)
     if not box then return false, err end
-    local progress = { visited = 0, total = box.volume, dug = 0, phase = "prepare" }
+    completedCells = {}
+    local progress = { visited = 0, completed = 0, remaining = box.volume, total = box.volume, dug = 0, phase = "prepare" }
+    telemetry.setProgress(progress)
+    telemetry.emit("info", "quarry_progress", nil, true)
     local function fail(reason)
         progress.phase = "failed"
         telemetry.log("Kopanie zastavene: " .. tostring(reason), "error", progress)
@@ -153,6 +172,7 @@ function mining.run(a, b, heading)
     end
     local prepared, prepareErr = supplies.prepare(heading)
     if not prepared then return fail(prepareErr) end
+    local workStart = nav.getPosition()
     -- Verify output before damaging the first block.
     local c = config.load()
     local output = c.stations.output
@@ -169,8 +189,13 @@ function mining.run(a, b, heading)
     if not filled then return fail(fillErr) end
     telemetry.log("Palivo po doplneni a navrate: " .. tostring(fuel.level()), "info")
 
+    if nav.distance(nav.getPosition(), workStart) > 0 then
+        local restored, restoreErr = travel(workStart, true)
+        if not restored then return fail(restoreErr) end
+    end
+
     progress.phase = "entry"
-    local entry, entryErr = quarryEntry.enter(box, progress, travel, mining.stepTo, connectInside)
+    local entry, entryErr = quarryEntry.enter(box, progress, travel, mining.stepTo, connectInside, a)
     if not entry then return fail(entryErr) end
     for index = 1, box.volume do
         local target = cuboid.cell(box, index, entry)
@@ -178,6 +203,7 @@ function mining.run(a, b, heading)
             local mined, mineErr = mining.stepTo(target, box, progress)
             if not mined then return fail(mineErr) end
         end
+        markCompleted(target, progress)
         progress.visited, progress.phase = index, "mining"
         telemetry.emit("info", "quarry_progress", progress, index == 1 or index == box.volume)
         if index % 64 == 0 then

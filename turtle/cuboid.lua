@@ -30,13 +30,13 @@ function cuboid.entry(box, p)
     }
 end
 
--- All exterior neighbours of the upper corners, ordered by distance from
--- the turtle. Include both sides for a box only one block wide/deep.
-function cuboid.approaches(box, from)
+-- Exterior neighbours of the requested corner (or upper corners if omitted),
+-- ordered by distance. Include both sides for a one-block-thick box.
+function cuboid.approaches(box, from, corner)
     local approaches, seen = {}, {}
     local function add(cell, stand)
         if cuboid.contains(box, stand) then return end
-        local key = stand.x .. "," .. stand.y .. "," .. stand.z .. ":" .. cell.x .. "," .. cell.z
+        local key = stand.x .. "," .. stand.y .. "," .. stand.z .. ":" .. cell.x .. "," .. cell.y .. "," .. cell.z
         if seen[key] then return end
         seen[key] = true
         approaches[#approaches + 1] = {
@@ -44,14 +44,19 @@ function cuboid.approaches(box, from)
             distance = math.abs(stand.x - from.x) + math.abs(stand.y - from.y) + math.abs(stand.z - from.z),
         }
     end
-    for _, x in ipairs({ box.min.x, box.max.x }) do
-        for _, z in ipairs({ box.min.z, box.max.z }) do
-            local cell = { x = x, y = box.max.y, z = z }
-            add(cell, { x = x, y = cell.y + 1, z = z })
-            for _, d in ipairs({ -1, 1 }) do
-                add(cell, { x = x + d, y = cell.y, z = z })
-                add(cell, { x = x, y = cell.y, z = z + d })
-            end
+    local corners = corner and { corner } or {
+        { x = box.min.x, y = box.max.y, z = box.min.z },
+        { x = box.min.x, y = box.max.y, z = box.max.z },
+        { x = box.max.x, y = box.max.y, z = box.min.z },
+        { x = box.max.x, y = box.max.y, z = box.max.z },
+    }
+    for _, cell in ipairs(corners) do
+        local x, z = cell.x, cell.z
+        add(cell, { x = x, y = cell.y + 1, z = z })
+        if corner then add(cell, { x = x, y = cell.y - 1, z = z }) end
+        for _, d in ipairs({ -1, 1 }) do
+            add(cell, { x = x + d, y = cell.y, z = z })
+            add(cell, { x = x, y = cell.y, z = z + d })
         end
     end
     table.sort(approaches, function(a, b)
@@ -74,7 +79,7 @@ function cuboid.cell(box, index, entry)
     if row % 2 == 1 then column = box.size.x - 1 - column end
     return {
         x = entry.x == box.min.x and box.min.x + column or box.max.x - column,
-        y = box.max.y - layer,
+        y = entry.y == box.min.y and box.min.y + layer or box.max.y - layer,
         z = entry.z == box.min.z and box.min.z + row or box.max.z - row,
     }
 end

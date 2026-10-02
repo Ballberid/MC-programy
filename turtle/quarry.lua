@@ -37,7 +37,7 @@ local settings, configErr = config.load()
 if not settings then error("Najprv spusti setup: " .. tostring(configErr), 0) end
 telemetry.configure(settings.telemetry)
 print("Kopanie kvadra. Velke pismeno = volba po Enter.")
-print("Rezim: plna nadrz + alternativne vstupy.")
+print("Rezim: stacky paliva + lokalny vstup/prvy roh.")
 local a, b = corner("Prvy roh"), corner("Druhy protilahly roh")
 local box, areaErr = mining.validateArea(a, b)
 if not box then error("Neplatna oblast: " .. tostring(areaErr), 0) end
@@ -45,6 +45,8 @@ print("Od: " .. box.min.x .. "," .. box.min.y .. "," .. box.min.z)
 print("Do: " .. box.max.x .. "," .. box.max.y .. "," .. box.max.z)
 print("Rozmery X/Y/Z: " .. box.size.x .. "/" .. box.size.y .. "/" .. box.size.z)
 print("Pocet miest vratane oboch rohov: " .. box.volume)
+print("Ak blok pod turtle patri do oblasti, vstupi tam.")
+print("Inak zacne v prvom zadanom rohu.")
 if not yes("Spustit kopanie tejto oblasti?", false) then print("Zrusene."); return end
 local heading
 if not yes("Zistit aktualny smer automaticky cez GPS?", true) then

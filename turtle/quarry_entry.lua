@@ -9,16 +9,28 @@ local retryable = {
 
 -- Try a finite set of top/side approaches. A blocked outside cell is never
 -- dug out: only the cell INSIDE the box is passed to the mining callback.
-function entry.enter(box, progress, travel, digStep, connectInside)
+function entry.enter(box, progress, travel, digStep, connectInside, firstCorner)
     local p = nav.getPosition()
-    if cuboid.contains(box, p) then
-        local target = cuboid.entry(box, p)
-        local ok, err = connectInside(target, box, progress)
+    firstCorner = firstCorner or { x = box.min.x, y = box.max.y, z = box.min.z }
+    local function connect()
+        telemetry.log("Prekopavam sa v oblasti k prvemu rohu " .. firstCorner.x .. "," .. firstCorner.y .. "," .. firstCorner.z, "info")
+        local ok, err = connectInside(firstCorner, box, progress)
         if not ok then return nil, err end
-        return target
+        return firstCorner
     end
-    local approaches = cuboid.approaches(box, p)
+    if cuboid.contains(box, p) then
+        return connect()
+    end
     progress.entryAttempts = {}
+    local below = { x = p.x, y = p.y - 1, z = p.z }
+    if cuboid.contains(box, below) then
+        telemetry.log("Vstupujem pod turtle: " .. below.x .. "," .. below.y .. "," .. below.z, "info")
+        local ok, err = digStep(below, box, progress)
+        if not ok then return nil, err end
+        progress.localEntry = below
+        return connect()
+    end
+    local approaches = cuboid.approaches(box, p, firstCorner)
     for index, approach in ipairs(approaches) do
         local stand, target = approach.stand, approach.cell
         telemetry.log("Pristup " .. index .. "/" .. #approaches .. ": turtle na "

@@ -19,13 +19,17 @@ local function draw()
     screen.clear()
     local width, height = screen.getSize()
     local line = 1
-    local function out(text)
-        if line > height then return end
-        screen.setCursorPos(1, line)
-        screen.write(safe(text, width)); line = line + 1
+    local function out(text, wrap)
+        text = safe(text)
+        repeat
+            if line > height then return end
+            screen.setCursorPos(1, line)
+            screen.write(text:sub(1, width)); line = line + 1
+            text = text:sub(width + 1)
+        until wrap == false or #text == 0
     end
-    out("Craftoria / " .. protocol)
-    out(lastMessage)
+    out("Craftoria", false)
+    out(lastMessage, false)
     local ids = {}
     for id in pairs(devices) do ids[#ids + 1] = id end
     table.sort(ids)
@@ -33,14 +37,23 @@ local function draw()
         local entry = devices[id]
         local p = entry.packet
         local age = math.floor(os.clock() - entry.received)
-        out("#" .. id .. " " .. safe(p.label, 30) .. " (" .. age .. "s od spravy)")
+        out("#" .. id .. " " .. safe(p.label, 30) .. " (" .. age .. "s od spravy)", false)
+        -- Keep resource counts visible before longer status and coordinate lines.
+        local inventory = type(p.inventory) == "table" and p.inventory or {}
+        out("Palivo: " .. safe(p.fuel))
+        out("Volne sloty: " .. safe(inventory.freeSlots))
+        local progress = p.progress
+        if type(progress) == "table" and type(progress.total) == "number"
+            and type(progress.completed) == "number" and type(progress.remaining) == "number" then
+            out("Hotove: " .. safe(progress.completed) .. "/" .. safe(progress.total))
+            out("Zostava: " .. safe(progress.remaining))
+            out("Rozbite bloky: " .. safe(progress.dug))
+        end
         out("Stav: " .. safe(p.activity) .. " | " .. safe(p.level))
         local pos = p.position
         if type(pos) == "table" then
             out("XYZ: " .. safe(pos.x) .. "," .. safe(pos.y) .. "," .. safe(pos.z) .. " dir=" .. safe(pos.direction))
         end
-        local inventory = type(p.inventory) == "table" and p.inventory or {}
-        out("Palivo: " .. safe(p.fuel) .. " | Volne sloty: " .. safe(inventory.freeSlots))
         out(safe(p.message))
         out("----------------")
     end
