@@ -96,6 +96,7 @@ function stations.refuel(target, options)
         -- nil means fill the tank AT the station; a full tank cannot include
         -- extra capacity for the subsequent trip back to the work point.
         local required = target == nil and turtle.getFuelLimit() or target + distance
+        if options and options.capToLimit and fuel.level() ~= "unlimited" then required = math.min(required, turtle.getFuelLimit()) end
         local minimum = distance + (options and options.reserve or c.navigation.reserve) + 2
         local function partialOrError(reason)
             if options and options.allowPartial and fuel.has(minimum) then return true end

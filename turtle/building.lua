@@ -29,7 +29,7 @@ function building.validateArea(a, b)
     return box
 end
 
-function building.run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
+local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
     local box, err = building.validateArea(a, b)
     if not box then return false, err end
     if blockName ~= nil and (type(blockName) ~= "string" or not blockName:match("^[%w_%-]+:[%w_/%.-]+$")) then
@@ -256,5 +256,10 @@ function building.run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
     if not restored then return false, "settings_restore_failed:" .. tostring(restoreErr), p end
     if tostring(reason):find("Terminated", 1, true) then error(reason, 0) end
     return ok == true, reason, p
+end
+function building.run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
+    local goal, err = require("work_fuel").new("floor", a, b)
+    if not goal then return false, err end
+    return supplies.withFuelGoal(goal, run, a, b, blockName, heading, wholeArea, onMaterialsMissing)
 end
 return building

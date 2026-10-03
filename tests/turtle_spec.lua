@@ -31,6 +31,8 @@ local function reset()
     package.loaded.fleet_motion = nil
     package.loaded.building, package.loaded.floor_plan = nil, nil
     package.loaded.floor_access = nil
+    package.loaded.fleet_floors = nil
+    package.loaded.work_fuel = nil
     W = { x = 0, y = 0, z = 0, d = 0, fuel = 1000, limit = 2000,
         blocks = {}, chests = {}, slots = {}, selected = 1, moves = 0, gpsCalls = 0,
         files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0,
@@ -582,6 +584,70 @@ test("supplies refuels, unloads and obtains material at same origin", function()
     assert(require("fuel").has(80)); assert(require("inventory").count("stone") >= 20)
     assert(require("inventory").freeSlots() >= 3); eq(W.d, 0)
 end)
+test("job refuelling obtains the whole goal instead of the next-step minimum", function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=64}}}
+    W.fuel=30; navReady(); assert(require("supplies").prepare())
+    local supplies=require("supplies")
+    assert(supplies.withFuelGoal(function() return 1000 end,function()
+        return supplies.ensure({moves=20})
+    end))
+    assert(W.fuel>=1000 and W.fuel<1080); assert(W.fuel<W.limit)
+end)
+test("job refuelling caps at the station and subtracts the actual return trip", function()
+    configured({fuel={x=2,y=0,z=0,direction=1,side="front"}})
+    W.chests["3,0,0"]={items={{name="minecraft:coal",count=64}}}
+    navReady(); local supplies=require("supplies"); assert(supplies.prepare()); W.fuel=30
+    assert(supplies.withFuelGoal(function() return 10000 end,function() return supplies.ensure({moves=10}) end))
+    eq(W.fuel,W.limit-2); eq(W.x,0); eq(W.z,0)
+end)
+test("job fuel goal decreases with remaining work and ignores failed jobs", function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"},output={x=0,y=0,z=0,direction=2,side="front"}})
+    navReady()
+    local p={total=1000,completed=0,remaining=1000,phase="mining"}
+    require("telemetry").setProgress(p)
+    local goal=assert(require("work_fuel").new("quarry",{x=2,y=0,z=0},{x=501,y=0,z=1}))
+    local first=goal(); p.remaining,p.completed=100,900
+    assert(goal()<first-1800)
+    p.phase="failed"; eq(goal(),0)
+end)
+test("job fuel goal includes mandatory tunnel detours even with a shorter known route", function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"},output={x=0,y=0,z=0,direction=2,side="front"}})
+    navReady()
+    require("telemetry").setProgress({total=20,completed=0,remaining=20,phase="mining"})
+    local goal=assert(require("work_fuel").new("quarry",{x=2,y=0,z=0},{x=21,y=0,z=0}))
+    local direct=goal()
+    require("navigation").setRuntime(nil,nil,function(from,target)
+        return math.abs(from.x-target.x)+math.abs(from.y-target.y)+math.abs(from.z-target.z)+100
+    end)
+    assert(goal()>=direct+400)
+end)
+test("job goal does not trigger early refuelling while the next action is safe", function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=64}}}
+    W.fuel=500; navReady(); local supplies=require("supplies"); assert(supplies.prepare())
+    assert(supplies.withFuelGoal(function() return 10000 end,function() return supplies.ensure({moves=20}) end))
+    eq(W.fuel,500); eq(#(W.refuelCounts or {}),0)
+end)
+test("job fuel goals are cleared on exceptions before another session", function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=64}}}
+    W.fuel=30; navReady(); local supplies=require("supplies"); assert(supplies.prepare())
+    local ok,err=pcall(supplies.withFuelGoal,function() return 1000 end,function() error("test interruption") end)
+    eq(ok,false); assert(tostring(err):find("test interruption",1,true))
+    assert(supplies.ensure({moves=20})); assert(W.fuel<200)
+end)
+test("job accepts an available partial refill and does not loop on an empty chest", function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=1}}}
+    W.fuel=30; navReady(); local supplies=require("supplies"); assert(supplies.prepare())
+    assert(supplies.withFuelGoal(function() return 1000 end,function() return supplies.ensure({moves=20}) end))
+    eq(W.fuel,110)
+    W.fuel=30; local stations=require("stations"); local original=stations.refuel; local visits=0
+    stations.refuel=function(...) visits=visits+1; return original(...) end
+    local ok,err=supplies.withFuelGoal(function() return 1000 end,function() return supplies.ensure({moves=20}) end)
+    eq(ok,false); eq(err,"insufficient_fuel"); eq(visits,1)
+end)
 
 local function runSetup(answers)
     local originalPrint, originalWrite, originalRead = print, write, read
@@ -790,6 +856,31 @@ test("quarry obtains chest fuel after excavation has started", function()
     assert(ok, err); eq(progress.visited, 180); assert(W.refuelAfterDig)
     assert(not W.chests["-1,0,0"].items[1] or W.chests["-1,0,0"].items[1].count < 64)
     eq(W.x, 0); eq(W.d, 0); eq(W.lostDrops, 0)
+end)
+test("quarry mid-job refuel covers remaining work instead of a few steps", function()
+    quarryWorld(); W.limit = 40000; W.fuel = 20000
+    local a, b = { x = 2, y = 0, z = 0 }, { x = 11, y = -1, z = 9 }
+    for x = 2, 11 do for y = -1, 0 do for z = 0, 9 do
+        W.blocks[x .. "," .. y .. "," .. z] = true
+    end end end
+    local nav, stations, c = require("navigation"), require("stations"), require("config").load()
+    local dig, refill, visits = turtle.dig, stations.refuel, {}
+    turtle.dig = function(...)
+        local ok, err = dig(...)
+        if #W.digs == 10 then W.fuel = nav.knownDistance(c.stations.fuel) + c.navigation.reserve + 5 end
+        return ok, err
+    end
+    stations.refuel = function(target, options)
+        local visit = { target = target, remaining = require("telemetry").getProgress().remaining }
+        visits[#visits + 1] = visit
+        local ok, err = refill(target, options); visit.fuel = W.fuel
+        return ok, err
+    end
+    local ok, err, progress = require("mining").run(a, b)
+    assert(ok, err); eq(progress.visited, 200); eq(#visits, 1)
+    assert(visits[1].remaining > 100); assert(visits[1].target >= 2 * visits[1].remaining)
+    assert(visits[1].fuel >= visits[1].target); assert(visits[1].fuel < W.limit)
+    eq(W.x, 0); eq(W.y, 0); eq(W.z, 0)
 end)
 test("quarry unbreakable block stops without claiming completion", function()
     quarryWorld(); W.blocks["2,0,0"] = true; W.unbreakable["2,0,0"] = true

@@ -151,7 +151,7 @@ function mining.validateArea(a, b)
     return box
 end
 
-function mining.run(a, b, heading)
+local function run(a, b, heading)
     local box, err = mining.validateArea(a, b)
     if not box then return false, err end
     completedCells = {}
@@ -250,6 +250,12 @@ function mining.run(a, b, heading)
     telemetry.setActivity("quarry_complete")
     telemetry.log("Kopanie dokoncene: " .. progress.visited .. "/" .. progress.total, "info", progress)
     return true, nil, progress
+end
+
+function mining.run(a, b, heading)
+    local goal, err = require("work_fuel").new("quarry", a, b)
+    if not goal then return false, err end
+    return supplies.withFuelGoal(goal, run, a, b, heading)
 end
 
 return mining

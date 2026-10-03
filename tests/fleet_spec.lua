@@ -129,6 +129,50 @@ test("named station settings preserve defaults and reject unknown references", f
     assert(s.save(c)); eq(s.load().defaults.fuel, "Coal")
     c.defaults.output = "missing"; eq(s.save(c), false)
 end)
+local function setupAnswers(answers)
+    local originalRead,originalWrite=read,write
+    read=function() assert(#answers>0,"Unexpected setup question"); return table.remove(answers,1) end
+    write=function() end
+    local ok,err=pcall(loadfile(ROOT.."/turtle/fleet_setup.lua"))
+    read,write=originalRead,originalWrite
+    assert(ok,err); eq(#answers,0)
+end
+test("floor setup edits only floors without reentering the shaft coordinates", function()
+    local settings=require("fleet_settings")
+    local c=settings.defaults()
+    c.tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}}}}
+    assert(settings.save(c))
+    setupAnswers({"5",
+        "1","upper","2","4","0",
+        "2","upper","first",
+        "3","first","-2","","",
+        "1","temp","0","8","2",
+        "4","temp","a",
+        "0","4"})
+    local saved=settings.load()
+    eq(saved.tunnel.x,0); eq(saved.tunnel.z,0)
+    eq(saved.tunnel.floors.first.exit.x,-2); eq(saved.tunnel.floors.first.exit.y,4); eq(saved.tunnel.floors.first.exit.z,0)
+    eq(saved.tunnel.floors.upper,nil); eq(saved.tunnel.floors.temp,nil)
+    eq(saved.tunnel.floors.base.exit.x,2)
+end)
+test("new shaft and floors can be configured separately and saved together", function()
+    setupAnswers({"3","","100","200","5","1","base","102","64","200","0","4"})
+    local saved=require("fleet_settings").load()
+    eq(saved.tunnel.x,100); eq(saved.tunnel.z,200); eq(saved.tunnel.floors.base.exit.y,64)
+end)
+test("floor editing rejects collisions and invalid exits without losing existing floors", function()
+    local floors,t=require("fleet_floors"),tunnel()
+    local ok,err=floors.rename(t,"upper","base")
+    eq(ok,false); eq(err,"floor_name_exists"); eq(t.floors.upper.exit.y,4)
+    ok,err=floors.setExit(t,"upper",{x=3,y=4,z=3})
+    eq(ok,false); eq(err,"exit_must_align_with_shaft"); eq(t.floors.upper.exit.x,2)
+    ok,err=floors.setExit(t,"upper",{x=2,y=0,z=0})
+    eq(ok,false); eq(err,"duplicate_floor_height"); eq(t.floors.upper.exit.y,4)
+    assert(floors.remove(t,"upper"))
+    ok,err=floors.remove(t,"base")
+    eq(ok,false); eq(err,"last_floor_required"); assert(require("transit").validate(t))
+    eq(t.x,0); eq(t.z,0)
+end)
 test("tunnel exits must align with the centre and have distinct heights", function()
     local t, c = require("transit"), tunnel()
     assert(t.validate(c)); c.floors.upper.exit.z = 3; eq(t.validate(c), false)

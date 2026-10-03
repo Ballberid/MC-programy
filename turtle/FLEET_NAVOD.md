@@ -103,8 +103,18 @@ Zapíš si ID počítača, napríklad **12**. V `fleet_setup`:
 1. Voľbou **1** pridaj pomenované truhly, napríklad `Uhlie`, `Vystup`, `Material`.
 2. Voľbou **2** priraď predvolené truhly: `fuel` = palivo, `output` = vykladanie,
    `materials` = stavebný materiál. Materiál môžeš vynechať pomocou `-`.
-3. Voľbou **3** nastav stred tunela a pridaj základňu aj pracovné poschodie.
-4. Voľbou **4** ulož nastavenia.
+3. Voľbou **3** nastav stred tunela (X/Z).
+4. Voľbou **5 – poschodia** pridaj základňu aj pracovné poschodie.
+5. Voľbou **4** ulož nastavenia.
+
+Keď neskôr pridávaš alebo upravuješ poschodia, choď priamo do voľby **5**;
+súradnice tunela sa nepýtajú znova. Menu poschodí umožňuje **1 pridať**, **2
+premenovať**, **3 zmeniť výstup**, **4 odstrániť** a **0 späť**. Poschodie vyberáš
+číslom alebo názvom. Pri zmene výstupu Enter zachová aktuálnu súradnicu X/Y/Z.
+Výstupy stále musia byť v osi tunela a rôzne poschodia musia mať rôzne Y.
+Posledné poschodie zostáva zachované; celý tunel môžeš vypnúť vo voľbe 3.
+Po úpravách sa vráť do hlavného menu a ulož voľbou **4**. Zmeny platia pre
+nasledujúce úlohy; prebiehajúce úlohy používajú svoje pôvodné zadanie.
 
 Potom spusti:
 
@@ -129,6 +139,11 @@ Hlavné menu:
 
 Pri ovládaní `ID=0` znamená všetky turtle. Pozastavenie sa vykoná pri najbližšej
 kontrole pohybu/kopania/stavania; rozbehnutá obsluha truhly sa môže najprv dokončiť.
+Pri priebežnom tankovaní každá turtle počíta zásobu na celý zostávajúci vlastný
+segment, servisné presuny vrátane tunela a rezervy, s dvojnásobným odhadom.
+Cieľ obmedzuje kapacita nádrže a dostupné palivo v truhle. Ak má stále dosť
+paliva na pokračovanie a bezpečný návrat, nezačne tankovať iba kvôli tomuto odhadu.
+
 Pozastavená turtle môže držať servisnú rezerváciu. Počas práce nechaj `fleet`
 bežať, lebo udeľuje povolenia na spoločné presuny. Ovládanie používa potvrdzované
 správy; bez spojenia nemožno predpokladať, že príkaz už dorazil.

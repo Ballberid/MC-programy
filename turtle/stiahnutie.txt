@@ -14,6 +14,8 @@ Na pocket computer alebo zobrazovacom PC potom spusti receiver.
 
 Riadenie viac turtle:
 Na hlavnom PC: fleet_setup, potom fleet (vypise svoje ID).
+Fleet_setup: 3 nastavuje tunel, 5 spravuje poschodia (pridat, premenovat, zmenit vystup, odstranit).
+Pri uprave poschodi nezadavas tunel znova. Zmeny uloz hlavnou volbou 4.
 Na kazdej turtle v jej doku: worker ID_HLAVNEHO_PC
 Na tablete: receiver fleet ID_HLAVNEHO_PC
 Sipky prepnu turtle, 0 vrati celkovy prehlad.

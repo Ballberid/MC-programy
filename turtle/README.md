@@ -93,9 +93,14 @@ sa pridá aj rezerva na obchádzanie. Inak doplní iba na tento cieľ, obmedzen�
 kapacitou nádrže a dostupným palivom. Pri cieli nad kapacitou naplní nádrž;
 zásoba po návrate z tankovania je znížená o palivo spotrebované na túto cestu.
 Kontroly zásob pri každom kroku zostávajú aktívne; dvojnásobný odhad
-nie záruka pri opakovanom vykladaní alebo prekážkach. Pri štarte sa vypíše
+nie je záruka pri opakovanom vykladaní alebo prekážkach. Pri štarte sa vypíše
 vypočítaná potrebná zásoba, ak tankovanie preskočí.
 Overenie prístupu k palivovej truhle môže prebehnúť aj bez tankovania.
+Ak palivo začne dochádzať počas práce, cieľ tankovania sa prepočíta na zostávajúci
+výkop alebo podlahu (pri fleet na vlastný segment), servisné presuny a rezervy,
+s dvojnásobnou zásobou. Zohľadňuje aj trasu cez servisný tunel a kapacitu nádrže.
+Menšia zásoba v truhle dovolí pokračovať, ak stačí na ďalší krok a bezpečný návrat;
+prázdna truhla bez potrebného minima ukončí pokus bez opakovaného tankovania.
 Potom sa vráti na miesto,
 kde bola turtle pri štarte úlohy. Ak je priamo pod ňou blok patriaci do výkopu,
 vykope ho, vstúpi do oblasti a prekope sa k prvému zadanému rohu iba cez bloky
@@ -146,6 +151,7 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `stations.lua` | `get(name)`, `visit(name,[options])`, `verify(name,[options])`, `refuel(target,[options])`, `unload([keep],[options])`, `takeMaterials(materials,[options])` |
 | | `fillFuel([options])` naplní nádrž v stanici, potom sa vráti; palivo po návrate je znížené o túto cestu |
 | `supplies.lua` | `prepare([heading])`, `check(request)`, `ensure(request)`, `navigationOptions()` |
+| `work_fuel.lua` | `new(kind, a, b)` – priebežný odhad paliva na zostávajúcu prácu a servis |
 | `cuboid.lua` | Normalizácia rohov, rozmery a postupné susedné bunky kvádra |
 | `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading])`, `stepTo(point,box,[progress])` |
 | `quarry_entry.lua` | Výber a overovanie alternatívnych vstupov do kvádra |

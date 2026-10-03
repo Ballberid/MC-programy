@@ -13,9 +13,10 @@ function dialog.number(prompt, default, minimum, maximum)
         print("Zadaj cele cislo v povolenom rozsahu.")
     end
 end
-function dialog.point(prompt, block)
+function dialog.point(prompt, block, default)
     print(prompt .. (block and " (suradnice bloku)" or " (pozicia turtle, nie bloku truhly)"))
-    return { x = dialog.number("X"), y = dialog.number("Y"), z = dialog.number("Z") }
+    default = default or {}
+    return { x = dialog.number("X", default.x), y = dialog.number("Y", default.y), z = dialog.number("Z", default.z) }
 end
 function dialog.yes(prompt, default)
     while true do

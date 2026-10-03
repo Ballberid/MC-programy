@@ -4,6 +4,16 @@ local stations = require("stations")
 local fuel = require("fuel")
 local inv = require("inventory")
 local supplies = {}
+local jobFuelGoal
+-- Scope a job's goal, including cleanup on cancellation/errors and nested jobs.
+function supplies.withFuelGoal(goal, action, ...)
+    local previous = jobFuelGoal
+    jobFuelGoal = goal
+    local result = table.pack(pcall(action, ...))
+    jobFuelGoal = previous
+    if not result[1] then error(result[2], 0) end
+    return table.unpack(result, 2, result.n)
+end
 
 local function fuelStation()
     return stations.get("fuel")
@@ -77,12 +87,34 @@ function supplies.ensure(request)
     end
     local c = config.load()
     local options = { anchor = station, reserve = c.navigation.reserve, keepFuel = request.unloadFuel ~= true }
+    local function refuel(minimum)
+        local target = minimum
+        if jobFuelGoal then
+            local goal = jobFuelGoal()
+            if type(goal) ~= "number" or goal ~= goal or goal == math.huge or goal < 0 then return false, "invalid_job_fuel_goal" end
+            target = math.max(minimum, math.ceil(goal))
+        end
+        local o = {}
+        for key, value in pairs(options) do o[key] = value end
+        -- Cap at the station after the actual return distance is known.
+        o.capToLimit, o.allowPartial = true, jobFuelGoal ~= nil
+        local limit = turtle.getFuelLimit()
+        local distance = nav.knownDistance(station) or 0
+        require("telemetry").log("Tankovanie: ciel po navrate " .. math.min(target, math.max(0, limit - distance))
+            .. "; odhad zostavajucej prace " .. target .. "; limit " .. limit)
+        return stations.refuel(target, o)
+    end
     -- Bounded service passes. Each individual visit returns to the work point.
     for _ = 1, 4 do
         local ok, need, info = supplies.check(request)
         if ok then return true end
         local serviced, reason
-        if need == "fuel" then serviced, reason = stations.refuel(info.requiredFuel, options)
+        if need == "fuel" then
+            serviced, reason = refuel(info.requiredFuel)
+            if serviced then
+                local ready, stillNeeded = supplies.check(request)
+                if not ready and stillNeeded == "fuel" then return false, "insufficient_fuel" end
+            end
         elseif need == "space" or need == "materials" then
             local service = c.stations[need == "space" and "output" or "materials"]
             if not service then return false, "station_missing:" .. need end
@@ -91,7 +123,7 @@ function supplies.ensure(request)
             local target = info.requiredFuel + 2 * distance
             if fuel.level() ~= "unlimited" then target = math.min(target, turtle.getFuelLimit()) end
             if not fuel.has(target) then
-                serviced, reason = stations.refuel(target, options)
+                serviced, reason = refuel(target)
                 if not serviced then return false, reason end
             end
             if need == "space" then
