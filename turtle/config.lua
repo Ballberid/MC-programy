@@ -71,10 +71,11 @@ end
 function config.save(data)
     local ok, err = config.validate(data)
     if not ok then return false, err end
+    local contents = textutils.serialize(require("fleet_store").copy(data))
     fs.makeDir("data")
     local f = fs.open(path .. ".tmp", "w")
     if not f then return false, "config_write_failed" end
-    f.write(textutils.serialize(data))
+    f.write(contents)
     f.close()
     if fs.exists(path .. ".bak") then fs.delete(path .. ".bak") end
     if fs.exists(path) then fs.move(path, path .. ".bak") end

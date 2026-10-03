@@ -20,7 +20,7 @@
     { "source": "test.lua", "target": "test.lua", "roles": ["turtle"] },
     { "source": "receiver.lua", "target": "receiver.lua", "roles": ["receiver"] },
     { "source": "router.lua", "target": "router.lua", "roles": ["router"] },
-    { "source": "fleet_store.lua", "target": "fleet_store.lua", "roles": ["turtle", "controller"] },
+    { "source": "fleet_store.lua", "target": "fleet_store.lua", "roles": ["turtle", "controller", "receiver"] },
     { "source": "fleet_model.lua", "target": "fleet_model.lua", "roles": ["turtle", "controller", "receiver"] },
     { "source": "transit.lua", "target": "transit.lua", "roles": ["turtle", "controller"] },
     { "source": "fleet_settings.lua", "target": "fleet_settings.lua", "roles": ["controller"] },

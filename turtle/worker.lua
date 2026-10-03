@@ -19,7 +19,7 @@ local ready, err = nav.init(heading); if not ready then error(err, 0) end
 local dock = nav.getPosition()
 local c = config.load()
 if not c then
-    c = config.defaults(); c.start, c.home = dock, dock
+    c = config.defaults(); c.start, c.home = store.copy(dock), store.copy(dock)
     local saved, saveErr = config.save(c); if not saved then error(saveErr, 0) end
 end
 local client = require("fleet_client").new(controller, dock)

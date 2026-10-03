@@ -74,6 +74,55 @@ test("durable state survives interrupted rename without forgetting reservations"
     W.files["data/fleet-state.txt.tmp"] = "broken"
     eq(store.load("data/fleet-state.txt", {}).locks.service.owner, 41)
 end)
+test("CC serializer rejects repeated references but shared config values save safely", function()
+    local c=env.configured()
+    c.home=c.start
+    local shared={x=2,y=0,z=2,direction=1,side="front"}
+    c.stations.fuel,c.stations.output=shared,shared
+    local rawOK,rawErr=pcall(textutils.serialize,c)
+    eq(rawOK,false); assert(tostring(rawErr):find("repeated entries",1,true))
+    assert(require("config").save(c))
+    local saved=assert(require("config").load())
+    eq(saved.start.x,saved.home.x); assert(saved.start~=saved.home)
+    eq(saved.stations.fuel.x,2); assert(saved.stations.fuel~=saved.stations.output)
+end)
+test("fleet persistence copies shared progress without changing runtime references", function()
+    local store=require("fleet_store")
+    local progress={completed=5,total=10}
+    local state={task={progress=progress},worker={progress=progress}}
+    store.save("data/fleet-state.txt",state)
+    local saved=store.load("data/fleet-state.txt")
+    eq(saved.task.progress.completed,5); eq(saved.worker.progress.completed,5)
+    assert(saved.task.progress~=saved.worker.progress)
+    eq(state.task.progress,state.worker.progress)
+    local copy=store.copy(state)
+    copy.task.progress.completed=9
+    eq(copy.worker.progress.completed,5); eq(progress.completed,5)
+end)
+test("cyclic records are rejected before touching live files or staging", function()
+    local store,W=require("fleet_store"),world()
+    local path="data/fleet-state.txt"
+    store.save(path,{serial=7})
+    local original=W.files[path]
+    W.files[path..".tmp"]="existing staging"
+    local cycle={}; cycle.self=cycle
+    local ok,err=pcall(store.save,path,cycle)
+    eq(ok,false); assert(tostring(err):find("cyclic",1,true))
+    eq(W.files[path],original); eq(W.files[path..".tmp"],"existing staging")
+end)
+test("fresh workers start without setup under strict CC serialization", function()
+    local W=world(); local started=0
+    parallel.waitForAny=function() started=started+1 end
+    for index=1,3 do
+        W.files={}; W.x=index*4
+        loadfile(ROOT.."/turtle/worker.lua")("16")
+        local c=assert(require("config").load())
+        eq(c.start.x,index*4); eq(c.home.x,index*4); assert(c.start~=c.home)
+        local state=require("fleet_store").load("data/worker-state.txt")
+        eq(state.controller,16); eq(state.status,"idle"); eq(state.dock.x,index*4)
+    end
+    eq(started,3)
+end)
 test("named station settings preserve defaults and reject unknown references", function()
     local s = require("fleet_settings")
     local c = s.defaults(); c.stations = { Coal = stations().fuel }; c.defaults.fuel = "Coal"; c.tunnel = tunnel()

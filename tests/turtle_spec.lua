@@ -15,11 +15,14 @@ local function adjacent(side)
     end
     return p
 end
-local function serialize(t)
+local function serialize(t, seen)
     if type(t) == "string" then return string.format("%q", t) end
     if type(t) ~= "table" then return tostring(t) end
+    seen = seen or {}
+    assert(not seen[t], "Cannot serialize table with repeated entries")
+    seen[t] = true
     local parts = {}
-    for k, v in pairs(t) do parts[#parts + 1] = "[" .. serialize(k) .. "]=" .. serialize(v) end
+    for k, v in pairs(t) do parts[#parts + 1] = "[" .. serialize(k, seen) .. "]=" .. serialize(v, seen) end
     return "{" .. table.concat(parts, ",") .. "}"
 end
 local function reset()
