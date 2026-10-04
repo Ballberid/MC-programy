@@ -43,6 +43,20 @@ Praktické rozloženie: hlavná chodba od tunela k truhlám, doky ako bočné od
 Turtle čakajúce v dokoch musia nechať chodbu voľnú. Zabezpeč priestor aj pred
 truhlami a pred vstupmi do tunela.
 
+Turtle v doku otoč smerom do voľnej chodby. Pri odchode najprv prejde **jeden blok
+dopredu** v uloženom smere doku a až potom odbočí. Pred každým dokom preto nechaj
+voľnú bunku; smer sa berie z pôvodného párovania pracovníka.
+
+PC odošle zadania všetkým vybraným turtle naraz. Začínajú v poradí výberu
+s rozostupom **5 sekúnd**, bez čakania na dokončenie kontroly truhiel alebo vstup
+predchádzajúcej turtle do tunela. Pri štartovej príprave idú medzi potrebnými
+truhlami priamo a od poslednej pokračujú k práci. Dopĺňanie počas práce sa naďalej
+vracia na pracovné miesto.
+
+Rezervuje sa iba konkrétne obslužné miesto pri truhle. Pri rôznych truhlách môžu
+pracovať súčasne; pri tej istej sa vystriedajú. Pred rezerváciou ďalšej truhly
+turtle opustí predchádzajúce miesto, aby si navzájom neblokovali odchod.
+
 Truhly môžu byť pri hlavnom PC. Pre palivo, vykladanie a materiál vyberáš
 samostatné stanice. Pri novej úlohe môžeš jednotlivé stanice nahradiť dočasnými
 truhlami pri pracovisku. Ich súradnice zadáš iba na hlavnom PC.
@@ -78,7 +92,7 @@ pozíciách sa poschodie určuje podľa najbližšej uloženej výšky.
 
 Šachta používa **dva pruhy nahor a jeden nadol**. V rôznych pruhoch je možný
 súbežný prejazd. Na konkrétnom poschodí sa strieda iba krátky priechod cez spoločný
-výstup; obsluha truhiel má vlastnú servisnú rezerváciu. Žiadny pruh sa neuvoľní
+výstup; každé obslužné miesto pri truhle má vlastnú rezerváciu. Žiadny pruh sa neuvoľní
 iba podľa časovača, ak v ňom mohla zostať neodpovedajúca turtle.
 
 Kopaná oblasť nesmie obsahovať žiadny dok, truhlu, obslužné miesto, uložený

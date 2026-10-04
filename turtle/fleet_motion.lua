@@ -1,40 +1,53 @@
--- Reserve service travel/parking; hand it off once outbound shaft entry is clear.
+-- Reserve only the exact chest parking point; ordinary travel is concurrent.
 local transit = require("transit")
+local nav = require("navigation")
 local motion = {}
 function motion.new(client, stations, position, dock)
-    local parked = false
-    local function atStation(p)
-        for _, s in pairs(stations) do if p.x == s.x and p.y == s.y and p.z == s.z then return true end end
-        return false
+    local parked,parking
+    local function same(a,b) return a and b and a.x==b.x and a.y==b.y and a.z==b.z end
+    local function stationAt(p)
+        for _,s in pairs(stations) do if same(p,s) then return "station:"..s.x..","..s.y..","..s.z end end
     end
-    local function serviceFloor(p)
-        if dock and #transit.plan(p, dock) == 0 then return true end
-        for _, s in pairs(stations) do if #transit.plan(p, s) == 0 then return true end end
-        return false
+    local function releaseParking()
+        if parked then client.release(parked); parked,parking=nil,nil end
     end
-    return function(target, options, rawMove)
-        if options.maxMoves == 1 then return rawMove(target.x, target.y, target.z, options) end
-        local locked, err = client.acquire("service")
-        if not locked then return false, err end
-        local handedOff = false
-        local function entered()
-            -- Only release our own movement/parking claims. A station visit's
-            -- outer reservation remains held across its complete round trip.
-            -- Returning to any service floor keeps service until arrival, so
-            -- nobody holding the tunnel ever waits to reacquire service.
-            if not serviceFloor(target) then
-                client.release("service")
-                if parked then parked = false; client.release("service") end
-                handedOff = true
-            end
+    local function leaveParking(target,options,rawMove)
+        if not parked then return true end
+        local p=position()
+        if not same(p,parking) then releaseParking(); return true end
+        local candidates={}
+        for _,d in ipairs({{1,0,0},{-1,0,0},{0,0,1},{0,0,-1},{0,1,0},{0,-1,0}}) do
+            local q={x=p.x+d[1],y=p.y+d[2],z=p.z+d[3]}
+            if not stationAt(q) and not same(q,dock) then candidates[#candidates+1]=q end
         end
-        local ok, reason, details = transit.move(target, options, rawMove, client.acquire, client.release, position, entered)
-        if ok and not handedOff then
-            if atStation(target) and not parked then parked = true
-            else client.release("service") end
-            if not atStation(target) and parked then parked = false; client.release("service") end
+        table.sort(candidates,function(a,b) return nav.distance(a,target)<nav.distance(b,target) end)
+        while true do
+        local temporary=false
+        for _,q in ipairs(candidates) do
+            local o={}; for k,v in pairs(options) do o[k]=v end
+            o.maxMoves,o.maxDetour,o.knownOnly,o.tryOnce,o.waitForTarget,o.waitForTurtles=1,0,false,true,false,false
+            local ok,err=rawMove(q.x,q.y,q.z,o)
+            if ok then releaseParking(); return true end
+            if err=="job_cancelled" or err=="fuel_reserve" or tostring(err):find("gps",1,true) then return false,err end
+            temporary=temporary or tostring(err):find("temporary",1,true)~=nil
         end
-        return ok, reason, details
+        if not temporary then return false,"station_exit_blocked" end
+        local allowed,denied=nav.checkpoint(); if not allowed then return false,denied end
+        sleep(0.5)
+        end
+    end
+    return function(target,options,rawMove)
+        local resource=stationAt(target)
+        if parked and not same(parking,target) then
+            local ok,err=leaveParking(target,options,rawMove); if not ok then return false,err end
+        end
+        if resource and parked~=resource then
+            local ok,err=client.acquire(resource); if not ok then return false,err end
+            parked,parking=resource,{x=target.x,y=target.y,z=target.z}
+        end
+        local ok,err,details=transit.move(target,options,rawMove,client.acquire,client.release,position)
+        if not ok and not same(position(),parking) then releaseParking() end
+        return ok,err,details
     end
 end
 return motion

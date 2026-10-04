@@ -40,7 +40,7 @@ local function execute()
                 telemetry.setProgress(client.state.progress)
                 telemetry.setContext({ taskId = job.id, jobId = job.jobId })
                 nav.setRuntime(require("fleet_motion").new(client, settings.stations, nav.getPosition, client.state.dock), client.checkpoint, transit.estimate)
-                stations.setRuntime(client.acquire, client.release)
+                stations.setRuntime(client.acquire, client.release,true)
                 client.state.status = "running"; client.save(); client.status()
                 local ran, a, b, p = pcall(function()
                     if client.recovery then
@@ -51,6 +51,21 @@ local function execute()
                             { completed = 0, total = box.volume, remaining = box.volume, dug = 0 })
                         previous.returnedHome, previous.phase = returned, "failed"
                         return false, returned and "recovered_to_dock" or returnErr, previous
+                    end
+                    if not client.retry then
+                        telemetry.setActivity("waiting_start")
+                        local untilTime=os.clock()+(job.startDelay or 0)
+                        while os.clock()<untilTime do
+                            local allowed,denied=client.checkpoint(); if not allowed then return false,denied end
+                            sleep(0.2)
+                        end
+                    end
+                    if nav.distance(nav.getPosition(),client.state.dock)==0 then
+                        telemetry.setActivity("leaving_dock")
+                        local turned,turnErr=nav.turnToDirection(client.state.dock.direction)
+                        if not turned then return false,turnErr end
+                        local left,leaveErr=nav.step("front",{anchor=client.state.dock,reserve=settings.navigation.reserve,waitForTurtles=true})
+                        if not left then return false,"dock_exit_blocked:"..tostring(leaveErr) end
                     end
                     if job.kind == "floor" then return require("building").run(job.a, job.b, job.block, nil, job.area) end
                     return require("mining").run(job.a, job.b, nil, client.retry and client.state.progress or nil)

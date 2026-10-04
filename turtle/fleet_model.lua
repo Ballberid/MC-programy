@@ -58,7 +58,9 @@ end
 function model.acquire(locks, resource, owner, token)
     local traffic=type(resource)=="string" and (resource=="tunnel:up:1" or resource=="tunnel:up:2"
         or resource=="tunnel:down" or resource:match("^door:%-?%d+,%-?%d+,%-?%d+$"))
-    if resource ~= "service" and resource ~= "tunnel" and not traffic then return false, "unknown_resource" end
+    local station=type(resource)=="string" and resource:match("^station:%-?%d+,%-?%d+,%-?%d+$")
+    if resource ~= "service" and resource ~= "tunnel" and not traffic and not station then return false, "unknown_resource" end
+    if station and locks.service and locks.service.owner~=owner then return false,"occupied" end
     -- An old exclusive reservation cannot be bypassed during migration.
     if traffic and locks.tunnel and locks.tunnel.owner~=owner then return false,"occupied" end
     if resource=="tunnel" then
@@ -75,6 +77,15 @@ function model.tunnelOwners(locks)
     local owners,seen={},{}
     for name,entry in pairs(locks) do
         if (name=="tunnel" or name:match("^tunnel:") or name:match("^door:")) and not seen[entry.owner] then
+            seen[entry.owner]=true; owners[#owners+1]=entry.owner
+        end
+    end
+    table.sort(owners); return owners
+end
+function model.serviceOwners(locks)
+    local owners,seen={},{}
+    for name,entry in pairs(locks) do
+        if (name=="service" or name:match("^station:")) and not seen[entry.owner] then
             seen[entry.owner]=true; owners[#owners+1]=entry.owner
         end
     end

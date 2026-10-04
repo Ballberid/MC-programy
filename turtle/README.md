@@ -179,6 +179,9 @@ ak ešte nie je nový setup. `nav.setOrigin()` nastaví štart aj konečné mies
 
 `stations.visit()` zostáva pri truhle. Ostatné servisné funkcie sa pokúsia vrátiť
 na pracovnú polohu aj smer, vrátane prípadov, keď je truhla prázdna alebo plná.
+Pri flotile je výnimkou `stations.startup(action)`: štartová príprava ide priamo
+medzi truhlami a zostane pri poslednej. Režim sa obnoví aj pri chybe; dopĺňanie
+počas práce naďalej vracia turtle na pracovné miesto.
 Pri čiastočnom vyložení sa prenesené predmety neberú späť: výsledok oznámi chybu
 a inventár obsahuje skutočný zostatok. Vykladanie chráni palivové predmety,
 `protectedItems` a požadované počty materiálu v tabuľke `keep`.

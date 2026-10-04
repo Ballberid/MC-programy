@@ -82,13 +82,13 @@ local function input()
         elseif choice == 6 then
             shell.run("fleet_setup"); control.settings = settings.load()
         elseif choice == 7 then
-            print("Servis drzi: " .. tostring(control.state.locks.service and control.state.locks.service.owner or "nikto"))
+            print("Servis drzia: " .. table.concat(model.serviceOwners(control.state.locks),","))
             print("Tunel drzia: " .. table.concat(model.tunnelOwners(control.state.locks),","))
             print("Uvolni rezervacie iba ked turtle aj tunel fyzicky skontrolujes a cesta je volna.")
             if dialog.text("Pre uvolnenie napis VOLNE") == "VOLNE" then
                 control.state.locks.service, control.state.locks.tunnel = nil, nil; control.save()
                 for resource in pairs(control.state.locks) do
-                    if resource:match("^tunnel:") or resource:match("^door:") then control.state.locks[resource]=nil end
+                    if resource:match("^tunnel:") or resource:match("^door:") or resource:match("^station:") then control.state.locks[resource]=nil end
                 end
                 control.save()
             end

@@ -67,6 +67,29 @@ test("service reservations reject another owner and stale release tokens", funct
     assert(m.acquire(locks, "service", 41, "new"))
     eq(m.release(locks, "service", 41, "a"), false); eq(locks.service.token, "new")
 end)
+
+test("different chest endpoints can be occupied concurrently but the same endpoint cannot", function()
+    local m,locks=require("fleet_model"),{}
+    assert(m.acquire(locks,"station:2,0,2",41,"fuel"))
+    assert(m.acquire(locks,"station:-2,0,2",42,"output"))
+    eq(m.acquire(locks,"station:2,0,2",43,"other"),false)
+    local owners=m.serviceOwners(locks); eq(#owners,2); eq(owners[1],41); eq(owners[2],42)
+end)
+
+test("startup visits go chest to chest and restore normal return behaviour even after an error", function()
+    env.configured(stations())
+    local nav,lib=require("navigation"),require("stations")
+    local p,calls=dock(),{}
+    nav.getPosition=function() return p end
+    nav.moveToCoord=function(x,y,z) p={x=x,y=y,z=z}; calls[#calls+1]=p; return true end
+    peripheral.hasType=function() return true end
+    lib.setRuntime(nil,nil,true)
+    assert(lib.startup(function() assert(lib.verify("fuel")); return lib.verify("output") end))
+    eq(#calls,2); eq(calls[1].x,2); eq(calls[2].x,-2)
+    eq(p.x,-2)
+    eq(pcall(function() lib.startup(function() error("test failure") end) end),false)
+    assert(lib.verify("fuel")); eq(#calls,4); eq(p.x,-2)
+end)
 test("durable state survives interrupted rename without forgetting reservations", function()
     local W, store = world(), require("fleet_store")
     store.save("data/fleet-state.txt", { locks = { service = { owner = 41, token = "a" } } })
@@ -220,6 +243,7 @@ test("controller dispatches only the selected available workers", function()
     eq(c.state.job.tasks[42].total + c.state.job.tasks[43].total, 48)
     eq(c.state.workers[41].status, "idle"); eq(c.state.workers[42].status, "assigned")
     eq(c.state.job.tasks[42].assignment.lane,1); eq(c.state.job.tasks[43].assignment.lane,2)
+    eq(c.state.job.tasks[42].assignment.startDelay,0); eq(c.state.job.tasks[43].assignment.startDelay,5)
     eq(c.start(t.a, t.b, { 41 }, t.stations), false)
 end)
 test("controller also protects the dock of an unselected turtle", function()
@@ -425,7 +449,24 @@ test("shared-station parking holds the reservation until departing the station",
     assert(move(stations().fuel, {}, raw)); eq(depth, 1)
     assert(move(dock(), {}, raw)); eq(depth, 0)
 end)
-test("outbound shaft entry releases service while retaining exclusive tunnel travel", function()
+
+test("chest departure probes another cell and releases the old endpoint before acquiring the next", function()
+    assert(require("transit").configure(nil))
+    local p,held,attempts=dock(),nil,0
+    local client={acquire=function(r) eq(held,nil); held=r; return true end,
+        release=function(r) eq(held,r); held=nil end}
+    local move=require("fleet_motion").new(client,stations(),function() return p end,dock())
+    local function raw(x,y,z,o)
+        if o.tryOnce then
+            eq(o.maxMoves,1); eq(o.waitForTurtles,false)
+            attempts=attempts+1; if attempts==1 then return false,"temporary_obstacle" end
+        end
+        p={x=x,y=y,z=z}; return true
+    end
+    assert(move(stations().fuel,{},raw))
+    assert(move(stations().output,{},raw)); eq(attempts,2); eq(held,"station:-2,0,2")
+end)
+test("shaft travel holds lane reservations without locking the service floor", function()
     local model, transit = require("fleet_model"), require("transit")
     assert(transit.configure(tunnel(), nil, "upper"))
     local locks, depths, p = {}, {}, dock()
@@ -451,9 +492,8 @@ test("outbound shaft entry releases service while retaining exclusive tunnel tra
         p = {x=x,y=y,z=z}; return true
     end
     assert(move({x=8,y=4,z=0}, {}, raw)); assert(overlapped); eq(next(locks), nil)
-    -- Returning keeps service: it never waits to reacquire it while in the shaft.
     assert(move(dock(), {}, function(x,y,z)
-        eq(locks.service.owner, 41)
+        eq(locks.service, nil)
         p={x=x,y=y,z=z}; return true
     end)); eq(next(locks), nil)
 end)
@@ -467,7 +507,7 @@ test("failed outbound shaft retains tunnel reservation after service handoff", f
         if y==4 then return false,"blocked" end
         p={x=x,y=y,z=z}; return true
     end)
-    eq(ok,false); eq(err,"transit:blocked"); eq(depth.service,0)
+    eq(ok,false); eq(err,"transit:blocked"); eq(depth.service,nil)
     local lane=require("tunnel_traffic").lane(true); eq(depth[lane],1)
 end)
 test("tunnel and service locks are independent and both survive coordinator restart", function()

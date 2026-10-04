@@ -52,7 +52,7 @@ function controller.new(settings)
             local s = segments[index]
             local assignment = { id = jobId .. ":" .. index, jobId = jobId, a = s.a, b = s.b,
                 area = area, stations = store.copy(stations), tunnel = store.copy(tunnel), floor = floor,
-                kind = kind, block = options.block, lane=(index-1)%2+1 }
+                kind = kind, block = options.block, lane=(index-1)%2+1, startDelay=(index-1)*5 }
             local c, invalid = taskLib.settings(assignment, state.workers[id].dock)
             if not c then return false, invalid end
             job.tasks[id] = { id = assignment.id, total = s.total, status = "assigned", assignment = assignment }
@@ -144,13 +144,14 @@ function controller.new(settings)
     function self.snapshot()
         local workers = {}
         local tunnelOwners=model.tunnelOwners(state.locks)
+        local serviceOwners=model.serviceOwners(state.locks)
         for id, w in pairs(state.workers) do
             local age = w.received == -1000000000 and 9999 or math.floor(os.clock() - w.received)
             workers[id] = { packet = w.packet, label = w.label, status = age >= 6 and "offline" or w.status, age = age, error = w.controlError or w.error,
                 pendingControl = state.pendingControls[id] and state.pendingControls[id].action }
         end
         return { version = 1, kind = "fleet_snapshot", id = os.getComputerID(), workers = workers,
-            summary = model.summary(state.job), serviceOwner = state.locks.service and state.locks.service.owner,
+            summary = model.summary(state.job), serviceOwner = serviceOwners[1],serviceOwners=serviceOwners,
             tunnelOwner = tunnelOwners[1], tunnelOwners=tunnelOwners,
             message = state.job and ("Uloha " .. state.job.id) or "Pripravene na novu ulohu" }
     end

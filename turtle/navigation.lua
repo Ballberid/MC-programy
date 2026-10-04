@@ -140,6 +140,7 @@ local function rawMove(x, y, z, options)
             bounds = bounds, knownOnly = known, maxNodes = settings.navigation.maxNodes,
         })
         if not route and paths.hasTemporary() then
+            if options.tryOnce then return stop("temporary_obstacle",goal,moved) end
             sleep(0.5)
             local allowed,reason=nav.checkpoint()
             if not allowed then return stop(reason,goal,moved) end
@@ -160,7 +161,7 @@ local function rawMove(x, y, z, options)
             local side, sideErr = stepToward(nextPoint)
             if not side then return stop(sideErr, goal, moved) end
             local indefinite = options.waitForTurtles or (options.waitForTarget and paths.distance(nextPoint,goal)==0)
-            local waitLimit=5; if indefinite then waitLimit=nil end
+            local waitLimit=5; if indefinite then waitLimit=nil elseif options.tryOnce then waitLimit=0 end
             local clear,waitErr=obstacles.waitForTurtle(side,nav.checkpoint,waitLimit)
             local temporaryObstacle = not clear and waitErr=="turtle_wait_timeout"
             if not clear and not temporaryObstacle then return stop(waitErr,goal,moved) end
@@ -175,6 +176,7 @@ local function rawMove(x, y, z, options)
                 temporaryObstacle=temporaryObstacle or (present and obstacles.isTurtle(block))
                 if temporaryObstacle then paths.markTemporary(nextPoint)
                 else paths.mark(nextPoint, false); replans = replans + 1 end
+                if options.tryOnce then return stop(temporaryObstacle and "temporary_obstacle" or "target_unreachable",goal,moved) end
                 if replans > (options.maxReplans or settings.navigation.maxReplans) then return stop("replan_limit", goal, moved) end
                 obstructed = true
                 telemetry.emit("warning", "obstacle", nextPoint, true)

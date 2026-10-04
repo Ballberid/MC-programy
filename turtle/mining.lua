@@ -181,53 +181,66 @@ local function run(a, b, heading, previous)
         end
         return false, reason, progress
     end
-    local prepared, prepareErr = supplies.prepare(heading)
-    if not prepared then return fail(prepareErr) end
-    local workStart = nav.getPosition()
-    -- Verify output before damaging the first block.
     local c = config.load()
     local output = c.stations.output
-    local reached, reachErr = travel(output)
-    if not reached then return fail(reachErr) end
-    local options = supplies.navigationOptions()
-    options.keepFuel = false
-    local unloaded, unloadErr = stations.unload({}, options)
-    if not unloaded then return fail(unloadErr) end
+    local function prepare()
+        local prepared, prepareErr = supplies.prepare(heading)
+        if not prepared then return fail(prepareErr) end
+        if stations.isManaged() then
+            local goal=assert(require("work_fuel").new("quarry",a,b))()
+            progress.startFuelTarget=math.min(goal,turtle.getFuelLimit())
+            if not fuel.has(goal) then
+                local filled,fillErr=stations.refuel(goal,{capToLimit=true,allowPartial=true,anchor=nav.getPosition()})
+                if not filled then return fail(fillErr) end
+            end
+        end
+        local workStart = nav.getPosition()
+        -- Verify output before damaging the first block.
+        local reached, reachErr = travel(output)
+        if not reached then return fail(reachErr) end
+        local options = supplies.navigationOptions()
+        options.keepFuel = false
+        local unloaded, unloadErr = stations.unload({}, options)
+        if not unloaded then return fail(unloadErr) end
 
-    -- Double the entire estimate: work, travel and safety reserves.
-    local function routeCost(from, target)
-        return nav.knownDistance(target, from)
-            or (nav.estimateDistance(target, from) + 6 * c.navigation.maxDetour)
-    end
-    local lastCell = cuboid.cell(box, box.volume, a)
-    local required = 2 * (box.volume + routeCost(nav.getPosition(), workStart)
-        + routeCost(workStart, a) + routeCost(lastCell, output)
-        + routeCost(output, c.home) + 2 * routeCost(nav.getPosition(), c.stations.fuel)
-        + c.navigation.reserve)
-    progress.startFuelRequired = required
-    if not fuel.has(required) then
-        telemetry.setActivity("quarry_refuel")
-        -- refuel(target) also reserves the trip back from the fuel station.
-        local returnDistance = nav.knownDistance(c.stations.fuel)
-        if not returnDistance then return fail("fuel_route_unknown") end
-        local limit = turtle.getFuelLimit()
-        local target = math.min(required, math.max(0, limit - returnDistance))
-        progress.startFuelTarget = target
-        options.allowPartial = true
-        telemetry.log("Doplnam palivo: ciel po navrate " .. target
-            .. "; odhad " .. required .. "; limit " .. limit, "info")
-        local filled, fillErr = stations.refuel(target, options)
-        if not filled then return fail(fillErr) end
-        telemetry.log("Palivo po doplneni a navrate: " .. tostring(fuel.level()), "info")
-    else
-        telemetry.log("Palivo staci, tankovanie preskakujem: " .. tostring(fuel.level())
-            .. "; odhad s rezervou " .. required, "info")
-    end
+        -- Double the entire estimate: work, travel and safety reserves.
+        local function routeCost(from, target)
+            return nav.knownDistance(target, from)
+                or (nav.estimateDistance(target, from) + 6 * c.navigation.maxDetour)
+        end
+        local lastCell = cuboid.cell(box, box.volume, a)
+        local required = 2 * (box.volume + routeCost(nav.getPosition(), workStart)
+            + routeCost(workStart, a) + routeCost(lastCell, output)
+            + routeCost(output, c.home) + 2 * routeCost(nav.getPosition(), c.stations.fuel)
+            + c.navigation.reserve)
+        progress.startFuelRequired = required
+        if not stations.isManaged() and not fuel.has(required) then
+            telemetry.setActivity("quarry_refuel")
+            -- refuel(target) also reserves the trip back from the fuel station.
+            local returnDistance = nav.knownDistance(c.stations.fuel)
+            if not returnDistance then return fail("fuel_route_unknown") end
+            local limit = turtle.getFuelLimit()
+            local target = math.min(required, math.max(0, limit - returnDistance))
+            progress.startFuelTarget = target
+            options.allowPartial = true
+            telemetry.log("Doplnam palivo: ciel po navrate " .. target
+                .. "; odhad " .. required .. "; limit " .. limit, "info")
+            local filled, fillErr = stations.refuel(target, options)
+            if not filled then return fail(fillErr) end
+            telemetry.log("Palivo po doplneni a navrate: " .. tostring(fuel.level()), "info")
+        else
+            telemetry.log("Palivo staci, tankovanie preskakujem: " .. tostring(fuel.level())
+                .. "; odhad s rezervou " .. required, "info")
+        end
 
-    if nav.distance(nav.getPosition(), workStart) > 0 then
-        local restored, restoreErr = travel(workStart, true)
-        if not restored then return fail(restoreErr) end
+        if not stations.isManaged() and nav.distance(nav.getPosition(), workStart) > 0 then
+            local restored, restoreErr = travel(workStart, true)
+            if not restored then return fail(restoreErr) end
+        end
+        return true
     end
+    local prepared,prepareErr,prepareProgress=stations.startup(prepare)
+    if not prepared then return false,prepareErr,prepareProgress end
 
     progress.phase = "entry"
     local entry, entryErr = quarryEntry.enter(box, progress, travel, mining.stepTo, connectInside, a)
@@ -248,8 +261,8 @@ local function run(a, b, heading, previous)
     progress.phase = "unloading"
     local finishTravel, finishErr = travel(output)
     if not finishTravel then return fail(finishErr) end
-    options = supplies.navigationOptions(); options.keepFuel = false
-    unloaded, unloadErr = stations.unload({}, options)
+    local options = supplies.navigationOptions(); options.keepFuel = false
+    local unloaded, unloadErr = stations.unload({}, options)
     if not unloaded then return fail(unloadErr) end
     local homeTravel, homeTravelErr = travel(c.home)
     if not homeTravel then return fail(homeTravelErr) end

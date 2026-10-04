@@ -17,6 +17,8 @@ Na hlavnom PC: fleet_setup, potom fleet (vypise svoje ID).
 Fleet_setup: 3 nastavuje tunel, 5 spravuje poschodia (pridat, premenovat, zmenit vystup, odstranit).
 Pri uprave poschodi nezadavas tunel znova. Zmeny uloz hlavnou volbou 4.
 Na kazdej turtle v jej doku: worker ID_HLAVNEHO_PC
+Doky musia smerovat do volnej chodby: pri starte turtle najprv ide jeden blok dopredu.
+Turtle startuju po 5 sekundach; kontrola truhiel ide priamo medzi truhlami bez navratov do doku.
 Fleet: 4 obnovi segment po odstraneni chyby; 5 vrati turtle; 10 resetuje zastavene turtle v dokoch do idle.
 Tunel 3x3 musi byt cely volny: dve zvisle drahy nahor, jedna nadol. Aktualizuj PC aj vsetky turtle spolu.
 Na tablete: receiver fleet ID_HLAVNEHO_PC

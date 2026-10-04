@@ -4,9 +4,18 @@ local fuel = require("fuel")
 local inv = require("inventory")
 local telemetry = require("telemetry")
 local stations = {}
-local acquire, release
-function stations.setRuntime(lockHandler, releaseHandler)
+local acquire, release,managed,tourHome
+function stations.setRuntime(lockHandler, releaseHandler,movementManaged)
     acquire, release = lockHandler, releaseHandler
+    managed=movementManaged==true
+end
+function stations.isManaged() return managed end
+function stations.startup(action)
+    if not managed then return action() end
+    local previous=tourHome; tourHome=nav.getPosition()
+    local result=table.pack(pcall(action)); tourHome=previous
+    if not result[1] then error(result[2],0) end
+    return table.unpack(result,2,result.n)
 end
 
 local function settings()
@@ -45,14 +54,14 @@ function stations.visit(name, options)
     return true, station
 end
 
--- Always attempt to return, including after an empty/full chest error.
+-- Startup tours stay at the chest; ordinary visits return to the work point.
 local function withVisit(name, action, options)
     if not nav.getPosition() then
         local ok, err = nav.init()
         if not ok then return false, err end
     end
-    local start = nav.getPosition()
-    if acquire then
+    local start = tourHome or nav.getPosition()
+    if acquire and not managed then
         local ok, err = acquire("service")
         if not ok then return false, err end
     end
@@ -69,6 +78,7 @@ local function withVisit(name, action, options)
         else actionOK, actionErr = ok, err end
     end
     turtle.select(selected)
+    if tourHome then return actionOK,actionErr end
     -- Known route avoids spending fuel on speculative shortcuts on the way back.
     local returned, returnErr = nav.moveToCoord(start.x, start.y, start.z, {
         anchor = o.anchor, reserve = o.reserve, knownOnly = true,
@@ -76,7 +86,7 @@ local function withVisit(name, action, options)
         waitForTarget = true,
     })
     if not returned then return false, "return_failed:" .. tostring(returnErr), actionErr end
-    if release then release("service") end
+    if release and not managed then release("service") end
     return actionOK, actionErr
 end
 

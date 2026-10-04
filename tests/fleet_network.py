@@ -135,7 +135,9 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2):
                 turtle[name]=function()
                     local p=TEST_ENV.adjacent(side)
                     if PY_OCCUPIED(MACHINE_ID,p.x,p.y,p.z) then return false end
-                    local ok,err=original(); coroutine.yield(); return ok,err
+                    local ok,err=original()
+                    if ok and not FIRST_MOVE then FIRST_MOVE={x=p.x,y=p.y,z=p.z}; FIRST_MOVE_AT=os.clock() end
+                    coroutine.yield(); return ok,err
                 end
             end
             parallel.waitForAny=function(...)
@@ -162,9 +164,9 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2):
             main.globals().CONTROL.handle(sender, main.globals().textutils.unserialize(text), protocol)
         main.globals().CONTROL.tick()
         control = main.globals().CONTROL
-        owner = control.snapshot()["serviceOwner"]
-        if owner is not None:
-            owners.add(owner)
+        snapshot=control.snapshot()
+        owner = snapshot["serviceOwner"]
+        owners.update(snapshot["serviceOwners"].values())
         tunnel_owner = control.snapshot()["tunnelOwner"]
         if shaft:
             in_shaft=[machines[i][1]["world"]() for i in workers if 0 < machines[i][1]["world"]()["y"] < 40]
@@ -198,6 +200,12 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2):
         states = {i: control.state["workers"][i]["status"] for i in workers}
         raise AssertionError(f"Fleet did not complete: {states}")
     assert owners == set(workers)
+    for index,identity in enumerate(workers):
+        first=machines[identity][0].globals().FIRST_MOVE
+        assert (first["x"],first["y"],first["z"]) == (4 if shaft else 0,0,-2*index-1), "Dock departure must first move forward"
+        if index:
+            previous=machines[workers[index-1]][0].globals().FIRST_MOVE_AT
+            assert machines[identity][0].globals().FIRST_MOVE_AT-previous >= 4.8, "Workers must start five seconds apart"
     assert worked_together, "Workers should process their segments concurrently"
     if shaft:
         assert startup_overlap, "Second worker should use service before the first reaches its excavation"

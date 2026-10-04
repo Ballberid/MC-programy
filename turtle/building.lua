@@ -141,51 +141,56 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
         return true
     end
     local function work()
-        if blockName then
-            local ok, reason = protectMaterial(); if not ok then return false, reason end
+        local function prepare()
+            if blockName then
+                local ok, reason = protectMaterial(); if not ok then return false, reason end
+            end
+            local ready, reason = supplies.prepare(heading)
+            if not ready then return false, reason end
+            if cuboid.contains(wholeArea or box, nav.getPosition()) then return false, "turtle_inside_floor_plane" end
+            if not blockName then
+                local enough, why = supplies.ensure({ moves = 2 * routeCost(c.stations.materials), freeSlots = 1 })
+                if not enough then return false, why end
+                blockName, reason = stations.discoverMaterial(assert(supplies.navigationOptions()))
+                if not blockName then return false, reason end
+                local protected, protectErr = protectMaterial(); if not protected then return false, protectErr end
+            end
+            p.block = blockName
+            telemetry.log("Podlaha: " .. box.volume .. " blokov; material " .. blockName)
+            local firstBlock = plan.cell(box, 1, a)
+            local lastBlock = plan.cell(box, box.volume, a)
+            local initialSide = nav.getPosition().y < a.y and "up" or "down"
+            local first, last = access.stand(firstBlock, initialSide), access.stand(lastBlock, initialSide)
+            -- Two times work, travel, replenishment and the fuel-return reserve.
+            local batches = math.ceil(box.volume / math.max(1, capacity()))
+            local function estimate(target, from)
+                return nav.knownDistance(target, from) or nav.estimateDistance(target, from)
+            end
+            local serviceTrip = math.max(estimate(c.stations.materials, first), estimate(c.stations.materials, last))
+            local required = 2 * (box.volume + estimate(first) + estimate(c.home, last)
+                + 2 * batches * serviceTrip + 2 * estimate(c.stations.fuel)
+                + c.navigation.reserve + 6 * c.navigation.maxDetour)
+            p.startFuelRequired = required
+            telemetry.log("Palivo: " .. tostring(fuel.level()) .. "; odhad s rezervou " .. required .. "; davky materialu " .. batches)
+            if not fuel.has(required) then
+                local distance = nav.knownDistance(c.stations.fuel)
+                if not distance then return false, "fuel_route_unknown" end
+                local options = assert(supplies.navigationOptions()); options.allowPartial = true
+                local target = math.min(required, math.max(0, turtle.getFuelLimit() - distance))
+                p.startFuelTarget = target
+                local filled, fillErr = stations.refuel(target, options)
+                if not filled then return false, fillErr end
+            else
+                telemetry.log("Palivo staci, tankovanie preskakujem.")
+            end
+            local stocked, stockErr = restock(true)
+            -- An empty source is fine when every requested block already exists.
+            -- Missing material becomes fatal at the first tile requiring placement.
+            if not stocked and stockErr ~= "materials_missing" then return false, stockErr end
+            return true
         end
-        local ready, reason = supplies.prepare(heading)
-        if not ready then return false, reason end
-        if cuboid.contains(wholeArea or box, nav.getPosition()) then return false, "turtle_inside_floor_plane" end
-        if not blockName then
-            local enough, why = supplies.ensure({ moves = 2 * routeCost(c.stations.materials), freeSlots = 1 })
-            if not enough then return false, why end
-            blockName, reason = stations.discoverMaterial(assert(supplies.navigationOptions()))
-            if not blockName then return false, reason end
-            local protected, protectErr = protectMaterial(); if not protected then return false, protectErr end
-        end
-        p.block = blockName
-        telemetry.log("Podlaha: " .. box.volume .. " blokov; material " .. blockName)
-        local firstBlock = plan.cell(box, 1, a)
-        local lastBlock = plan.cell(box, box.volume, a)
-        local initialSide = nav.getPosition().y < a.y and "up" or "down"
-        local first, last = access.stand(firstBlock, initialSide), access.stand(lastBlock, initialSide)
-        -- Two times work, travel, replenishment and the fuel-return reserve.
-        local batches = math.ceil(box.volume / math.max(1, capacity()))
-        local function estimate(target, from)
-            return nav.knownDistance(target, from) or nav.estimateDistance(target, from)
-        end
-        local serviceTrip = math.max(estimate(c.stations.materials, first), estimate(c.stations.materials, last))
-        local required = 2 * (box.volume + estimate(first) + estimate(c.home, last)
-            + 2 * batches * serviceTrip + 2 * estimate(c.stations.fuel)
-            + c.navigation.reserve + 6 * c.navigation.maxDetour)
-        p.startFuelRequired = required
-        telemetry.log("Palivo: " .. tostring(fuel.level()) .. "; odhad s rezervou " .. required .. "; davky materialu " .. batches)
-        if not fuel.has(required) then
-            local distance = nav.knownDistance(c.stations.fuel)
-            if not distance then return false, "fuel_route_unknown" end
-            local options = assert(supplies.navigationOptions()); options.allowPartial = true
-            local target = math.min(required, math.max(0, turtle.getFuelLimit() - distance))
-            p.startFuelTarget = target
-            local filled, fillErr = stations.refuel(target, options)
-            if not filled then return false, fillErr end
-        else
-            telemetry.log("Palivo staci, tankovanie preskakujem.")
-        end
-        local stocked, stockErr = restock(true)
-        -- An empty source is fine when every requested block already exists.
-        -- Missing material becomes fatal at the first tile requiring placement.
-        if not stocked and stockErr ~= "materials_missing" then return false, stockErr end
+        local prepared,prepareErr=stations.startup(prepare)
+        if not prepared then return false,prepareErr end
         local preferred
         for index = 1, box.volume do
             local allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
