@@ -3,6 +3,7 @@ local position = require("position")
 local paths = require("pathfinding")
 local fuel = require("fuel")
 local telemetry = require("telemetry")
+local obstacles = require("obstacles")
 local nav = {}
 local settings = config.defaults()
 local movesSinceGPS = 0
@@ -118,8 +119,19 @@ local function rawMove(x, y, z, options)
     local bounds = paths.bounds(start, goal, options.maxDetour or settings.navigation.maxDetour)
     local known = options.knownOnly == true
     if not known then paths.forgetBlocked() end
-    local homeCost, homeErr = nav.knownDistance(anchor)
-    if not homeCost then return false, "return_route_unknown:" .. tostring(homeErr) end
+    local function verifiedReturnDistance()
+        while true do
+            local distance,err=nav.knownDistance(anchor)
+            if distance or not paths.hasTemporary() then return distance,err end
+            local allowed,reason=nav.checkpoint(); if not allowed then return nil,reason end
+            sleep(0.5)
+        end
+    end
+    local homeCost, homeErr = verifiedReturnDistance()
+    if not homeCost then
+        telemetry.log("Neznama navratova trasa z "..start.x..","..start.y..","..start.z.." k "..anchor.x..","..anchor.y..","..anchor.z,"warning")
+        return false, "return_route_unknown:" .. tostring(homeErr)
+    end
     local moved, replans = 0, 0
     telemetry.setActivity("moving")
     while paths.distance(position.get(), goal) > 0 do
@@ -127,13 +139,17 @@ local function rawMove(x, y, z, options)
         local route, routeErr = paths.find(position.get(), goal, {
             bounds = bounds, knownOnly = known, maxNodes = settings.navigation.maxNodes,
         })
-        if not route then return stop(routeErr, goal, moved) end
+        if not route and paths.hasTemporary() then
+            sleep(0.5)
+            local allowed,reason=nav.checkpoint()
+            if not allowed then return stop(reason,goal,moved) end
+        elseif not route then return stop(routeErr, goal, moved) end
         local obstructed = false
-        for _, nextPoint in ipairs(route) do
+        for _, nextPoint in ipairs(route or {}) do
             local permitted, denied = nav.checkpoint()
             if not permitted then return stop(denied, goal, moved) end
             if moved >= maxMoves then return stop("move_limit", goal, moved) end
-            local returnCost = nav.knownDistance(anchor)
+            local returnCost = verifiedReturnDistance()
             if not returnCost then return stop("return_route_lost", goal, moved) end
             -- Worst case: next step needs to be undone before returning.
             -- Prefer an already known shorter return route when available.
@@ -143,15 +159,22 @@ local function rawMove(x, y, z, options)
             if not enough then return stop("fuel_reserve", goal, moved) end
             local side, sideErr = stepToward(nextPoint)
             if not side then return stop(sideErr, goal, moved) end
+            local indefinite = options.waitForTurtles or (options.waitForTarget and paths.distance(nextPoint,goal)==0)
+            local waitLimit=5; if indefinite then waitLimit=nil end
+            local clear,waitErr=obstacles.waitForTurtle(side,nav.checkpoint,waitLimit)
+            local temporaryObstacle = not clear and waitErr=="turtle_wait_timeout"
+            if not clear and not temporaryObstacle then return stop(waitErr,goal,moved) end
             local success = false
-            for attempt = 0, settings.navigation.retries do
+            for attempt = 0, temporaryObstacle and -1 or settings.navigation.retries do
                 if detect(side) then break end
                 if position.move(side) then success = true; break end
                 if attempt < settings.navigation.retries then sleep(0.3) end
             end
             if not success then
-                paths.mark(nextPoint, false)
-                replans = replans + 1
+                local present,block=({front=turtle.inspect,up=turtle.inspectUp,down=turtle.inspectDown})[side]()
+                temporaryObstacle=temporaryObstacle or (present and obstacles.isTurtle(block))
+                if temporaryObstacle then paths.markTemporary(nextPoint)
+                else paths.mark(nextPoint, false); replans = replans + 1 end
                 if replans > (options.maxReplans or settings.navigation.maxReplans) then return stop("replan_limit", goal, moved) end
                 obstructed = true
                 telemetry.emit("warning", "obstacle", nextPoint, true)
@@ -166,7 +189,7 @@ local function rawMove(x, y, z, options)
                 if not ok then return stop(err, goal, moved) end
             end
         end
-        if not obstructed then break end
+        if route and not obstructed then break end
     end
     local ok, err = nav.sync()
     if not ok then return stop(err, goal, moved) end

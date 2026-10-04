@@ -219,6 +219,7 @@ test("controller dispatches only the selected available workers", function()
     eq(c.state.job.tasks[41], nil); eq(c.state.job.total, 48)
     eq(c.state.job.tasks[42].total + c.state.job.tasks[43].total, 48)
     eq(c.state.workers[41].status, "idle"); eq(c.state.workers[42].status, "assigned")
+    eq(c.state.job.tasks[42].assignment.lane,1); eq(c.state.job.tasks[43].assignment.lane,2)
     eq(c.start(t.a, t.b, { 41 }, t.stations), false)
 end)
 test("controller also protects the dock of an unselected turtle", function()
@@ -272,6 +273,30 @@ test("worker pairing ignores other controllers and repeated assignments never re
     restarted.handle(99, { version = 1, kind = "control", action = "stop", taskId = t.id })
     eq(restarted.queued, true); eq(restarted.recovery, true)
 end)
+test("resume requeues failed or recovery segments without replacing their saved task", function()
+    env.configured()
+    for _,status in ipairs({"failed","recovery"}) do
+        local c=require("fleet_client").new(99,dock())
+        c.state.status,c.state.task=status,assignment()
+        c.state.progress={visited=12,completed=12,total=48,remaining=36,dug=12}
+        c.paused,c.cancel=true,true
+        local command={version=1,kind="control",action="resume",request="retry:"..status,order=10,taskId=c.state.task.id}
+        c.handle(99,command)
+        eq(c.state.status,"assigned"); eq(c.queued,true); eq(c.retry,true); eq(c.recovery,false)
+        eq(c.paused,false); eq(c.cancel,false); eq(c.state.progress.visited,12)
+        c.queued=false; c.handle(99,command); eq(c.queued,false)
+        local saved=require("fleet_store").load("data/worker-state.txt")
+        eq(saved.task.id,"job:1"); eq(saved.progress.visited,12)
+        -- Reset the control sequence for the independent second scenario.
+        c.state.lastControl,c.state.controlSeen=nil,{}; c.save()
+    end
+end)
+test("resume cannot restart a completed segment", function()
+    env.configured(); local c=require("fleet_client").new(99,dock())
+    c.state.status,c.state.task="complete",assignment()
+    c.handle(99,{version=1,kind="control",action="resume",taskId=c.state.task.id})
+    eq(c.state.status,"complete"); eq(c.queued,nil)
+end)
 test("worker rejects a second assignment while working on its first", function()
     env.configured()
     local c = require("fleet_client").new(99, dock())
@@ -302,6 +327,52 @@ test("worker reservations nest and release using the granted token", function()
     eq(c.state.pendingRelease.service, requests[1])
     c.handle(99, { version = 1, kind = "release_reply", resource = "service", token = requests[1] })
     assert(c.acquire("service")); assert(requests[2] ~= requests[1])
+end)
+test("an occupied service keeps waiting beyond five minutes while the PC responds", function()
+    env.configured(); local c=require("fleet_client").new(99,dock())
+    rednet.send=function(_,p)
+        if p.kind=="lock" then c.handle(99,{version=1,kind="lock_reply",request=p.request,
+            granted=world().ticks>320,error=world().ticks<=320 and "occupied" or nil}) end
+    end
+    sleep=function() world().ticks=world().ticks+10 end
+    assert(c.acquire("service")); assert(world().ticks>300)
+end)
+test("missing controller is a recoverable communication error rather than infinite waiting", function()
+    env.configured(); local c=require("fleet_client").new(99,dock())
+    rednet.send=function() return true end
+    sleep=function() world().ticks=world().ticks+100 end
+    local ok,err=c.acquire("service")
+    eq(ok,false); eq(err,"controller_unreachable:service")
+end)
+test("reset in dock returns idle and duplicate commands resend their result", function()
+    env.configured(); env.navReady(); local c=require("fleet_client").new(99,dock())
+    c.state.status,c.state.task="failed",assignment()
+    c.state.progress={visited=5,completed=5,total=48,remaining=43,dug=5}
+    c.state.lockTokens.service="mine"
+    local command={version=1,kind="control",action="reset",request="reset:1",order=1,taskId=c.state.task.id}
+    c.handle(99,command); eq(c.state.status,"idle"); eq(c.state.task,nil); eq(c.state.progress,nil)
+    eq(c.state.pendingRelease.service,"mine")
+    local before=#world().packets; c.handle(99,command)
+    eq(world().packets[before+1].kind,"reset_result"); eq(world().packets[before+2].kind,"control_ack")
+    local saved=require("fleet_store").load("data/worker-state.txt"); eq(saved.status,"idle"); eq(saved.dock.x,0)
+end)
+test("reset refuses a running worker or a worker away from its dock", function()
+    env.configured(); env.navReady(); local c=require("fleet_client").new(99,dock())
+    c.state.status="running"; local ok,err=c.reset(); eq(ok,false); eq(err,"reset_requires_stop")
+    c.state.status="failed"; world().x=1; env.navReady()
+    ok,err=c.reset(); eq(ok,false); eq(err,"reset_requires_dock"); eq(c.state.status,"failed")
+end)
+test("controller only completes reset after the result, then accepts a new job", function()
+    local c,m=controllerWithWorkers(); local t=assignment()
+    assert(c.start(t.a,t.b,{41},t.stations))
+    local oldId=c.state.job.tasks[41].id
+    c.control("reset",41); local request=c.state.pendingControls[41].request
+    c.handle(41,{version=1,id=41,kind="control_ack",request=request},m.protocol)
+    assert(c.state.pendingControls[41])
+    c.handle(41,{version=1,id=41,kind="reset_result",request=request,taskId=oldId,ok=true},m.protocol)
+    eq(c.state.job.tasks[41].status,"cancelled"); eq(c.state.workers[41].status,"idle")
+    eq(c.snapshot().summary.active,0); eq(c.snapshot().summary.failed,0)
+    assert(c.start(t.a,t.b,{41},t.stations))
 end)
 test("stop retries are acknowledged without cancelling the return trip a second time", function()
     env.configured(); local c = require("fleet_client").new(99, dock())
@@ -372,7 +443,7 @@ test("outbound shaft entry releases service while retaining exclusive tunnel tra
     local overlapped = false
     local function raw(x,y,z)
         if y == 4 and x == 0 then
-            assert(not locks.service); eq(locks.tunnel.owner, 41)
+            assert(not locks.service); eq(model.tunnelOwners(locks)[1], 41)
             assert(model.acquire(locks, "service", 42, "next"))
             eq(model.acquire(locks, "tunnel", 42, "next"), false)
             assert(model.release(locks, "service", 42, "next")); overlapped = true
@@ -382,7 +453,7 @@ test("outbound shaft entry releases service while retaining exclusive tunnel tra
     assert(move({x=8,y=4,z=0}, {}, raw)); assert(overlapped); eq(next(locks), nil)
     -- Returning keeps service: it never waits to reacquire it while in the shaft.
     assert(move(dock(), {}, function(x,y,z)
-        eq(locks.service.owner, 41); eq(locks.tunnel.owner, 41)
+        eq(locks.service.owner, 41)
         p={x=x,y=y,z=z}; return true
     end)); eq(next(locks), nil)
 end)
@@ -396,7 +467,8 @@ test("failed outbound shaft retains tunnel reservation after service handoff", f
         if y==4 then return false,"blocked" end
         p={x=x,y=y,z=z}; return true
     end)
-    eq(ok,false); eq(err,"transit:blocked"); eq(depth.service,0); eq(depth.tunnel,1)
+    eq(ok,false); eq(err,"transit:blocked"); eq(depth.service,0)
+    local lane=require("tunnel_traffic").lane(true); eq(depth[lane],1)
 end)
 test("tunnel and service locks are independent and both survive coordinator restart", function()
     local c,m=controllerWithWorkers()
@@ -470,14 +542,20 @@ test("pocket receiver switches from fleet overview to an individual turtle", fun
     assert(text:find("#41",1,true)); assert(text:find("Palivo: 1234",1,true)); assert(text:find("Zostava: 30",1,true))
 end)
 
-test("worker program completes an assigned job with its real background RPC listener", function()
+local function runWorkerProgram(resuming)
     local W = world()
-    env.configured(stations())
+    local c=env.configured(stations())
     W.chests["3,0,2"] = { items = { { name="minecraft:coal",count=64 } } }
     W.chests["-3,0,2"] = { items = {} }
     W.blocks["8,0,0"], W.blocks["9,0,0"] = true, true
     local t = assignment(); t.a, t.b = {x=8,y=0,z=0}, {x=9,y=0,z=0}
     local messages = { { version=1,kind="assign",task=t } }
+    if resuming then
+        W.blocks["8,0,0"]=nil
+        require("fleet_store").save("data/worker-state.txt",{version=1,controller=99,dock=dock(),status="recovery",
+            task=t,seen={[t.id]=true},previous=c,progress={visited=1,completed=1,total=2,remaining=1,dug=1,phase="failed"}})
+        messages={{version=1,kind="control",action="resume",request="retry",order=1,taskId=t.id}}
+    end
     local complete = false
     rednet.receive = function()
         coroutine.yield()
@@ -504,8 +582,10 @@ test("worker program completes an assigned job with its real background RPC list
         error("worker job did not finish")
     end
     loadfile(ROOT .. "/turtle/worker.lua")("99", "0")
-    assert(complete); eq(#W.digs,2); eq(W.x,0); eq(W.y,0); eq(W.z,0)
+    assert(complete); eq(#W.digs,resuming and 1 or 2); eq(W.x,0); eq(W.y,0); eq(W.z,0)
     local state = require("fleet_store").load("data/worker-state.txt")
-    eq(state.status,"complete"); eq(state.progress.completed,2)
+    eq(state.status,"complete"); eq(state.progress.completed,2); eq(state.progress.dug,2)
     eq(require("config").load().stations.output.x,-2)
-end)
+end
+test("worker program completes an assigned job with its real background RPC listener", function() runWorkerProgram(false) end)
+test("worker program retries a persisted segment through the existing resume command", function() runWorkerProgram(true) end)

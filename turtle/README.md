@@ -127,11 +127,13 @@ Nepoužité novo vyzdvihnuté palivo vracia do palivovej truhly. Predmety, ktor�
 boli v inventári pred spustením, sa tiež môžu vyložiť, ak nie sú chránené.
 
 Padajúci piesok/štrk opakovane odstraňuje, najviac 32 pokusov na jedno miesto.
-Pri nerozbitnom bloku, inom turtle, inventári, vode/láve, nedostatku zásob alebo
+Na inú turtle v kopanej bunke počká, pričom pauza/stop zostávajú funkčné.
+Pri nerozbitnom bloku, inventári, vode/láve, nedostatku zásob alebo
 nedoriešenej ceste úlohu označí ako nedokončenú, vypíše dôvod a pokúsi sa vrátiť
 domov bez kopania. Nastavené truhly nesmú byť vo výkope. Program neodčerpáva
 kvapaliny ani nemá automatické pokračovanie po reštarte. Po odstránení príčiny
-možno znova zadať rovnaké rohy; už vyprázdnené miesta prejde bez kopania.
+možno vo fleet použiť voľbu 4 na obnovenie pôvodného segmentu. Samostatne možno
+znova zadať rovnaké rohy; už vyprázdnené miesta prejde bez kopania.
 
 Po dokončení vyloží zvyšný materiál a vráti sa na konečné miesto aj smer zo setupu.
 Zobrazený počet miest zahŕňa aj miesta, kde už bol vzduch; počet skutočných
@@ -153,7 +155,9 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `supplies.lua` | `prepare([heading])`, `check(request)`, `ensure(request)`, `navigationOptions()` |
 | `work_fuel.lua` | `new(kind, a, b)` – priebežný odhad paliva na zostávajúcu prácu a servis |
 | `cuboid.lua` | Normalizácia rohov, rozmery a postupné susedné bunky kvádra |
-| `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading])`, `stepTo(point,box,[progress])` |
+| `mining.lua` | `validateArea(cornerA,cornerB)`, `run(cornerA,cornerB,[heading],[previousProgress])`, `stepTo(point,box,[progress])` |
+| `obstacles.lua` | `isTurtle(block)`, `waitForTurtle(side,checkpoint,[timeout])` – čakanie na inú turtle, bez kopania do nej |
+| `tunnel_traffic.lua` | Pruhy nahor/nadol a krátke rezervácie vstupov/výstupov na poschodiach |
 | `quarry_entry.lua` | Výber a overovanie alternatívnych vstupov do kvádra |
 | `quarry.lua` | Herný dialóg na vykopanie oblasti |
 | `floor_plan.lua` | `new(a,b)`, `cell(box,index,first)`, `protected(box)`; bloky podlahy a priestor pre turtle nad aj pod nimi |

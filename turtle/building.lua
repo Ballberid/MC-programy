@@ -196,7 +196,8 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
             preferred = side
             local synced, syncErr = nav.sync(); if not synced then return false, syncErr end
             if nav.distance(nav.getPosition(), stand) ~= 0 then return false, "work_position_changed" end
-            local occupied, existing = access.inspect(side)
+            local clear,waitErr,occupied,existing=require("obstacles").waitForTurtle(side,nav.checkpoint)
+            if not clear then return false,waitErr end
             if occupied then
                 if existing.name ~= blockName then
                     return false, "floor_occupied:" .. block.x .. "," .. block.y .. "," .. block.z .. ":" .. existing.name
@@ -207,7 +208,8 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
                 allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
                 synced, syncErr = nav.sync(); if not synced then return false, syncErr end
                 if nav.distance(nav.getPosition(), stand) ~= 0 then return false, "work_position_changed" end
-                occupied, existing = access.inspect(side)
+                clear,waitErr,occupied,existing=require("obstacles").waitForTurtle(side,nav.checkpoint)
+                if not clear then return false,waitErr end
                 if occupied then return false, "floor_changed_during_service" end
                 if not inv.select(blockName) then return false, "materials_missing" end
                 telemetry.setActivity("building_floor")

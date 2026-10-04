@@ -33,6 +33,20 @@ test("floor builds rectangle from chest and returns home", function()
     eq(p.startFuelTarget,nil)
     local first = W.placements[1]; eq(first.x,a.x); eq(first.y,a.y); eq(first.z,a.z)
 end)
+test("floor waits for a turtle occupying its placement cell", function()
+    local W=setup(6)
+    W.blocks["4,-1,0"]=true; W.blockNames["4,-1,0"]="computercraft:turtle_advanced"
+    local waits=0
+    sleep=function(seconds)
+        W.ticks=W.ticks+seconds
+        if seconds==0.5 then
+            waits=waits+1; eq(#W.placements,0); eq(#W.digs,0)
+            if waits==3 then W.blocks["4,-1,0"],W.blockNames["4,-1,0"]=nil,nil end
+        end
+    end
+    local ok,err,p=require("building").run(a,b,nil,0)
+    assert(ok,err); eq(waits,3); eq(p.placed,6); eq(p.completed,6)
+end)
 test("floor replenishes after a full stack without losing work position", function()
     local W = setup(90)
     local ok, err, p = require("building").run(a,{x=13,y=-1,z=8},nil,0)

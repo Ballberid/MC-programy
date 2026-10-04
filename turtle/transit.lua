@@ -1,8 +1,7 @@
--- Defined floor exits and a single reserved centre column of a 3x3 shaft.
--- Service is managed by fleet_motion; this module only reserves the tunnel.
+-- Defined floor exits; traffic uses separate columns and short floor gates.
 local config = require("config")
 local transit = {}
-local settings, workBox, workFloor
+local settings, workBox, workFloor,preferredLane
 
 function transit.validate(tunnel)
     if tunnel == nil then return true end
@@ -21,11 +20,12 @@ function transit.validate(tunnel)
     end
     return true
 end
-function transit.configure(tunnel, box, floorName)
+function transit.configure(tunnel, box, floorName, lane)
     local ok, err = transit.validate(tunnel)
     if not ok then return false, err end
     if tunnel and (not floorName or not tunnel.floors[floorName]) then return false, "work_floor_missing" end
-    settings, workBox, workFloor = tunnel, box, floorName
+    if lane~=nil and lane~=1 and lane~=2 then return false,"invalid_tunnel_lane" end
+    settings, workBox, workFloor,preferredLane = tunnel, box, floorName,lane
     return true
 end
 local function floorFor(p)
@@ -61,26 +61,11 @@ function transit.estimate(from, target)
     for _, leg in ipairs(transit.plan(from, target)) do
         cost, previous = cost + distance(previous, leg.point), leg.point
     end
-    return cost + distance(previous, target)
+    return cost + distance(previous, target) + (#transit.plan(from,target)>0 and 8 or 0)
 end
 function transit.move(target, options, rawMove, acquire, release, position, onEntered)
     local legs = options.maxMoves == 1 and {} or transit.plan(position(), target)
     if #legs == 0 then return rawMove(target.x, target.y, target.z, options) end
-    local locked, lockErr = acquire("tunnel")
-    if not locked then return false, lockErr end
-    for index, leg in ipairs(legs) do
-        local o = {}
-        for key, value in pairs(options) do o[key] = value end
-        o.direction = nil
-        if leg.straight then o.maxDetour = 0 end
-        local ok, err = rawMove(leg.point.x, leg.point.y, leg.point.z, o)
-        -- Retain the reservation if the turtle might be stranded in the shaft.
-        if not ok then return false, "transit:" .. tostring(err) end
-        -- The source doorway is now clear: another worker may use the chests.
-        if index == 2 and onEntered then onEntered() end
-    end
-    local ok, err, details = rawMove(target.x, target.y, target.z, options)
-    if ok then release("tunnel") end
-    return ok, err, details
+    return require("tunnel_traffic").move(legs,target,options,rawMove,acquire,release,position,onEntered,preferredLane)
 end
 return transit

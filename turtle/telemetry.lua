@@ -17,7 +17,7 @@ function telemetry.setProgress(value)
 end
 function telemetry.getProgress()
     if not progress then return nil end
-    return { completed = progress.completed, total = progress.total,
+    return { visited = progress.visited, completed = progress.completed, total = progress.total,
         remaining = progress.remaining, dug = progress.dug, phase = progress.phase,
         placed = progress.placed, skipped = progress.skipped, taskType = progress.taskType, block = progress.block }
 end

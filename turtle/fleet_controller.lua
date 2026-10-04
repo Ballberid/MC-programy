@@ -32,7 +32,7 @@ function controller.new(settings)
             if not valid then return false, invalid end
         end
         for _, t in pairs(state.job and state.job.tasks or {}) do
-            if t.status ~= "complete" and t.status ~= "failed" then return false, "previous_job_not_finished" end
+            if t.status ~= "complete" and t.status ~= "failed" and t.status~="cancelled" then return false, "previous_job_not_finished" end
         end
         if next(state.locks) then return false, "service_still_reserved" end
         local segments, err = model.split(a, b, #ids); if not segments then return false, err end
@@ -52,7 +52,7 @@ function controller.new(settings)
             local s = segments[index]
             local assignment = { id = jobId .. ":" .. index, jobId = jobId, a = s.a, b = s.b,
                 area = area, stations = store.copy(stations), tunnel = store.copy(tunnel), floor = floor,
-                kind = kind, block = options.block }
+                kind = kind, block = options.block, lane=(index-1)%2+1 }
             local c, invalid = taskLib.settings(assignment, state.workers[id].dock)
             if not c then return false, invalid end
             job.tasks[id] = { id = assignment.id, total = s.total, status = "assigned", assignment = assignment }
@@ -86,7 +86,7 @@ function controller.new(settings)
             if not state.workers[sender] and count >= 32 then return end
             local w = state.workers[sender] or {}; state.workers[sender] = w
             local t = state.job and state.job.tasks[sender]
-            if t and t.status ~= "complete" and t.status ~= "failed" and p.taskId ~= t.id then w.received = os.clock(); return end
+            if t and t.status ~= "complete" and t.status ~= "failed" and t.status~="cancelled" and p.taskId ~= t.id then w.received = os.clock(); return end
             w.status, w.received, w.dock, w.label, w.error, w.taskId = p.status, os.clock(), p.dock, p.label, p.error, p.taskId
             w.packet = { activity = p.activity or p.status, level = p.error and "error" or "info", message = p.error or p.activity or p.status,
                 label = p.label, fuel = p.fuel, inventory = p.inventory, position = p.position, progress = p.progress }
@@ -106,23 +106,35 @@ function controller.new(settings)
         elseif p.kind == "lock" then
             local w = state.workers[sender]
             local granted = false
+            local reason
             if w and w.taskId == p.taskId and type(p.request) == "string" then
-                granted = model.acquire(state.locks, p.resource, sender, p.request)
+                granted,reason = model.acquire(state.locks, p.resource, sender, p.request)
                 if granted then self.save() end
             end
-            self.send(sender, "lock_reply", { request = p.request, granted = granted, resource = p.resource })
+            self.send(sender, "lock_reply", { request = p.request, granted = granted, resource = p.resource, error=reason })
         elseif p.kind == "release" then
             if model.release(state.locks, p.resource, sender, p.token) then self.save() end
             self.send(sender, "release_reply", { resource = p.resource, token = p.token })
+        elseif p.kind=="reset_result" then
+            local pending=state.pendingControls[sender]
+            if not pending or pending.action~="reset" or pending.request~=p.request then return end
+            local w,t=state.workers[sender],state.job and state.job.tasks[sender]
+            if p.ok then
+                if t and t.id==p.taskId then t.status,t.error="cancelled",nil end
+                if w then w.status,w.error,w.taskId="idle",nil,nil end
+            elseif w then w.controlError=p.error end
+            state.pendingControls[sender]=nil
+            self.save()
         elseif p.kind == "control_ack" then
             local pending = state.pendingControls[sender]
-            if pending and pending.request == p.request then state.pendingControls[sender] = nil; self.save() end
+            if pending and pending.request == p.request and pending.action~="reset" then state.pendingControls[sender] = nil; self.save() end
         end
     end
     function self.control(action, target)
         for id, w in pairs(state.workers) do
             if not target or target == id then
                 state.serial = (state.serial or 0) + 1
+                w.controlError=nil
                 local packet = { action = action, taskId = w.taskId, request = "control:" .. state.serial, order = state.serial }
                 state.pendingControls[id] = packet; self.save()
                 self.send(id, "control", store.copy(packet))
@@ -131,14 +143,15 @@ function controller.new(settings)
     end
     function self.snapshot()
         local workers = {}
+        local tunnelOwners=model.tunnelOwners(state.locks)
         for id, w in pairs(state.workers) do
             local age = w.received == -1000000000 and 9999 or math.floor(os.clock() - w.received)
-            workers[id] = { packet = w.packet, label = w.label, status = age >= 6 and "offline" or w.status, age = age, error = w.error,
+            workers[id] = { packet = w.packet, label = w.label, status = age >= 6 and "offline" or w.status, age = age, error = w.controlError or w.error,
                 pendingControl = state.pendingControls[id] and state.pendingControls[id].action }
         end
         return { version = 1, kind = "fleet_snapshot", id = os.getComputerID(), workers = workers,
             summary = model.summary(state.job), serviceOwner = state.locks.service and state.locks.service.owner,
-            tunnelOwner = state.locks.tunnel and state.locks.tunnel.owner,
+            tunnelOwner = tunnelOwners[1], tunnelOwners=tunnelOwners,
             message = state.job and ("Uloha " .. state.job.id) or "Pripravene na novu ulohu" }
     end
     function self.tick()

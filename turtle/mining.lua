@@ -8,6 +8,7 @@ local fuel = require("fuel")
 local telemetry = require("telemetry")
 local mining = {}
 local quarryEntry = require("quarry_entry")
+local obstacles = require("obstacles")
 local maxAttempts = 32
 local completedCells = {}
 
@@ -33,10 +34,6 @@ local function facing(target)
     local ok, err = nav.turnToDirection(d)
     if not ok then return nil, err end
     return "front"
-end
-
-local function inspect(side)
-    return ({ front = turtle.inspect, up = turtle.inspectUp, down = turtle.inspectDown })[side]()
 end
 
 local function detect(side)
@@ -67,10 +64,10 @@ function mining.stepTo(target, box, progress)
         if not synced then return false, syncErr end
         local side, sideErr = facing(target)
         if not side then return false, sideErr end
-        local hasBlock, block = inspect(side)
+        local clear, waitErr, hasBlock, block = obstacles.waitForTurtle(side, nav.checkpoint)
+        if not clear then return false, waitErr end
         if hasBlock then
             if block.name == "minecraft:lava" or block.name == "minecraft:water" then return false, "fluid_in_area:" .. block.name end
-            if block.name:match("^computercraft:turtle") then return false, "turtle_in_area" end
             local peripheralSide = side == "up" and "top" or (side == "down" and "bottom" or "front")
             if peripheral.hasType(peripheralSide, "inventory") then return false, "inventory_in_area" end
         end
@@ -151,11 +148,23 @@ function mining.validateArea(a, b)
     return box
 end
 
-local function run(a, b, heading)
+local function run(a, b, heading, previous)
     local box, err = mining.validateArea(a, b)
     if not box then return false, err end
     completedCells = {}
-    local progress = { visited = 0, completed = 0, remaining = box.volume, total = box.volume, dug = 0, phase = "prepare" }
+    local resumed = 0
+    if previous then
+        if type(previous) ~= "table" or previous.total ~= box.volume then return false, "checkpoint_area_mismatch" end
+        resumed = math.min(box.volume, math.max(0, math.floor(previous.visited or 0)))
+        for index = 1, resumed do
+            local cell = cuboid.cell(box, index, a)
+            completedCells[cell.x .. "," .. cell.y .. "," .. cell.z] = true
+            if index % 200 == 0 then sleep(0) end
+        end
+    end
+    local progress = { visited = resumed, completed = resumed, remaining = box.volume-resumed,
+        total = box.volume, dug = previous and previous.dug or 0, phase = "prepare" }
+    if previous then telemetry.log("Obnovujem segment: overim prejdenu cast " .. resumed .. "/" .. box.volume .. ", potom dokoncim zvysok.") end
     telemetry.setProgress(progress)
     telemetry.emit("info", "quarry_progress", nil, true)
     local function fail(reason)
@@ -230,7 +239,7 @@ local function run(a, b, heading)
             if not mined then return fail(mineErr) end
         end
         markCompleted(target, progress)
-        progress.visited, progress.phase = index, "mining"
+        progress.visited, progress.phase = math.max(progress.visited, index), "mining"
         telemetry.emit("info", "quarry_progress", progress, index == 1 or index == box.volume)
         if index % 64 == 0 then
             telemetry.log("Vykopane miesta: " .. index .. "/" .. box.volume, "info", progress)
@@ -252,10 +261,10 @@ local function run(a, b, heading)
     return true, nil, progress
 end
 
-function mining.run(a, b, heading)
+function mining.run(a, b, heading, previous)
     local goal, err = require("work_fuel").new("quarry", a, b)
     if not goal then return false, err end
-    return supplies.withFuelGoal(goal, run, a, b, heading)
+    return supplies.withFuelGoal(goal, run, a, b, heading, previous)
 end
 
 return mining

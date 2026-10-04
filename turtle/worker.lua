@@ -35,7 +35,7 @@ local function execute()
             if settings then
                 local saved, saveErr = config.save(settings)
                 if not saved then error(saveErr, 0) end
-                assert(transit.configure(job.tunnel, box, job.floor))
+                assert(transit.configure(job.tunnel, box, job.floor, job.lane))
                 telemetry.configure(settings.telemetry, nav.getPosition)
                 telemetry.setProgress(client.state.progress)
                 telemetry.setContext({ taskId = job.id, jobId = job.jobId })
@@ -53,7 +53,7 @@ local function execute()
                         return false, returned and "recovered_to_dock" or returnErr, previous
                     end
                     if job.kind == "floor" then return require("building").run(job.a, job.b, job.block, nil, job.area) end
-                    return require("mining").run(job.a, job.b)
+                    return require("mining").run(job.a, job.b, nil, client.retry and client.state.progress or nil)
                 end)
                 ok, result, progress = ran and a == true, ran and b or tostring(a), ran and p or nil
                 if (ok or (progress and progress.returnedHome)) and nav.distance(nav.getPosition(), client.state.dock) == 0 then

@@ -35,7 +35,7 @@ function model.summary(job)
         summary.placed = summary.placed + math.max(0, tonumber(p.placed) or 0)
         summary.skipped = summary.skipped + math.max(0, tonumber(p.skipped) or 0)
         if task.status == "failed" or task.status == "recovery" then summary.failed = summary.failed + 1
-        elseif task.status ~= "complete" then summary.active = summary.active + 1 end
+        elseif task.status ~= "complete" and task.status~="cancelled" then summary.active = summary.active + 1 end
     end
     summary.remaining = summary.total - summary.completed
     return summary
@@ -56,11 +56,29 @@ end
 
 -- Locks survive coordinator restarts. No timer may release an offline owner.
 function model.acquire(locks, resource, owner, token)
-    if resource ~= "service" and resource ~= "tunnel" then return false, "unknown_resource" end
+    local traffic=type(resource)=="string" and (resource=="tunnel:up:1" or resource=="tunnel:up:2"
+        or resource=="tunnel:down" or resource:match("^door:%-?%d+,%-?%d+,%-?%d+$"))
+    if resource ~= "service" and resource ~= "tunnel" and not traffic then return false, "unknown_resource" end
+    -- An old exclusive reservation cannot be bypassed during migration.
+    if traffic and locks.tunnel and locks.tunnel.owner~=owner then return false,"occupied" end
+    if resource=="tunnel" then
+        for name,entry in pairs(locks) do
+            if (name:match("^tunnel:") or name:match("^door:")) and entry.owner~=owner then return false,"occupied" end
+        end
+    end
     local held = locks[resource]
     if held and (held.owner ~= owner or held.token ~= token) then return false, "occupied" end
     locks[resource] = { owner = owner, token = token }
     return true
+end
+function model.tunnelOwners(locks)
+    local owners,seen={},{}
+    for name,entry in pairs(locks) do
+        if (name=="tunnel" or name:match("^tunnel:") or name:match("^door:")) and not seen[entry.owner] then
+            seen[entry.owner]=true; owners[#owners+1]=entry.owner
+        end
+    end
+    table.sort(owners); return owners
 end
 function model.release(locks, resource, owner, token)
     local held = locks[resource]

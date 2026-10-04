@@ -1,5 +1,6 @@
 local pathfinding = {}
 local cells = {}
+local temporary = {}
 local avoid
 -- Reserve a future construction volume without allocating every cell.
 -- It survives map resets and obstacle refreshes until the caller restores it.
@@ -23,14 +24,31 @@ function pathfinding.distance(a, b)
 end
 
 function pathfinding.mark(p, free)
+    temporary[pathfinding.key(p)] = nil
     cells[pathfinding.key(p)] = free
+end
+function pathfinding.markTemporary(p)
+    local key=pathfinding.key(p)
+    local prior=temporary[key]
+    temporary[key]={previous=prior and prior.previous or cells[key], untilTime=os.clock()+5}
+    cells[key]=false
+end
+function pathfinding.refreshTemporary()
+    for key,entry in pairs(temporary) do
+        if os.clock()>=entry.untilTime then cells[key]=entry.previous; temporary[key]=nil end
+    end
+end
+function pathfinding.hasTemporary()
+    pathfinding.refreshTemporary(); return next(temporary)~=nil
 end
 
 function pathfinding.clear()
-    cells = {}
+    cells, temporary = {}, {}
 end
 
 function pathfinding.forgetBlocked()
+    for key,entry in pairs(temporary) do cells[key]=entry.previous end
+    temporary={}
     for key, free in pairs(cells) do if free == false then cells[key] = nil end end
 end
 
@@ -70,6 +88,7 @@ end
 -- Unknown cells are optimistic unless knownOnly=true. Bounds are fixed for
 -- the complete journey, so repeated replanning cannot expand them forever.
 function pathfinding.find(start, goal, options)
+    pathfinding.refreshTemporary()
     options = options or {}
     local bounds = options.bounds
     local function allowed(p)

@@ -33,6 +33,7 @@ local function reset()
     package.loaded.floor_access = nil
     package.loaded.fleet_floors = nil
     package.loaded.work_fuel = nil
+    package.loaded.obstacles = nil
     W = { x = 0, y = 0, z = 0, d = 0, fuel = 1000, limit = 2000,
         blocks = {}, chests = {}, slots = {}, selected = 1, moves = 0, gpsCalls = 0,
         files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0,
@@ -584,6 +585,33 @@ test("supplies refuels, unloads and obtains material at same origin", function()
     assert(require("fuel").has(80)); assert(require("inventory").count("stone") >= 20)
     assert(require("inventory").freeSlots() >= 3); eq(W.d, 0)
 end)
+test("navigation waits five seconds then routes around a turtle without digging", function()
+    configured(); navReady()
+    W.blocks["1,0,0"]=true; W.blockNames["1,0,0"]="computercraft:turtle_advanced"
+    local ok,err=require("navigation").moveToCoord(2,0,0,{maxDetour=1,maxMoves=10})
+    assert(ok,err); assert(W.ticks>=5); eq(W.x,2); eq(W.z,0); eq(#W.digs,0)
+    eq(W.blocks["1,0,0"],true)
+end)
+test("station access waits longer than five seconds for its exact parking point", function()
+    configured({fuel={x=1,y=0,z=0,direction=1,side="front"}}); navReady()
+    W.chests["2,0,0"]={items={}}
+    W.blocks["1,0,0"]=true; W.blockNames["1,0,0"]="computercraft:turtle_advanced"
+    sleep=function(seconds)
+        W.ticks=W.ticks+seconds
+        if W.ticks>=8 then W.blocks["1,0,0"],W.blockNames["1,0,0"]=nil,nil end
+    end
+    local ok,err=require("stations").verify("fuel")
+    assert(ok,err); assert(W.ticks>=8); eq(W.x,0); eq(#W.digs,0)
+end)
+test("temporary turtle obstruction restores a previously verified route", function()
+    local paths=require("pathfinding")
+    for x=0,2 do paths.mark({x=x,y=0,z=0},true) end
+    paths.markTemporary({x=1,y=0,z=0})
+    eq(paths.find({x=0,y=0,z=0},{x=2,y=0,z=0},{knownOnly=true}),nil)
+    W.ticks=6
+    local route=assert(paths.find({x=0,y=0,z=0},{x=2,y=0,z=0},{knownOnly=true}))
+    eq(#route,2); eq(paths.hasTemporary(),false)
+end)
 test("job refuelling obtains the whole goal instead of the next-step minimum", function()
     configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
     W.chests["1,0,0"]={items={{name="minecraft:coal",count=64}}}
@@ -907,6 +935,42 @@ test("quarry does not destroy unexpected inventory or fluids", function()
     W.chests["2,0,0"] = nil; W.blockNames["2,0,0"] = "minecraft:lava"
     ok, err = mining.run({ x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 0 })
     eq(ok, false); eq(err, "fluid_in_area:minecraft:lava"); eq(#W.digs, 0)
+end)
+test("quarry waits for another turtle without digging it or abandoning work", function()
+    quarryWorld(); W.x=1; navReady(); assert(require("supplies").prepare())
+    W.blocks["2,0,0"]=true; W.blockNames["2,0,0"]="computercraft:turtle_advanced"
+    local waits=0
+    sleep=function(seconds)
+        assert(seconds==0.5); waits=waits+1; eq(#W.digs,0); eq(W.x,1)
+        if waits==3 then W.blocks["2,0,0"],W.blockNames["2,0,0"]=nil,nil end
+    end
+    local p={completed=0,total=1,dug=0}
+    local box=assert(require("cuboid").new({x=2,y=0,z=0},{x=2,y=0,z=0}))
+    local ok,err=require("mining").stepTo(box.min,box,p)
+    assert(ok,err); eq(waits,3); eq(W.x,2); eq(#W.digs,0); eq(p.completed,1)
+end)
+test("waiting for another turtle remains cancellable", function()
+    quarryWorld(); W.x=1; local nav=navReady(); assert(require("supplies").prepare())
+    W.blocks["2,0,0"]=true; W.blockNames["2,0,0"]="computercraft:turtle_normal"
+    local cancelled=false; sleep=function() cancelled=true end
+    nav.setRuntime(nil,function() return not cancelled,"job_cancelled" end)
+    local box=assert(require("cuboid").new({x=2,y=0,z=0},{x=2,y=0,z=0}))
+    local ok,err=require("mining").stepTo(box.min,box,{dug=0})
+    eq(ok,false); eq(err,"job_cancelled"); eq(W.x,1); eq(#W.digs,0)
+end)
+test("quarry retries its saved segment after water removal without double counting", function()
+    quarryWorld(); W.fuel=1000
+    local a,b={x=2,y=0,z=0},{x=5,y=0,z=0}
+    for x=2,5 do W.blocks[x..",0,0"]=true end
+    W.blockNames["4,0,0"]="minecraft:water"
+    local mining=require("mining")
+    local ok,err,p=mining.run(a,b)
+    eq(ok,false); eq(err,"fluid_in_area:minecraft:water"); eq(p.visited,2); eq(p.dug,2)
+    W.blocks["4,0,0"],W.blockNames["4,0,0"]=nil,nil
+    local old=#W.digs
+    local resumed,reason,progress=mining.run(a,b,nil,p)
+    assert(resumed,reason); eq(progress.completed,4); eq(progress.remaining,0); eq(progress.dug,3)
+    eq(#W.digs,old+1); eq(W.x,0); eq(W.y,0); eq(W.z,0)
 end)
 test("quarry full output chest preserves unfinished job and loot", function()
     quarryWorld(); W.chests["0,0,-1"].capacity = 0; W.blocks["2,0,0"] = true

@@ -37,6 +37,7 @@ function stations.visit(name, options)
     local o = {}
     for key, value in pairs(options or {}) do o[key] = value end
     o.direction = station.direction
+    o.waitForTarget = true
     local ok, reason = nav.moveToCoord(station.x, station.y, station.z, o)
     if not ok then return false, reason end
     if not isContainer(station.side) then return false, "station_inventory_missing" end
@@ -72,6 +73,7 @@ local function withVisit(name, action, options)
     local returned, returnErr = nav.moveToCoord(start.x, start.y, start.z, {
         anchor = o.anchor, reserve = o.reserve, knownOnly = true,
         maxMoves = o.maxMoves, maxDetour = o.maxDetour, direction = start.direction,
+        waitForTarget = true,
     })
     if not returned then return false, "return_failed:" .. tostring(returnErr), actionErr end
     if release then release("service") end

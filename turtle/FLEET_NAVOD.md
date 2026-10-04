@@ -54,7 +54,7 @@ a polohu truhly `front`, `up` alebo `down`. Smery:
 ## Tunel 3×3
 
 Postav súvislú prázdnu šachtu s vnútorným prierezom **3×3**. Zapíš X a Z jej
-stredného bloku. V strede nesmú byť podlahy, rebríky, káble ani iné prekážky.
+stredného bloku. V celej časti 3×3 nesmú byť podlahy, rebríky, káble ani iné prekážky.
 Turtle lieta vlastným pohonom; na presun nepotrebuje schody ani rebrík.
 
 Na každom používanom poschodí priprav vodorovný priechod od stredu šachty von.
@@ -70,17 +70,16 @@ výstup základňa:   X=102, Y=64, Z=200
 výstup poschodie:  X=102, Y=70, Z=200
 ```
 
-Turtle ide: dok → výstup na základni → stred na základni → stred na pracovnom
-poschodí → výstup na pracovnom poschodí → pridelený výkop. Návrat používa túto
-trasu opačne. Poschodia majú jedinečné Y; pri zadaní práce zvolíš jej pracovné
+Turtle ide: dok → výstup na základni → pridelený pruh nahor → výstup na pracovnom
+poschodí → pridelený výkop. Návrat používa samostatný pruh nadol a uložené výstupy.
+Poschodia majú jedinečné Y; pri zadaní práce zvolíš jej pracovné
 poschodie. Pozície miestnych truhiel patria k tomuto poschodiu. Pri ostatných
 pozíciách sa poschodie určuje podľa najbližšej uloženej výšky.
 
-Táto verzia používa **stredný stĺpec šachty**. Spoločné presuny a obsluha truhiel
-majú jednu rezerváciu: pracujúce turtle kopú súčasne, ale počas presunov do
-výkopu, do tunela a k truhlám ostatné počkajú. Zostávajúce stĺpce 3×3 zatiaľ
-neslúžia ako nezávislé jazdné pruhy. Je to zámer, aby sa pri prvej skúške
-nemohli stretnúť proti sebe.
+Šachta používa **dva pruhy nahor a jeden nadol**. V rôznych pruhoch je možný
+súbežný prejazd. Na konkrétnom poschodí sa strieda iba krátky priechod cez spoločný
+výstup; obsluha truhiel má vlastnú servisnú rezerváciu. Žiadny pruh sa neuvoľní
+iba podľa časovača, ak v ňom mohla zostať neodpovedajúca turtle.
 
 Kopaná oblasť nesmie obsahovať žiadny dok, truhlu, obslužné miesto, uložený
 výstup, jeho rovný priechod ku stredu ani vnútro servisnej šachty.
@@ -130,12 +129,13 @@ Hlavné menu:
 | 1 | Nový výkop: počet/ID turtle, rohy, truhly a poschodie |
 | 2 | Celkový priebeh a stav všetkých turtle v termináli |
 | 3 | Pozastavenie konkrétnej turtle alebo všetkých |
-| 4 | Pokračovanie pozastavenej práce |
+| 4 | Pokračovanie pauzy alebo obnovenie pôvodného segmentu po chybe (`failed`/`recovery`) |
 | 5 | Zastavenie úlohy a pokus o návrat do doku; aj návrat zo stavu `recovery` |
 | 6 | Nastavenia základne; zmeny platia pre nasledujúce úlohy |
 | 7 | Ručné uvoľnenie servisnej aj tunelovej rezervácie po fyzickej kontrole |
 | 8 | Ukončenie hlavného programu |
 | 9 | Nová podlaha: počet/ID turtle, dva rohy s rovnakým Y, materiál, truhly a poschodie |
+| 10 | Reset zastavenej turtle v doku do `idle`; ID 0 = všetky |
 
 Pri ovládaní `ID=0` znamená všetky turtle. Pozastavenie sa vykoná pri najbližšej
 kontrole pohybu/kopania/stavania; rozbehnutá obsluha truhly sa môže najprv dokončiť.
@@ -146,16 +146,26 @@ paliva na pokračovanie a bezpečný návrat, nezačne tankovať iba kvôli tomu
 
 Servis pri truhlách a prejazd tunelom majú samostatné rezervácie. Pri odchode
 z poschodia s truhlami na pracovné poschodie turtle uvoľní servis po dosiahnutí
-stredu tunela. Ďalšia tak môže overovať truhly či tankovať ešte predtým, ako prvá
-začne pracovať. Prejazd tunelom vrátane príchodu na pracovisko zostáva po jednej
-turtle; netreba rozširovať definovanú časť 3×3 ani nastavovať ďalšie pruhy.
+jej zvislého pruhu. Ďalšia tak môže overovať truhly či tankovať ešte predtým, ako prvá
+začne pracovať. V 3×3 sú dva pruhy nahor (X stredu −1, Z stredu −1 alebo +1 podľa
+poradia priradenia) a jeden nadol (X stredu +1, Z stredu). V rôznych pruhoch môžu ísť súčasne;
+v rovnakom pruhu sa striedajú. Krátke vodorovné vstupy a výstupy na každom poschodí
+majú vlastnú rezerváciu. Pred výstupom sa čaká o jednu úroveň vyššie/nižšie,
+aby čakanie neblokovalo križovatku. Celá vyhradená časť 3×3 musí byť priechodná;
+nové súradnice ani nastavenie pruhov netreba zadávať.
 Doky umiestni mimo stredu tunela a priechodov k jeho výstupom, aby zaparkovaná
 turtle nezablokovala návrat ostatných.
 Na rovnakom poschodí a pri servisných návštevách sa spoločné cesty stále striedajú.
-Prehľad na PC a tablete ukazuje osobitne držiteľa servisu a tunela.
+Prehľad na PC a tablete ukazuje osobitne držiteľa servisu a zoznam turtle v tuneli.
+Obsadená rezervácia pri odpovedajúcom hlavnom PC už nevyprší po piatich minútach.
+Bez odpovede PC približne päť minút sa ohlási `controller_unreachable`; po oprave
+spojenia použi voľbu 4. Žiadna rezervácia offline turtle sa neodoberá automaticky.
+Na bežnej ceste sa na inú turtle čaká päť sekúnd a potom sa hľadá obchádzka.
+Na presnej parkovacej pozícii truhly aj v pruhu tunela sa čaká na uvoľnenie;
+pozastavenie a stop zostávajú funkčné. Dočasná turtle sa neukladá ako pevná stena.
 
 Pred použitím tejto verzie aktualizuj hlavný PC aj všetky turtle mimo bežiacej
-úlohy. Staré a nové verzie pracovníkov nekombinuj: stará verzia nerozlišuje tunel.
+úlohy. Staré a nové verzie pracovníkov nekombinuj: stará verzia nepoužíva tieto pruhy.
 Pre nové zobrazenie tunela aktualizuj aj zobrazovací PC alebo tablet.
 
 Pozastavená turtle môže držať servisnú alebo tunelovú rezerváciu. Počas práce nechaj `fleet`
@@ -230,14 +240,28 @@ pred výpadkom nemusia byť zaznamenané. Nejde o záznam každého pohybu na ob
 Po prerušení worker prejde do `recovery`: výkop sa **automaticky neobnoví**.
 Na PC voľbou 5 pošli tejto turtle návrat do doku. Ak návrat zlyhá, najprv
 skontroluj GPS, palivo a priechodnosť; problém sa zobrazí pri danej turtle.
+Po odstránení prekážky môžeš namiesto návratu zvoliť **4** a ID konkrétnej turtle.
+Pôvodná úloha aj pridelený segment sa zachovajú, ostatné turtle môžu ďalej pracovať.
+Pri výkope sa prejde už vykopaná časť od vstupu a potom dokončí zvyšok.
+Hotové bunky sa nezapočítajú druhýkrát. Bez uloženého kontrolného bodu sa segment
+overí celý. Pri inej turtle v kopanej bunke sa čaká (`waiting_turtle`), bez kopania
+do nej; pauza aj stop zostávajú funkčné. Voda a láva úlohu zastavia, po odstránení
+môžeš použiť voľbu 4. Dáta pracovníka ani hlavného PC pri obnovení nemaž.
 
 Neodpovedajúcej turtle sa segment ani rezervácia automaticky neodoberú. Mohla
 zostať v tuneli alebo pred truhlou. Rezerváciu ručne uvoľni voľbou 7 až po
 kontrole, že priechod je voľný a pôvodná turtle už nepokračuje v presune.
 Na uvoľnenie program vyžaduje text `VOLNE`.
+Po návrate všetkých turtle môžeš použiť **10 → 0**, aby boli `idle` a zabudli
+pridelenú úlohu. Reset zachová dok, párovanie, truhly, poschodia a tunel.
+Rozbehnutá turtle alebo turtle mimo doku reset odmietne; najprv použi návrat 5.
+Reset nie je potrebný na nové zadanie: stavy `complete` a `failed` tiež prijímajú
+novú úlohu, keď sú predchádzajúce segmenty ukončené a rezervácie uvoľnené.
 
-Pozastavenie a pokračovanie fungujú počas bežiaceho programu. Po reštarte ide
-o návrat a nové zadanie, nie presné pokračovanie výkopu od uloženého bloku.
+Po reštarte sa práca neobnoví sama; pokračovanie vyžiadaj voľbou 4. Nejde o
+presné pokračovanie posledného fyzického kroku: uložený stav môže byť mierne starší
+a prejdená časť výkopu sa overí znova. Pri podlahe sa znova skontroluje segment,
+už položené správne bloky sa preskočia.
 Po neúspešnej úlohe neoznačujeme zvyšok za vykopaný. Menšie ďalšie zadanie môžeš
 zamerať na zostávajúcu časť. Pri vzdialenej práci musia byť potrebné chunky načítané.
 

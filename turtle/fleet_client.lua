@@ -15,6 +15,7 @@ function client.new(controller, dock)
     state.seen = state.seen or {}
     state.lockTokens, state.pendingRelease = state.lockTokens or {}, state.pendingRelease or {}
     state.controlSeen = state.controlSeen or {}
+    state.controlResults=state.controlResults or {}
     if state.task and state.status ~= "complete" and state.status ~= "failed" and state.status ~= "idle" then state.status = "recovery" end
     store.save(path, state)
     local self = { state = state, replies = {}, held = {}, serial = 0, paused = false, cancel = false, lastSaved = os.clock() }
@@ -45,8 +46,9 @@ function client.new(controller, dock)
         state.lockSerial = (state.lockSerial or 0) + 1
         local request = state.lockTokens[resource] or (tostring(os.getComputerID()) .. ":" .. state.lockSerial)
         state.lockTokens[resource] = request; self.save()
-        local start, last = os.clock(), -math.huge
-        while os.clock() - start < 300 do
+        local lastReply, last = os.clock(), -math.huge
+        telemetry.setActivity("waiting:"..resource)
+        while os.clock() - lastReply < 300 do
             local ok, err = self.checkpoint(); if not ok then return false, err end
             if os.clock() - last >= 2 and not state.pendingRelease[resource] then
                 self.send("lock", { resource = resource, request = request, taskId = state.task and state.task.id })
@@ -54,12 +56,14 @@ function client.new(controller, dock)
             end
             local reply = self.replies[request]
             if reply then
+                lastReply=os.clock()
                 self.replies[request] = nil
                 if reply.granted then self.held[resource] = { depth = 1, token = request }; return true end
+                if reply.error and reply.error~="occupied" then return false,reply.error end
             end
             sleep(0.1)
         end
-        return false, "service_lock_timeout"
+        return false, "controller_unreachable:"..resource
     end
     function self.release(resource)
         local held = self.held[resource]
@@ -69,6 +73,27 @@ function client.new(controller, dock)
         state.lockTokens[resource] = nil
         state.pendingRelease[resource] = held.token; self.save()
         self.send("release", { resource = resource, token = held.token })
+    end
+    function self.clearClaims()
+        -- Only release this worker's tokens. Never clear another owner's lock.
+        for resource,token in pairs(state.lockTokens) do
+            state.pendingRelease[resource]=token
+            self.send("release",{resource=resource,token=token})
+        end
+        self.held,state.lockTokens={},{}
+    end
+    function self.reset()
+        if self.queued or state.status=="running" or state.status=="assigned" then return false,"reset_requires_stop" end
+        local synced,err=nav.sync(); if not synced then return false,err end
+        if nav.distance(nav.getPosition(),state.dock)~=0 then return false,"reset_requires_dock" end
+        if state.previous then
+            local restored,reason=config.save(state.previous); if not restored then return false,reason end
+        end
+        self.clearClaims()
+        self.paused,self.cancel,self.recovery,self.retry=false,false,false,false
+        state.task,state.progress,state.error,state.previous=nil,nil,nil,nil
+        state.status="idle"; telemetry.setProgress(nil); telemetry.setActivity("idle"); self.save()
+        return true
     end
     function self.handle(sender, packet)
         if sender ~= controller or type(packet) ~= "table" or packet.version ~= 1 then return end
@@ -91,15 +116,31 @@ function client.new(controller, dock)
             telemetry.setProgress(nil)
             state.previous = config.load()
             state.seen[job.id] = true
-            self.queued, self.recovery = true, false
+            self.queued, self.recovery, self.retry = true, false, false
             self.save(); self.status()
-        elseif packet.kind == "control" and (not packet.taskId or (state.task and state.task.id == packet.taskId)) then
+        elseif packet.kind == "control" then
             if (packet.request and state.controlSeen[packet.request])
                 or (type(packet.order) == "number" and packet.order <= (state.lastControl or 0)) then
+                if packet.request and state.controlResults[packet.request] then
+                    self.send("reset_result",store.copy(state.controlResults[packet.request]))
+                end
                 self.send("control_ack", { request = packet.request }); return
             end
-            if state.status == "recovery" and packet.action == "stop" then
-                self.queued, self.recovery = true, true
+            if packet.taskId and (not state.task or state.task.id~=packet.taskId) then return end
+            if packet.action=="reset" then
+                local taskId=state.task and state.task.id
+                local ok,reason=self.reset()
+                local result={request=packet.request,taskId=taskId,ok=ok,error=reason}
+                if packet.request then state.controlResults[packet.request]=store.copy(result) end
+                self.send("reset_result",result)
+            elseif state.status == "recovery" and packet.action == "stop" then
+                self.queued, self.recovery, self.retry = true, true, false
+            elseif (state.status == "recovery" or state.status == "failed") and packet.action == "resume" and state.task then
+                if nav.getPosition() and nav.sync() and nav.distance(nav.getPosition(),state.dock)==0 then self.clearClaims() end
+                self.queued, self.recovery, self.retry = true, false, true
+                self.paused, self.cancel = false, false
+                state.status, state.error = "assigned", nil
+                self.save()
             elseif state.status == "running" or state.status == "assigned" then
                 if packet.action == "pause" then self.paused = true
                 elseif packet.action == "resume" then self.paused = false
