@@ -27,6 +27,7 @@ function display.draw(screen, snapshot, selection, wide)
         if s.kind == "floor" then out("Polozene: " .. (s.placed or 0) .. " Ex.: " .. (s.skipped or 0)) end
         out("Ulohy: " .. (s.active or 0) .. " Problemy: " .. (s.failed or 0))
         out("Turtle: " .. #ids .. "  Servis: " .. tostring(snapshot.serviceOwner or "volny"))
+        out("Tunel: " .. tostring(snapshot.tunnelOwner or "volny"))
         if wide and width >= 60 then
             out("ID    STAV          PALIVO   SLOTY  HOTOVE/CELKOM", false)
             for _, id in ipairs(ids) do

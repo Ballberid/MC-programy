@@ -1,4 +1,5 @@
 -- Defined floor exits and a single reserved centre column of a 3x3 shaft.
+-- Service is managed by fleet_motion; this module only reserves the tunnel.
 local config = require("config")
 local transit = {}
 local settings, workBox, workFloor
@@ -62,12 +63,12 @@ function transit.estimate(from, target)
     end
     return cost + distance(previous, target)
 end
-function transit.move(target, options, rawMove, acquire, release, position)
+function transit.move(target, options, rawMove, acquire, release, position, onEntered)
     local legs = options.maxMoves == 1 and {} or transit.plan(position(), target)
     if #legs == 0 then return rawMove(target.x, target.y, target.z, options) end
-    local locked, lockErr = acquire("service")
+    local locked, lockErr = acquire("tunnel")
     if not locked then return false, lockErr end
-    for _, leg in ipairs(legs) do
+    for index, leg in ipairs(legs) do
         local o = {}
         for key, value in pairs(options) do o[key] = value end
         o.direction = nil
@@ -75,9 +76,11 @@ function transit.move(target, options, rawMove, acquire, release, position)
         local ok, err = rawMove(leg.point.x, leg.point.y, leg.point.z, o)
         -- Retain the reservation if the turtle might be stranded in the shaft.
         if not ok then return false, "transit:" .. tostring(err) end
+        -- The source doorway is now clear: another worker may use the chests.
+        if index == 2 and onEntered then onEntered() end
     end
     local ok, err, details = rawMove(target.x, target.y, target.z, options)
-    if ok then release("service") end
+    if ok then release("tunnel") end
     return ok, err, details
 end
 return transit

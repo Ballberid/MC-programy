@@ -2,7 +2,7 @@
 from collections import deque
 
 
-def run(root, runtime_type, kind="quarry"):
+def run(root, runtime_type, kind="quarry", shaft=False):
     prefix = (root / "tests" / "turtle_spec.lua").read_text(encoding="utf-8")
     prefix = prefix[:prefix.index('test("targeted refuel')]
     queues = {99: deque(), 41: deque(), 42: deque()}
@@ -57,6 +57,7 @@ def run(root, runtime_type, kind="quarry"):
         lua.globals().PY_CLEARED = cleared
         lua.globals().PY_PLACED = placed
         lua.globals().JOB_KIND = kind
+        lua.globals().USE_SHAFT = shaft
         lua.execute('''
             os.getComputerID = function() return MACHINE_ID end
             os.clock = function() return PY_CLOCK() end
@@ -77,17 +78,24 @@ def run(root, runtime_type, kind="quarry"):
         lua = machines[identity][0]
         lua.execute('''
             local W=TEST_ENV.world()
+            W.x = USE_SHAFT and 4 or 0
             W.z = MACHINE_ID==41 and 0 or -2
             local c=TEST_ENV.configured({fuel={x=2,y=0,z=2,direction=1,side="front"},
                 output={x=-2,y=0,z=2,direction=3,side="front"},
                 materials={x=2,y=0,z=-2,direction=1,side="front"}})
-            c.start={x=0,y=0,z=W.z,direction=0}; c.home=c.start
+            c.start={x=W.x,y=0,z=W.z,direction=0}; c.home=c.start
             assert(require("config").save(c))
             W.chests["3,0,2"]={items={{name="minecraft:coal",count=64}}}
             W.chests["-3,0,2"]={items={}}
             W.chests["3,0,-2"]={items={{name="minecraft:stone",count=640}}}
             if JOB_KIND=="quarry" then
-                for x=8,11 do for y=-19,0 do for z=0,3 do W.blocks[x..","..y..","..z]=true end end end
+                local bottom,top=USE_SHAFT and 21 or -19,USE_SHAFT and 40 or 0
+                for x=8,11 do for y=bottom,top do for z=0,3 do W.blocks[x..","..y..","..z]=true end end end
+                if USE_SHAFT then
+                    for x=-20,30 do for z=-20,20 do
+                        if math.abs(x)>1 or math.abs(z)>1 then W.blocks[x..",20,"..z]=true end
+                    end end
+                end
             else W.fuel,W.limit=20000,40000 end
             local originalPlace=turtle.placeDown
             turtle.placeDown=function()
@@ -143,7 +151,7 @@ def run(root, runtime_type, kind="quarry"):
             STEP=function() local ok,err=coroutine.resume(WORKER); assert(ok,err) end
         ''')
 
-    owners, started, worked_together = set(), False, False
+    owners, started, worked_together, startup_overlap = set(), False, False, False
     for _ in range(20000):
         clock[0] += 0.05
         for identity in (41, 42):
@@ -156,12 +164,22 @@ def run(root, runtime_type, kind="quarry"):
         owner = control.snapshot()["serviceOwner"]
         if owner is not None:
             owners.add(owner)
+        tunnel_owner = control.snapshot()["tunnelOwner"]
+        if shaft and owner is not None and tunnel_owner is not None and owner != tunnel_owner:
+            first_world = machines[tunnel_owner][1]["world"]()
+            startup_overlap = startup_overlap or (first_world["y"] > 0 and len(list(first_world["digs"].values())) == 0)
         if not started and len(list(control.available().values())) == 2:
             ok = main.execute('''local a,b={x=8,y=0,z=0},{x=11,y=-19,z=3}
+                local tunnel,floor
+                if USE_SHAFT then
+                    a,b={x=8,y=40,z=0},{x=11,y=21,z=3}
+                    tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}},upper={exit={x=2,y=40,z=0}}}}
+                    floor="upper"
+                end
                 if JOB_KIND=="floor" then a,b={x=8,y=-1,z=0},{x=27,y=-1,z=15} end
                 return CONTROL.start(a,b,{41,42},
                 {fuel={x=2,y=0,z=2,direction=1,side="front"},output={x=-2,y=0,z=2,direction=3,side="front"},
-                materials={x=2,y=0,z=-2,direction=1,side="front"}},nil,nil,{kind=JOB_KIND})''')
+                materials={x=2,y=0,z=-2,direction=1,side="front"}},tunnel,floor,{kind=JOB_KIND})''')
             assert ok is True, ok
             started = True
         job = control.state["job"]
@@ -175,12 +193,15 @@ def run(root, runtime_type, kind="quarry"):
         raise AssertionError(f"Fleet did not complete: {states}")
     assert owners == {41, 42}
     assert worked_together, "Workers should process their segments concurrently"
+    if shaft:
+        assert startup_overlap, "Second worker should use service before the first reaches its excavation"
+        assert control.snapshot()["tunnelOwner"] is None
     summary = control.snapshot()["summary"]
     assert summary["completed"] == 320 and summary["remaining"] == 0
     mined = set()
     for identity, expected_z in ((41, 0), (42, -2)):
         world = machines[identity][1]["world"]()
-        assert (world["x"], world["y"], world["z"]) == (0, 0, expected_z)
+        assert (world["x"], world["y"], world["z"]) == (4 if shaft else 0, 0, expected_z)
         if kind == "floor":
             assert len(list(world["digs"].values())) == 0
         for p in world[counter].values():
@@ -190,4 +211,5 @@ def run(root, runtime_type, kind="quarry"):
     assert len(mined) == 320
     if kind == "floor":
         assert summary["placed"] == 320 and summary["kind"] == "floor"
-    print(f"PASS radio integration ({kind}): 2 concurrent workers, 1 controller, 320 cells and distinct docks", flush=True)
+    label = f"{kind}, pipelined shaft startup" if shaft else kind
+    print(f"PASS radio integration ({label}): 2 concurrent workers, 1 controller, 320 cells and distinct docks", flush=True)

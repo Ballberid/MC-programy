@@ -56,7 +56,7 @@ end
 
 -- Locks survive coordinator restarts. No timer may release an offline owner.
 function model.acquire(locks, resource, owner, token)
-    if resource ~= "service" then return false, "unknown_resource" end
+    if resource ~= "service" and resource ~= "tunnel" then return false, "unknown_resource" end
     local held = locks[resource]
     if held and (held.owner ~= owner or held.token ~= token) then return false, "occupied" end
     locks[resource] = { owner = owner, token = token }

@@ -65,7 +65,7 @@ local function input()
     print("RIADIACI PC #" .. os.getComputerID())
     print("Na turtle: worker " .. os.getComputerID())
     while true do
-        print("1 vykop | 2 stav | 3 pause | 4 pokracovat | 5 navrat/stop | 6 nastavenia | 7 uvolnit servis | 8 koniec | 9 podlaha")
+        print("1 vykop | 2 stav | 3 pause | 4 pokracovat | 5 navrat/stop | 6 nastavenia | 7 uvolnit servis/tunel | 8 koniec | 9 podlaha")
         local choice = dialog.number("Volba", 2, 1, 9)
         if choice == 1 then newJob()
         elseif choice == 2 then
@@ -83,8 +83,11 @@ local function input()
             shell.run("fleet_setup"); control.settings = settings.load()
         elseif choice == 7 then
             print("Servis drzi: " .. tostring(control.state.locks.service and control.state.locks.service.owner or "nikto"))
-            print("Uvolni ho iba ked turtle aj tunel fyzicky skontrolujes a cesta je volna.")
-            if dialog.text("Pre uvolnenie napis VOLNE") == "VOLNE" then control.state.locks.service = nil; control.save() end
+            print("Tunel drzi: " .. tostring(control.state.locks.tunnel and control.state.locks.tunnel.owner or "nikto"))
+            print("Uvolni rezervacie iba ked turtle aj tunel fyzicky skontrolujes a cesta je volna.")
+            if dialog.text("Pre uvolnenie napis VOLNE") == "VOLNE" then
+                control.state.locks.service, control.state.locks.tunnel = nil, nil; control.save()
+            end
         elseif choice == 9 then newJob("floor")
         else control.save(); return end
     end

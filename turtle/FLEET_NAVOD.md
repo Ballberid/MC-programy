@@ -133,7 +133,7 @@ Hlavné menu:
 | 4 | Pokračovanie pozastavenej práce |
 | 5 | Zastavenie úlohy a pokus o návrat do doku; aj návrat zo stavu `recovery` |
 | 6 | Nastavenia základne; zmeny platia pre nasledujúce úlohy |
-| 7 | Ručné uvoľnenie servisnej rezervácie po fyzickej kontrole |
+| 7 | Ručné uvoľnenie servisnej aj tunelovej rezervácie po fyzickej kontrole |
 | 8 | Ukončenie hlavného programu |
 | 9 | Nová podlaha: počet/ID turtle, dva rohy s rovnakým Y, materiál, truhly a poschodie |
 
@@ -144,7 +144,21 @@ segment, servisné presuny vrátane tunela a rezervy, s dvojnásobným odhadom.
 Cieľ obmedzuje kapacita nádrže a dostupné palivo v truhle. Ak má stále dosť
 paliva na pokračovanie a bezpečný návrat, nezačne tankovať iba kvôli tomuto odhadu.
 
-Pozastavená turtle môže držať servisnú rezerváciu. Počas práce nechaj `fleet`
+Servis pri truhlách a prejazd tunelom majú samostatné rezervácie. Pri odchode
+z poschodia s truhlami na pracovné poschodie turtle uvoľní servis po dosiahnutí
+stredu tunela. Ďalšia tak môže overovať truhly či tankovať ešte predtým, ako prvá
+začne pracovať. Prejazd tunelom vrátane príchodu na pracovisko zostáva po jednej
+turtle; netreba rozširovať definovanú časť 3×3 ani nastavovať ďalšie pruhy.
+Doky umiestni mimo stredu tunela a priechodov k jeho výstupom, aby zaparkovaná
+turtle nezablokovala návrat ostatných.
+Na rovnakom poschodí a pri servisných návštevách sa spoločné cesty stále striedajú.
+Prehľad na PC a tablete ukazuje osobitne držiteľa servisu a tunela.
+
+Pred použitím tejto verzie aktualizuj hlavný PC aj všetky turtle mimo bežiacej
+úlohy. Staré a nové verzie pracovníkov nekombinuj: stará verzia nerozlišuje tunel.
+Pre nové zobrazenie tunela aktualizuj aj zobrazovací PC alebo tablet.
+
+Pozastavená turtle môže držať servisnú alebo tunelovú rezerváciu. Počas práce nechaj `fleet`
 bežať, lebo udeľuje povolenia na spoločné presuny. Ovládanie používa potvrdzované
 správy; bez spojenia nemožno predpokladať, že príkaz už dorazil.
 

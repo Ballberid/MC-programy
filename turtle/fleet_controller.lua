@@ -138,6 +138,7 @@ function controller.new(settings)
         end
         return { version = 1, kind = "fleet_snapshot", id = os.getComputerID(), workers = workers,
             summary = model.summary(state.job), serviceOwner = state.locks.service and state.locks.service.owner,
+            tunnelOwner = state.locks.tunnel and state.locks.tunnel.owner,
             message = state.job and ("Uloha " .. state.job.id) or "Pripravene na novu ulohu" }
     end
     function self.tick()

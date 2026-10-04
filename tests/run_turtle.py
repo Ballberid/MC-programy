@@ -34,3 +34,4 @@ lua.execute((root / "tests" / "turtle_spec.lua").read_text(encoding="utf-8"))
 from fleet_network import run as run_network
 run_network(root, LuaRuntime)
 run_network(root, LuaRuntime, "floor")
+run_network(root, LuaRuntime, "quarry", shaft=True)

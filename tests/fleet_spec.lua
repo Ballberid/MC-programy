@@ -354,6 +354,60 @@ test("shared-station parking holds the reservation until departing the station",
     assert(move(stations().fuel, {}, raw)); eq(depth, 1)
     assert(move(dock(), {}, raw)); eq(depth, 0)
 end)
+test("outbound shaft entry releases service while retaining exclusive tunnel travel", function()
+    local model, transit = require("fleet_model"), require("transit")
+    assert(transit.configure(tunnel(), nil, "upper"))
+    local locks, depths, p = {}, {}, dock()
+    local client = {
+        acquire = function(resource)
+            assert(model.acquire(locks, resource, 41, resource))
+            depths[resource] = (depths[resource] or 0) + 1; return true
+        end,
+        release = function(resource)
+            depths[resource] = depths[resource] - 1; assert(depths[resource] >= 0)
+            if depths[resource] == 0 then assert(model.release(locks, resource, 41, resource)) end
+        end,
+    }
+    local move = require("fleet_motion").new(client, stations(), function() return p end, dock())
+    local overlapped = false
+    local function raw(x,y,z)
+        if y == 4 and x == 0 then
+            assert(not locks.service); eq(locks.tunnel.owner, 41)
+            assert(model.acquire(locks, "service", 42, "next"))
+            eq(model.acquire(locks, "tunnel", 42, "next"), false)
+            assert(model.release(locks, "service", 42, "next")); overlapped = true
+        end
+        p = {x=x,y=y,z=z}; return true
+    end
+    assert(move({x=8,y=4,z=0}, {}, raw)); assert(overlapped); eq(next(locks), nil)
+    -- Returning keeps service: it never waits to reacquire it while in the shaft.
+    assert(move(dock(), {}, function(x,y,z)
+        eq(locks.service.owner, 41); eq(locks.tunnel.owner, 41)
+        p={x=x,y=y,z=z}; return true
+    end)); eq(next(locks), nil)
+end)
+test("failed outbound shaft retains tunnel reservation after service handoff", function()
+    local transit = require("transit"); assert(transit.configure(tunnel(), nil, "upper"))
+    local depth, p = {}, dock()
+    local client = { acquire=function(r) depth[r]=(depth[r] or 0)+1; return true end,
+        release=function(r) depth[r]=depth[r]-1 end }
+    local move=require("fleet_motion").new(client,stations(),function() return p end,dock())
+    local ok,err=move({x=8,y=4,z=0},{},function(x,y,z)
+        if y==4 then return false,"blocked" end
+        p={x=x,y=y,z=z}; return true
+    end)
+    eq(ok,false); eq(err,"transit:blocked"); eq(depth.service,0); eq(depth.tunnel,1)
+end)
+test("tunnel and service locks are independent and both survive coordinator restart", function()
+    local c,m=controllerWithWorkers()
+    assert(c.start({x=8,y=4,z=2},{x=9,y=4,z=2},{41,42},stations()))
+    for id,r in pairs({[41]="tunnel",[42]="service"}) do
+        c.handle(id,{version=1,id=id,kind="lock",taskId=c.state.job.tasks[id].id,resource=r,request=r},m.protocol)
+    end
+    local restarted=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(restarted.snapshot().serviceOwner,42); eq(restarted.snapshot().tunnelOwner,41)
+    restarted.tick(); eq(restarted.snapshot().tunnelOwner,41)
+end)
 test("quarry uses the service shaft through solid floor slabs and returns to its own dock", function()
     local W = world(); W.x = 4
     local c = env.configured({ fuel = { x = 3, y = 0, z = 3, direction = 1, side = "front" },
