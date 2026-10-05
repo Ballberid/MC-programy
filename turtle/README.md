@@ -56,6 +56,13 @@ Setup ukladá nastavenia, nenavštevuje truhly. V diagnostike potom vyber overen
 truhiel. `test check` sa nepohybuje a nespotrebúva predmety. Interaktívne menu
 vyžaduje `ANO` pred pohybom alebo zásobovaním. Diagnostika nekopá ani nestavia.
 
+`test speed` zobrazí priemerný čas jedného kroku kopania rozdelený na zásoby,
+kontroly, samotné rozbitie bloku a presun. Záznam `data/mining-speed.txt` sa
+ukladá po 32 pokusoch a pri dokončení alebo chybe úlohy; meranie sa pri ďalšej
+úlohe začína odznova. Výpis uvádza aj vek záznamu. Zásoby zahŕňajú servisné
+cesty, kontroly a presun môžu zahŕňať čakanie na GPS alebo inú turtle.
+Príkaz spusti na turtle po ukončení práce; samotné zobrazenie sa nepohybuje.
+
 ## Kopanie kvádra
 
 Po aktualizácii spusti v termináli mining turtle:

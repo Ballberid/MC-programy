@@ -26,9 +26,11 @@ function motion.new(client, stations, position, dock)
         for _,q in ipairs(candidates) do
             local o={}; for k,v in pairs(options) do o[k]=v end
             o.maxMoves,o.maxDetour,o.knownOnly,o.tryOnce,o.waitForTarget,o.waitForTurtles=1,0,false,true,false,false
+            o.positionVerified=true
             local ok,err=rawMove(q.x,q.y,q.z,o)
             if ok then releaseParking(); return true end
-            if err=="job_cancelled" or err=="fuel_reserve" or tostring(err):find("gps",1,true) then return false,err end
+            if err=="job_cancelled" or err=="fuel_reserve" or err=="position_mismatch"
+                or err=="position_uninitialized" or tostring(err):find("gps",1,true) then return false,err end
             temporary=temporary or tostring(err):find("temporary",1,true)~=nil
         end
         if not temporary then return false,"station_exit_blocked" end

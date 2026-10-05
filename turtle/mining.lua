@@ -11,6 +11,7 @@ local quarryEntry = require("quarry_entry")
 local obstacles = require("obstacles")
 local maxAttempts = 32
 local completedCells = {}
+local timing=require("mining_timing")
 
 local function markCompleted(target, progress)
     if not progress or progress.completed == nil then return end
@@ -51,13 +52,15 @@ end
 
 -- The only destructive movement function. Target must be one adjacent cell
 -- INSIDE the requested box. Services and entry travel use normal navigation.
-function mining.stepTo(target, box, progress)
+local function stepTo(target, box, progress)
     if not config.isPoint(target) or not cuboid.contains(box, target) then return false, "dig_outside_area" end
     if not adjacentPoint(target) then return false, "dig_target_not_adjacent" end
     for attempt = 1, maxAttempts do
         local permitted, denied = nav.checkpoint()
         if not permitted then return false, denied end
-        local ready, reason = supplies.ensure({ moves = 1, freeSlots = 2, endpoint = target, unloadFuel = true })
+        timing.phase("supplies")
+        local ready, reason, info = supplies.ensure({ moves = 1, freeSlots = 2, endpoint = target, unloadFuel = true })
+        timing.phase("checks")
         if not ready then return false, reason end
         if not adjacentPoint(target) then return false, "work_position_changed" end
         local synced, syncErr = nav.checkPosition()
@@ -73,19 +76,27 @@ function mining.stepTo(target, box, progress)
         end
         if hasBlock and detect(side) then
             telemetry.setActivity("mining")
+            timing.phase("dig")
             local broken, digErr = dig(side)
+            timing.phase("checks")
             if not broken then return false, "dig_failed:" .. tostring(digErr) end
             if progress then progress.dug = progress.dug + 1 end
             -- Sand/gravel may fall before the next step. Recheck the inventory
             -- before every additional dig, including when still in one cell.
         end
-        if not hasBlock or not detect(side) then
-            local options, optionsErr = supplies.navigationOptions()
+        do
+            timing.phase("move")
+            -- Navigation inspects the cell again before moving. It handles
+            -- falling blocks and other turtles without an extra detect here.
+            local options = info and info.navigationOptions
+            local optionsErr
+            if not options then options,optionsErr=supplies.navigationOptions() end
             if not options then return false, optionsErr end
             -- The successful step updates the tracked coordinates. GPS is
             -- checked at the configured interval rather than for every block.
             options.positionVerified=true
             local moved, moveErr = nav.step(side, options)
+            timing.phase("checks")
             if moved then
                 markCompleted(target, progress)
                 telemetry.emit("info", "quarry_progress", nil)
@@ -96,6 +107,10 @@ function mining.stepTo(target, box, progress)
         if attempt < maxAttempts then sleep(0.2) end
     end
     return false, "dig_or_move_retry_limit"
+end
+
+function mining.stepTo(target,box,progress)
+    return timing.measure(stepTo,target,box,progress)
 end
 
 local function connectInside(target, box, progress)
@@ -280,7 +295,11 @@ end
 function mining.run(a, b, heading, previous)
     local goal, err = require("work_fuel").new("quarry", a, b)
     if not goal then return false, err end
-    return supplies.withFuelGoal(goal, run, a, b, heading, previous)
+    timing.reset()
+    local result=table.pack(pcall(supplies.withFuelGoal,goal, run, a, b, heading, previous))
+    timing.flush()
+    if not result[1] then error(result[2],0) end
+    return table.unpack(result,2,result.n)
 end
 
 return mining

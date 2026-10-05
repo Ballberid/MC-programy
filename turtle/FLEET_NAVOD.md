@@ -191,6 +191,14 @@ turtle ešte odkazuje; odložená história sa pri nových zadaniach priebežne 
 aby sa súbor stavu nezväčšoval bez obmedzenia.
 
 Monitor sa aktualizuje najviac raz za sekundu a zapisuje iba zmenené riadky.
+Stĺpec stavu rozlišuje `GPS`, `Caka truhla`, `Caka tunel`, `Caka vchod`,
+`Ina turtle` a `Caka cesta`. Rezervácia sa získava pred príchodom k truhle alebo
+do tunela, preto sa môže čakať aj na pohľad vo voľnom priestore. Pri uvoľnení
+rezervácie ju čakajúca turtle opätovne skúša najneskôr v bežnom dvojsekundovom
+intervale, ak funguje spojenie s PC.
+Jednoblokový odchod od truhly a krátke kroky v tunelovej križovatke používajú
+priebežné sledovanie polohy s intervalovým GPS. Dlhšie presuny a neúspešné
+pohyby si zachovávajú vynútené GPS overenie.
 Pracovníci posielajú bežný stav najviac raz za sekundu; zmeny stavu a reakcie na
 povely sa odosielajú hneď. Nezmenený stav nečinného riadiča sa opakovane neukladá;
 pracovný priebeh sa naďalej priebežne ukladá a rezervácie sa ukladajú okamžite.

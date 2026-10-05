@@ -54,3 +54,7 @@ Pauza/pokracovanie/navrat/reset: vyber 1 turtle, 2 celu ulohu alebo 3 vsetky.
 PC posiela cele zadania a sleduje stav; turtle samy riesia pohyb, palivo a material.
 Truhly a tunel maju spolocne rezervacie. PC musi byt dostupny pre ich nove pridelenie.
 Oblasti sucasnych uloh a ich servisne miesta sa nesmu prekryvat. Stare data sa migruju automaticky.
+
+Pomaly vykop: po ukonceni prace spusti na turtle test speed.
+Ukaze priemerny cas zasobovania, kontrol, kopania a presunu.
+Meranie uklada po 32 krokoch a na konci/chybe ulohy do data/mining-speed.txt.

@@ -2,6 +2,22 @@
 local display = {}
 local frames=setmetatable({}, {__mode="k"})
 local names={floor="podlaha",ceiling="strop",walls="steny",quarry="vykop"}
+function display.activity(w)
+    local status=w.status
+    if status=="offline" or status=="paused" or status=="failed" or status=="recovery"
+        or status=="idle" or status=="complete" or status=="assigned" then return status end
+    local p=w.packet or {}
+    local activity=p.activity or status or "?"
+    local labels={checking_gps="GPS",waiting_start="Start pauza",waiting_turtle="Ina turtle",
+        waiting_return_route="Caka cesta",moving="Presun",arrived="Na mieste"}
+    if labels[activity] then return labels[activity] end
+    if type(activity)=="string" then
+        if activity:match("^waiting:station:") or activity=="waiting:service" then return "Caka truhla" end
+        if activity:match("^waiting:tunnel") then return "Caka tunel" end
+        if activity:match("^waiting:door:") then return "Caka vchod" end
+    end
+    return tostring(activity)
+end
 function display.taskType(w)
     if w.status=="idle" then return nil end
     local p=w.packet or {}
@@ -83,10 +99,10 @@ function display.draw(screen, snapshot, selection, wide)
                 local progress = type(p.progress) == "table" and p.progress or {}
                 local inventory = type(p.inventory) == "table" and p.inventory or {}
                 local taskName=(names[display.taskType(w)] or "-")..(w.jobNumber and ("/"..w.jobNumber) or "")
-                if detailed then append(string.format("%-4s %-12s %-10s %-6s %-4s %s/%s", tostring(id), taskName,tostring(w.status or p.activity or "?"):sub(1,10),
+                if detailed then append(string.format("%-4s %-12s %-11s %-6s %-4s %s/%s", tostring(id), taskName,display.activity(w):sub(1,11),
                     tostring(p.fuel or "?"), tostring(inventory.freeSlots or "?"),
                     tostring(progress.completed or 0), tostring(progress.total or w.taskTotal or 0)))
-                else append("#"..id.." "..tostring(w.status or "?").." "..taskName) end
+                else append("#"..id.." "..display.activity(w).." "..taskName) end
                 if w.error and #pages[#pages]<capacity then append("  ! "..w.error) end
             end
         end
@@ -110,7 +126,7 @@ function display.draw(screen, snapshot, selection, wide)
                 out("Existujuce: " .. tostring(progress.skipped or 0))
             else out("Rozbite bloky: " .. tostring(progress.dug or 0)) end
         end
-        out("Stav: " .. tostring(p.activity or w.status or "?") .. " | " .. tostring(p.level or "info"))
+        out("Stav: " .. display.activity(w) .. " | " .. tostring(p.level or "info"))
         if w.pendingControl then out("Caka povel: " .. w.pendingControl) end
         local pos = p.position
         if type(pos) == "table" then

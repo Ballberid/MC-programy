@@ -10,6 +10,20 @@ local network = require("network")
 local paths = require("pathfinding")
 local args = { ... }
 
+local function speed()
+    local data, err = require("mining_timing").read()
+    if not data then print(err); return end
+    local t = data.totals
+    print("Rychlost kopania: " .. t.steps .. " pokusov")
+    print("Vek zaznamu: " .. math.max(0, math.floor((os.epoch("utc")-data.time)/1000)) .. " s")
+    print(string.format("Priemer kroku: %.2f s", t.seconds/t.steps))
+    for _, item in ipairs({{"supplies","Zasoby"},{"checks","Kontroly"},{"dig","Kopanie"},{"move","Presun"}}) do
+        print(string.format("%s: %.2f s", item[2], t[item[1]]/t.steps))
+    end
+    print("Zasoby zahrnaju aj cesty k truhlam.")
+    print("Kontroly/presun zahrnaju GPS a cakanie.")
+end
+
 local function show(ok, err)
     print(ok and "OK" or ("CHYBA: " .. tostring(err)))
 end
@@ -67,17 +81,19 @@ end
 
 if not turtle then error("Diagnostiku spusti na turtle.", 0) end
 if args[1] == "check" then check(); return end
-if args[1] then error("Pouzitie: test [check]", 0) end
+if args[1] == "speed" then speed(); return end
+if args[1] then error("Pouzitie: test [check|speed]", 0) end
 while true do
     print("\n1 Stav | 2 Smer/GPS | 3 Planner | 4 Telemetria")
     print("5 Doplnit palivo z inventara | 6 Overit truhly a vratit sa")
     print("7 Presun na suradnice a spat | 8 Navrat domov")
-    print("9 Zasobovanie | 0 Koniec")
+    print("9 Zasobovanie | 10 Rychlost kopania | 0 Koniec")
     write("> ")
     local choice = read()
     if choice == "0" then break end
     local ran, failure = pcall(function()
         if choice == "1" then check()
+        elseif choice == "10" then speed()
         elseif choice == "2" and confirm("Zistenie smeru moze turtle posunut a vratit spat.") then
             show(nav.init())
             if nav.getPosition() then print(textutils.serialize(nav.getPosition())) end

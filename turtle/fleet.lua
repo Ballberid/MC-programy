@@ -100,7 +100,7 @@ local function input()
                 print(group.title..": "..group.completed.."/"..group.total)
                 for _, id in ipairs(group.ids) do
                 local w = snapshot.workers[id]
-                print("#" .. id .. " uloha "..tostring(w.jobNumber or "-").." " .. w.status .. " " .. w.age .. "s " .. tostring(w.error or "")
+                print("#" .. id .. " uloha "..tostring(w.jobNumber or "-").." " .. display.activity(w) .. " " .. w.age .. "s " .. tostring(w.error or "")
                     .. (w.pendingControl and (" caka povel " .. w.pendingControl) or ""))
                 end
             end

@@ -37,6 +37,7 @@ local function reset()
     package.loaded.fleet_floors = nil
     package.loaded.work_fuel = nil
     package.loaded.obstacles = nil
+    package.loaded.mining_timing = nil
     W = { x = 0, y = 0, z = 0, d = 0, fuel = 1000, limit = 2000,
         blocks = {}, chests = {}, slots = {}, selected = 1, moves = 0, gpsCalls = 0,
         files = {}, dirs = {}, packets = {}, failSteps = 0, ticks = 0,

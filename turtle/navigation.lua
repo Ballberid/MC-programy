@@ -61,7 +61,12 @@ function nav.knownDistance(target, from)
 end
 
 function nav.sync()
-    local ok, err = position.sync()
+    local previous=telemetry.getActivity()
+    telemetry.setActivity("checking_gps")
+    local result=table.pack(pcall(position.sync))
+    telemetry.setActivity(previous)
+    if not result[1] then error(result[2],0) end
+    local ok,err=result[2],result[3]
     if not ok and err == "position_mismatch" then paths.clear() end
     if ok then movesSinceGPS = 0 end
     return ok, err
@@ -132,10 +137,17 @@ local function rawMove(x, y, z, options)
     local known = options.knownOnly == true
     if not known then paths.forgetBlocked() end
     local function verifiedReturnDistance()
+        local previous=telemetry.getActivity()
+        local waiting=false
         while true do
             local distance,err=nav.knownDistance(anchor)
-            if distance or not paths.hasTemporary() then return distance,err end
-            local allowed,reason=nav.checkpoint(); if not allowed then return nil,reason end
+            if distance or not paths.hasTemporary() then
+                if waiting then telemetry.setActivity(previous) end
+                return distance,err
+            end
+            if not waiting then telemetry.setActivity("waiting_return_route"); waiting=true end
+            local allowed,reason=nav.checkpoint()
+            if not allowed then telemetry.setActivity(previous); return nil,reason end
             sleep(0.5)
         end
     end

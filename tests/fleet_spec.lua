@@ -441,6 +441,17 @@ test("mining single steps never route through the service shaft", function()
         function() return { x = 8, y = 4, z = 2 } end))
     eq(calls, 1)
 end)
+test("short tunnel junction legs use tracked steps and long journeys retain GPS boundaries",function()
+    local transit=require("transit"); assert(transit.configure(tunnel(),nil,"upper"))
+    local p={x=4,y=0,z=0}; local short,long=0,0
+    local ok,err=transit.move({x=4,y=4,z=0},{},function(x,y,z,o)
+        local distance=math.abs(x-p.x)+math.abs(y-p.y)+math.abs(z-p.z)
+        if distance<=1 then eq(o.positionVerified,true); eq(o.maxMoves,1); short=short+1
+        else eq(o.positionVerified,nil); long=long+1 end
+        p={x=x,y=y,z=z}; return true
+    end,function() return true end,function() end,function() return p end)
+    assert(ok,err); assert(short>=4); assert(long>=3)
+end)
 test("failed shaft travel retains the reservation", function()
     local transit = require("transit"); assert(transit.configure(tunnel(), nil, "upper"))
     local released = false
@@ -680,7 +691,7 @@ test("chest departure probes another cell and releases the old endpoint before a
     local move=require("fleet_motion").new(client,stations(),function() return p end,dock())
     local function raw(x,y,z,o)
         if o.tryOnce then
-            eq(o.maxMoves,1); eq(o.waitForTurtles,false)
+            eq(o.maxMoves,1); eq(o.waitForTurtles,false); eq(o.positionVerified,true)
             attempts=attempts+1; if attempts==1 then return false,"temporary_obstacle" end
         end
         p={x=x,y=y,z=z}; return true

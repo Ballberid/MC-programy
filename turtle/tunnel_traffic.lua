@@ -26,6 +26,10 @@ function traffic.move(legs,target,options,rawMove,acquire,release,position,onEnt
             -- Explore only these defined straight legs, with normal detection.
             o.maxDetour,o.knownOnly,o.waitForTurtles=0,false,true
         end
+        local current=position()
+        if current and math.abs(current.x-p.x)+math.abs(current.y-p.y)+math.abs(current.z-p.z)<=1 then
+            o.maxMoves,o.positionVerified=1,true
+        end
         local ok,err=rawMove(p.x,p.y,p.z,o)
         return ok,ok and nil or "transit:"..tostring(err)
     end

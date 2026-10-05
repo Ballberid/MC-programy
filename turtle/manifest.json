@@ -15,6 +15,7 @@
     { "source": "obstacles.lua", "target": "obstacles.lua", "roles": ["turtle"] },
     { "source": "cuboid.lua", "target": "cuboid.lua", "roles": ["turtle", "controller", "receiver"] },
     { "source": "mining.lua", "target": "mining.lua", "roles": ["turtle"] },
+    { "source": "mining_timing.lua", "target": "mining_timing.lua", "roles": ["turtle"] },
     { "source": "quarry_entry.lua", "target": "quarry_entry.lua", "roles": ["turtle"] },
     { "source": "quarry.lua", "target": "quarry.lua", "roles": ["turtle"] },
     { "source": "network.lua", "target": "network.lua", "roles": ["turtle", "receiver", "router", "controller"] },

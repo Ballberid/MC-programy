@@ -1,5 +1,83 @@
 local env=...
 local test,eq,world=env.test,env.eq,env.world
+test("mining timings separate phases and batch diagnostic writes",function()
+    local timing=require("mining_timing")
+    local ms=0
+    os.epoch=function() return ms end
+    local writes,open=0,fs.open
+    fs.open=function(path,mode)
+        if path=="data/mining-speed.txt" and mode=="w" then writes=writes+1 end
+        return open(path,mode)
+    end
+    local function step()
+        ms=ms+100
+        timing.phase("supplies"); ms=ms+200
+        timing.phase("dig"); ms=ms+400
+        timing.phase("move"); ms=ms+300
+        return true,nil,"preserved"
+    end
+    for _=1,31 do
+        local ok,err,extra=timing.measure(step)
+        eq(ok,true); eq(err,nil); eq(extra,"preserved")
+    end
+    eq(writes,0); timing.measure(step); eq(writes,1)
+    local data=assert(timing.read()); eq(data.totals.steps,32)
+    eq(data.totals.seconds,32)
+    for name,expected in pairs({checks=3.2,supplies=6.4,dig=12.8,move=9.6}) do
+        assert(math.abs(data.totals[name]-expected)<0.001,name)
+    end
+    local ok,err=pcall(timing.measure,function() error("Terminated",0) end)
+    eq(ok,false); eq(err,"Terminated"); eq(writes,2)
+    eq(assert(timing.read()).last.ok,false)
+    fs.open=function() error("disk full") end
+    assert(timing.measure(function() return true end))
+    assert(pcall(timing.flush))
+    fs.open=open
+end)
+
+test("mining reuses checked supply options and skips post-dig detection",function()
+    env.configured(); local nav=env.navReady(); local W=world()
+    local anchor=nav.getPosition()
+    local supplies=require("supplies")
+    supplies.ensure=function() return true,nil,{navigationOptions={anchor=anchor,reserve=0}} end
+    supplies.navigationOptions=function() error("redundant supply route check") end
+    local detects,inspectAfterDig=0,0
+    local detect,inspect=turtle.detect,turtle.inspect
+    turtle.detect=function(...) detects=detects+1; return detect(...) end
+    turtle.inspect=function(...)
+        if #W.digs>0 then inspectAfterDig=inspectAfterDig+1 end
+        return inspect(...)
+    end
+    W.blocks["0,0,-1"]=true
+    local target={x=0,y=0,z=-1}
+    local box=assert(require("cuboid").new(target,target))
+    assert(require("mining").stepTo(target,box))
+    eq(detects,1); eq(inspectAfterDig,1); eq(#W.digs,1); eq(W.moves,1)
+end)
+
+test("GPS checks publish their waiting reason and restore activity on errors",function()
+    env.configured(); local nav=env.navReady(); local telemetry=require("telemetry")
+    telemetry.setActivity("moving")
+    local locate=gps.locate
+    gps.locate=function(...)
+        eq(telemetry.getActivity(),"checking_gps")
+        return locate(...)
+    end
+    assert(nav.sync()); eq(telemetry.getActivity(),"moving")
+    gps.locate=function() eq(telemetry.getActivity(),"checking_gps"); error("Terminated") end
+    eq(pcall(nav.sync),false); eq(telemetry.getActivity(),"moving")
+end)
+test("fleet screens distinguish waiting resources from running and preserve terminal states",function()
+    local display=require("fleet_display")
+    for activity,label in pairs({checking_gps="GPS",["waiting:station:2,0,2"]="Caka truhla",
+        ["waiting:tunnel:up:1"]="Caka tunel",["waiting:door:0,0,0"]="Caka vchod",
+        waiting_turtle="Ina turtle",waiting_return_route="Caka cesta"}) do
+        eq(display.activity({status="running",packet={activity=activity}}),label)
+    end
+    for _,status in ipairs({"offline","paused","failed","recovery","complete","idle","assigned"}) do
+        eq(display.activity({status=status,packet={activity="checking_gps"}}),status)
+    end
+end)
 test("normal navigation avoids fuel inventory scans and duplicate detection",function()
     local c=env.configured(); c.telemetry.enabled=false
     assert(require("config").save(c))

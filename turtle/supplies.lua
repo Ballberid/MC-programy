@@ -108,7 +108,10 @@ function supplies.ensure(request)
     -- Bounded service passes. Each individual visit returns to the work point.
     for _ = 1, 4 do
         local ok, need, info = supplies.check(request)
-        if ok then return true end
+        if ok then
+            info.navigationOptions={anchor=station,reserve=c.navigation.reserve}
+            return true,nil,info
+        end
         local serviced, reason
         if need == "fuel" then
             serviced, reason = refuel(info.requiredFuel)
