@@ -164,6 +164,9 @@ function stations.unload(keep, options)
                 local preserveFuel = not options or options.keepFuel ~= false
                 local reservedSlot = false
                 for _, value in ipairs(c.fuelSlots) do if slot == value then reservedSlot = true end end
+                -- Demolition drops may occupy a fuel/service slot. Preserve
+                -- actual fuel, but allow the builder to unload other drops.
+                if reservedSlot and options and options.unloadNonfuelSlots then reservedSlot=turtle.refuel(0) end
                 local protected = c.protectedItems[item.name] == true or reservedSlot or (preserveFuel and turtle.refuel(0))
                 local retain = protected and item.count
                     or math.min(item.count, math.max(0, (keep[item.name] or 0) - (kept[item.name] or 0)))

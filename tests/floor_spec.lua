@@ -142,7 +142,7 @@ test("floor uses selected inventory sample and loads a batch before entry", func
     assert(ok,err); eq(firstCount,6); eq(p.placed,6)
     eq(W.chests["-3,0,0"].items[1].count,95)
 end)
-test("floor builds from underneath without crossing its own plane", function()
+test("ceiling builds from underneath without crossing its own plane", function()
     local W,c=setup(64)
     W.y=-2
     c.start.y,c.home.y=-2,-2
@@ -152,13 +152,61 @@ test("floor builds from underneath without crossing its own plane", function()
     W.chests["-3,-2,0"],W.chests["-3,0,0"]=W.chests["-3,0,0"],nil
     W.chests["0,-2,3"],W.chests["0,0,3"]=W.chests["0,0,3"],nil
     for x=4,6 do for z=0,1 do W.blocks[x..",0,"..z]=true end end
-    local ok,err,p=require("building").run(a,b,"minecraft:stone",0)
+    local ok,err,p=require("building").runCeiling(a,b,"minecraft:stone",0)
     assert(ok,err); eq(p.placed,6); eq(W.y,-2); eq(#W.digs,0)
 end)
-test("floor switches below when the first upper stand is obstructed", function()
+test("floor never switches below when the upper stand is obstructed", function()
     local W=setup(64); W.blocks["4,0,0"]=true
     local ok,err,p=require("building").run(a,b,"minecraft:stone",0)
-    assert(ok,err); eq(p.placed,6); eq(p.returnedHome,true); eq(#W.digs,0)
+    eq(ok,false); assert(err:find("floor_travel_failed",1,true)); eq(p.placed,0); eq(p.returnedHome,true); eq(#W.digs,0)
+end)
+test("floor and ceiling use only their fixed placement direction",function()
+    local W=setup(64)
+    local up,down=0,0
+    turtle.placeUp=function() up=up+1; return true end
+    turtle.placeDown=function() down=down+1; return true end
+    assert(require("floor_access").place("up")); eq(down,1); eq(up,0)
+    assert(require("ceiling_access").place("down")); eq(up,1); eq(down,1)
+end)
+test("ceiling builds one layer entirely above the turtle",function()
+    local W=setup(64)
+    local original=turtle.placeUp
+    local count=0
+    turtle.placeDown=function() error("ceiling must not place below") end
+    turtle.placeUp=function() eq(W.y,0); count=count+1; return original() end
+    local ok,err,p=require("building").runCeiling({x=4,y=1,z=0},{x=6,y=1,z=1},"minecraft:stone",0)
+    assert(ok,err); eq(p.taskType,"ceiling"); eq(p.placed,6); eq(count,6); eq(W.y,0)
+    for _,block in ipairs(W.placements) do eq(block.y,1) end
+end)
+test("ceiling never switches above when its lower working position is blocked",function()
+    local W=setup(64); W.blocks["4,0,0"]=true
+    local ok,err,p=require("building").runCeiling({x=4,y=1,z=0},{x=6,y=1,z=1},"minecraft:stone",0)
+    eq(ok,false); assert(err:find("ceiling_travel_failed",1,true)); eq(p.placed,0); eq(#W.digs,0); eq(p.returnedHome,true)
+end)
+test("second horizontal corner asks for X and Z only and inherits the first height",function()
+    local answers={"10","20"}; local reads=0
+    write=function() end
+    read=function() reads=reads+1; return answers[reads] end
+    local p=require("fleet_dialog").flatPoint("Druhy roh",63)
+    eq(p.x,10); eq(p.y,63); eq(p.z,20); eq(reads,2)
+end)
+test("ceiling fleet jobs require materials and preserve the single layer",function()
+    local W,c=setup(64)
+    local ctl=require("fleet_controller").new({}); local model=require("fleet_model")
+    for _,id in ipairs({21,22}) do
+        ctl.handle(id,{version=1,id=id,kind="status",status="idle",dock={x=0,y=0,z=-id,direction=0}},model.protocol)
+    end
+    local ok,err=ctl.start({x=4,y=1,z=0},{x=6,y=1,z=1},{21,22},c.stations,nil,nil,{kind="ceiling",block="minecraft:stone"})
+    assert(ok,err); eq(ctl.state.job.kind,"ceiling"); eq(ctl.state.job.total,6)
+    local total=0
+    for _,t in pairs(ctl.state.job.tasks) do
+        eq(t.assignment.kind,"ceiling"); eq(t.assignment.a.y,1); eq(t.assignment.b.y,1); total=total+t.total
+        local valid=require("fleet_task").settings(t.assignment,{x=0,y=0,z=-21,direction=0}); assert(valid)
+        local copy=require("fleet_store").copy(t.assignment); copy.stations.materials=nil
+        local missing,reason=require("fleet_task").settings(copy,{x=0,y=0,z=-21,direction=0})
+        eq(missing,nil); eq(reason,"station_missing:materials")
+    end
+    eq(total,6)
 end)
 test("floor 4000 block fuel estimate uses inventory capacity and skips refuel at 30k", function()
     local W=setup(5000); W.fuel=30000

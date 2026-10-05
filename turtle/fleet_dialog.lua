@@ -18,6 +18,10 @@ function dialog.point(prompt, block, default)
     default = default or {}
     return { x = dialog.number("X", default.x), y = dialog.number("Y", default.y), z = dialog.number("Z", default.z) }
 end
+function dialog.flatPoint(prompt,y)
+    print(prompt .. " (suradnice bloku; Y=" .. y .. " z prveho rohu)")
+    return {x=dialog.number("X"),y=y,z=dialog.number("Z")}
+end
 function dialog.yes(prompt, default)
     while true do
         local value = tostring(dialog.text(prompt .. (default and " [A/n]" or " [a/N]"), "")):lower()

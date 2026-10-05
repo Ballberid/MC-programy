@@ -24,6 +24,228 @@ local function controllerWithWorkers()
     return c, model
 end
 
+local function mixedJobs()
+    local c,m=controllerWithWorkers(); local first=assignment()
+    assert(c.start(first.a,first.b,{41},first.stations))
+    local digging=c.state.job
+    local st=stations(); st.materials={x=4,y=0,z=2,direction=1,side="front"}
+    assert(c.start({x=20,y=-1,z=2},{x=23,y=-1,z=5},{42},st,nil,nil,{kind="floor"}))
+    return c,m,digging,c.state.job,st
+end
+test("multiple jobs route progress, retries and controls independently across controller restarts",function()
+    local c,m,digging,building=mixedJobs()
+    for _,entry in ipairs({{41,digging,8},{42,building,3}}) do
+        local id,job,n=entry[1],entry[2],entry[3]
+        c.handle(id,{version=1,id=id,kind="status",status="running",taskId=job.tasks[id].id,dock=dock(),
+            progress={completed=n,taskType=job.kind}},m.protocol)
+    end
+    eq(digging.tasks[41].progress.completed,8); eq(building.tasks[42].progress.completed,3)
+    eq(c.snapshot().summary.completed,11); eq(c.snapshot().summary.kind,"mixed"); eq(#c.snapshot().jobs,2)
+    local groups=require("fleet_display").groups(c.snapshot())
+    eq(groups[1].total,16); eq(groups[1].completed,3); eq(groups[2].total,48); eq(groups[2].completed,8)
+    c.control("pause",nil,digging.id)
+    eq(c.state.pendingControls[41].action,"pause"); eq(c.state.pendingControls[42],nil)
+    c.handle(42,{version=1,id=42,kind="lock",taskId=building.tasks[42].id,resource="station:2,0,2",request="fuel42"},m.protocol)
+    c.save()
+    local restarted=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(restarted.snapshot().summary.completed,11); eq(#restarted.snapshot().jobs,2)
+    eq(restarted.snapshot().serviceOwner,42); eq(restarted.state.pendingControls[41].action,"pause")
+    restarted.handle(41,{version=1,id=41,message="working",context={taskId=digging.tasks[41].id},progress={completed=9}},m.telemetryProtocol)
+    eq(restarted.state.jobs[digging.id].tasks[41].progress.completed,9)
+    eq(restarted.state.jobs[building.id].tasks[42].progress.completed,3)
+    local saved=require("fleet_store").load("data/fleet-state.txt",{})
+    eq(saved.version,2); eq(saved.job,nil); assert(saved.jobs[digging.id])
+end)
+test("new jobs can start while another worker reserves service but cannot steal that worker",function()
+    local c,m=controllerWithWorkers(); local job=assignment()
+    assert(c.start(job.a,job.b,{41},job.stations)); local id=c.state.job.tasks[41].id
+    c.handle(41,{version=1,id=41,kind="lock",taskId=id,resource="station:2,0,2",request="fuel41"},m.protocol)
+    assert(c.start({x=20,y=0,z=0},{x=21,y=0,z=1},{42},job.stations))
+    eq(c.snapshot().serviceOwner,41)
+    local ok,err=c.start({x=30,y=0,z=0},{x=31,y=0,z=1},{41},job.stations)
+    eq(ok,false); eq(err,"worker_unavailable:41")
+end)
+test("overlap protection includes building access height and existing job infrastructure",function()
+    local c,m,digging,building,st=mixedJobs()
+    local count=#c.snapshot().jobs
+    local ok,err=c.start({x=20,y=0,z=2},{x=21,y=0,z=3},{43},st)
+    eq(ok,false); assert(err:find("job_area_conflict",1,true)); eq(#c.snapshot().jobs,count)
+    local remote={fuel={x=-12,y=0,z=2,direction=1,side="front"},output={x=-14,y=0,z=2,direction=3,side="front"}}
+    ok,err=c.start({x=2,y=0,z=2},{x=3,y=0,z=2},{43},remote)
+    eq(ok,false); assert(err:find("job_infrastructure_conflict",1,true))
+    local inside={fuel={x=9,y=3,z=3,direction=1,side="front"},output=st.output}
+    ok,err=c.start({x=30,y=0,z=0},{x=31,y=0,z=1},{43},inside)
+    eq(ok,false); assert(err:find("job_infrastructure_conflict",1,true))
+    eq(c.state.workers[43].status,"idle")
+end)
+test("reassigned workers ignore delayed messages and old job controls cannot affect the new task",function()
+    local c,m,digging,building,st=mixedJobs()
+    local old=digging.tasks[41].id
+    c.handle(41,{version=1,id=41,kind="status",status="complete",taskId=old,dock=dock(),progress={completed=48}},m.protocol)
+    assert(c.start({x=30,y=0,z=0},{x=31,y=0,z=1},{41},st))
+    local current=c.state.workers[41].taskId
+    c.handle(41,{version=1,id=41,kind="status",status="complete",taskId=old,dock=dock()},m.protocol)
+    c.handle(41,{version=1,id=41,message="late",context={taskId=old},progress={completed=999}},m.telemetryProtocol)
+    eq(c.state.workers[41].taskId,current); eq(c.state.workers[41].status,"assigned")
+    local ok,err=c.control("stop",nil,digging.id)
+    eq(ok,false); eq(err,"unknown_job"); eq(c.state.pendingControls[41],nil)
+    eq(c.state.jobs[building.id].tasks[42].status,"assigned")
+end)
+test("legacy controller job migrates without losing assignments or reservations",function()
+    local c,m=controllerWithWorkers(); local a=assignment()
+    assert(c.start(a.a,a.b,{41},a.stations))
+    local old=c.state.job
+    require("fleet_store").save("data/fleet-state.txt",{version=1,workers=c.state.workers,job=old,serial=4,
+        locks={service={owner=41,token="old"}}})
+    local restarted=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(restarted.state.jobs[old.id].tasks[41].id,old.tasks[41].id)
+    eq(restarted.snapshot().serviceOwner,41); eq(restarted.snapshot().workers[41].taskType,"quarry")
+    restarted.tick()
+    local saved=require("fleet_store").load("data/fleet-state.txt",{})
+    eq(saved.version,2); eq(saved.job,nil); assert(saved.jobs[old.id])
+end)
+test("failed jobs reserve their area until reset while unrelated jobs continue",function()
+    local c,m,digging,building,st=mixedJobs(); local id=digging.tasks[41].id
+    c.handle(41,{version=1,id=41,kind="status",status="failed",taskId=id,dock=dock(),error="blocked"},m.protocol)
+    local ok,err=c.start(digging.tasks[41].assignment.a,digging.tasks[41].assignment.b,{43},st)
+    eq(ok,false); assert(err:find("job_area_conflict",1,true))
+    c.control("reset",nil,digging.id)
+    local pending=c.state.pendingControls[41]
+    c.handle(41,{version=1,id=41,kind="reset_result",request=pending.request,taskId=id,ok=true},m.protocol)
+    eq(digging.tasks[41].status,"cancelled"); eq(building.tasks[42].status,"assigned")
+    c.handle(41,{version=1,id=41,kind="status",status="running",taskId=id,dock=dock()},m.protocol)
+    eq(c.state.workers[41].status,"idle"); eq(c.state.workers[41].taskId,nil)
+    assert(c.start(digging.tasks[41].assignment.a,digging.tasks[41].assignment.b,{43},st))
+end)
+test("fleet menu targets an entire selected job without commanding another job",function()
+    local c,m,digging,building=mixedJobs()
+    require("fleet_controller").new=function() return c end
+    peripheral.find=function() return nil end
+    local sent={}
+    rednet.send=function(id,p) sent[#sent+1]={id=id,action=p.action,taskId=p.taskId}; return true end
+    local choices={5,6,7,8,0}; local dialog=require("fleet_dialog")
+    dialog.number=function(prompt)
+        if prompt=="Volba" then assert(#choices>0); return table.remove(choices,1) end
+        if prompt:find("Ovladat:",1,true) or prompt=="Vyber ulohu zo zoznamu" then return 2 end
+        error("Unexpected question: "..prompt)
+    end
+    parallel.waitForAny=function(_,input) input() end
+    assert(pcall(loadfile(ROOT.."/turtle/fleet.lua")))
+    eq(#sent,4)
+    for i,action in ipairs({"pause","resume","stop","reset"}) do
+        eq(sent[i].id,42); eq(sent[i].action,action); eq(sent[i].taskId,building.tasks[42].id)
+    end
+    eq(c.state.pendingControls[41],nil); eq(c.state.pendingControls[42].action,"reset")
+end)
+
+test("idle controller avoids repeated writes and persists changed progress on its next checkpoint",function()
+    local c,m=controllerWithWorkers(); c.tick()
+    local writes=0; local save=require("fleet_store").save
+    require("fleet_store").save=function(...) writes=writes+1; return save(...) end
+    for i=1,10 do
+        world().ticks=i*2
+        for _,id in ipairs({41,42,43}) do
+            c.handle(id,{version=1,id=id,kind="status",status="idle",dock=dock(),fuel=1000},m.protocol)
+        end
+        c.tick()
+    end
+    eq(writes,0)
+    local job=assignment(); assert(c.start(job.a,job.b,{41},job.stations))
+    local id=c.state.job.tasks[41].id
+    c.handle(41,{version=1,id=41,kind="status",status="running",dock=dock(),taskId=id},m.protocol)
+    writes=0
+    c.handle(41,{version=1,id=41,message="progress",context={taskId=id},progress={completed=7}},m.telemetryProtocol)
+    world().ticks=world().ticks+2; c.tick(); eq(writes,1)
+    local restarted=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(restarted.snapshot().summary.completed,7)
+end)
+
+test("fleet display groups mixed tasks and repaints only changed lines",function()
+    local display=require("fleet_display")
+    local snapshot={workers={
+        [41]={status="running",taskType="quarry",packet={progress={total=50,completed=20}}},
+        [42]={status="paused",taskType="floor",packet={progress={total=20,completed=5}}},
+        [43]={status="assigned",taskType="ceiling",taskTotal=30},
+        [44]={status="idle"}}, summary={total=100,completed=25,remaining=75}}
+    local groups=display.groups(snapshot)
+    eq(groups[1].title,"STAVANIE"); eq(table.concat(groups[1].ids,","),"42,43")
+    eq(groups[1].completed,5); eq(groups[1].total,50)
+    eq(groups[2].title,"KOPANIE"); eq(groups[2].ids[1],41); eq(groups[3].ids[1],44)
+    local width,height,row,writes,clears=80,24,1,0,0
+    local lines={}
+    local screen={getSize=function() return width,height end,clear=function() clears=clears+1; lines={} end,
+        setCursorPos=function(x,y) eq(x,1); assert(y<=height); row=y end,
+        write=function(text) assert(#text<=width); lines[row]=text; writes=writes+1 end}
+    display.draw(screen,snapshot,0,true)
+    local initial=writes; display.draw(screen,snapshot,0,true); eq(writes,initial); eq(clears,1)
+    snapshot.workers[41].packet.fuel=123
+    display.draw(screen,snapshot,0,true); eq(writes,initial+1); eq(clears,1)
+    snapshot.workers[41]=nil
+    display.draw(screen,snapshot,0,true)
+    assert(not table.concat(lines,"\n"):find("KOPANIE",1,true))
+    width,height=26,20; display.draw(screen,snapshot,1,false); eq(clears,2)
+    assert(table.concat(lines,"\n"):find("#42",1,true))
+end)
+test("controller supplies assigned task categories before progress and preserves them during services",function()
+    local c,m=controllerWithWorkers()
+    local st=stations(); st.materials={x=4,y=0,z=2,direction=1,side="front"}
+    assert(c.start({x=8,y=-1,z=2},{x=9,y=-1,z=3},{41},st,nil,nil,{kind="floor"}))
+    local snapshot=c.snapshot()
+    eq(snapshot.workers[41].taskType,"floor"); eq(snapshot.workers[41].taskTotal,4)
+    local id=c.state.job.tasks[41].id
+    c.handle(41,{version=1,id=41,kind="status",status="running",taskId=id,dock=dock(),activity="refuel"},m.protocol)
+    eq(c.snapshot().workers[41].taskType,"floor")
+    eq(require("fleet_display").groups(c.snapshot())[1].title,"STAVANIE")
+end)
+
+test("fleet overview pages repeat category headings and eventually show every worker",function()
+    local snapshot={workers={}}
+    for id=1,20 do snapshot.workers[id]={status="running",taskType=id<=10 and "floor" or "quarry"} end
+    local seen,row,lines={},1,{}
+    local screen={getSize=function() return 70,16 end,clear=function() lines={} end,
+        setCursorPos=function(_,y) row=y end,write=function(text) lines[row]=text end}
+    for time=0,50,5 do
+        world().ticks=time; require("fleet_display").draw(screen,snapshot,0,true)
+        local heading=false
+        for y=1,15 do
+            local line=lines[y] or ""
+            if line:find("STAVANIE",1,true) or line:find("KOPANIE",1,true) then heading=true end
+            local id=line:match("^(%d+)%s")
+            if id then assert(heading,"Page omitted group heading"); seen[tonumber(id)]=true end
+        end
+    end
+    for id=1,20 do assert(seen[id],"Worker missing from overview: "..id) end
+end)
+
+test("fleet menu dispatches adjacent job choices and correctly maps control and exit choices",function()
+    local c=require("fleet_settings").defaults(); c.stations={fuel=stations().fuel,output=stations().output,
+        materials={x=4,y=0,z=2,direction=1,side="front"}}; c.defaults={fuel="fuel",output="output",materials="materials"}
+    require("fleet_settings").load=function() return c end
+    local kinds,actions,runs={},{},{}
+    local control={settings=c,state={locks={}},available=function() return {41} end,
+        start=function(_,_,_,_,_,_,options) kinds[#kinds+1]=options.kind; return true end,
+        control=function(action) actions[#actions+1]=action end,save=function() end,
+        snapshot=function() return {workers={},summary={completed=0,total=0,remaining=0}} end}
+    require("fleet_controller").new=function() return control end
+    peripheral.find=function() return nil end
+    shell={run=function(name) runs[#runs+1]=name; return true end}
+    local choices={1,2,3,4,5,6,7,8,9,10,0}
+    local dialog=require("fleet_dialog")
+    dialog.number=function(prompt,default)
+        if prompt=="Volba" then assert(#choices>0); return table.remove(choices,1) end
+        return default
+    end
+    dialog.yes=function(prompt) return prompt:find("Spustit",1,true)~=nil end
+    dialog.point=function() return {x=8,y=0,z=4} end
+    dialog.flatPoint=function() return {x=9,y=0,z=5} end
+    dialog.text=function(prompt) return prompt:find("VOLNE",1,true) and "VOLNE" or "" end
+    dialog.choose=function(_,_,default) return default end
+    parallel.waitForAny=function(_,input) input() end
+    assert(pcall(loadfile(ROOT.."/turtle/fleet.lua")))
+    eq(table.concat(kinds,","),"quarry,floor,ceiling")
+    eq(table.concat(actions,","),"pause,resume,stop,reset"); eq(runs[1],"fleet_setup"); eq(#choices,0)
+end)
+
 test("fleet split covers reversed corners without overlapping cells", function()
     local cuboid, model = require("cuboid"), require("fleet_model")
     local a, b = { x = 11, y = 4, z = 5 }, { x = 2, y = 2, z = 2 }
@@ -165,13 +387,13 @@ test("floor setup edits only floors without reentering the shaft coordinates", f
     local c=settings.defaults()
     c.tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}}}}
     assert(settings.save(c))
-    setupAnswers({"5",
+    setupAnswers({"4",
         "1","upper","2","4","0",
         "2","upper","first",
         "3","first","-2","","",
         "1","temp","0","8","2",
         "4","temp","a",
-        "0","4"})
+        "0","0"})
     local saved=settings.load()
     eq(saved.tunnel.x,0); eq(saved.tunnel.z,0)
     eq(saved.tunnel.floors.first.exit.x,-2); eq(saved.tunnel.floors.first.exit.y,4); eq(saved.tunnel.floors.first.exit.z,0)
@@ -179,7 +401,7 @@ test("floor setup edits only floors without reentering the shaft coordinates", f
     eq(saved.tunnel.floors.base.exit.x,2)
 end)
 test("new shaft and floors can be configured separately and saved together", function()
-    setupAnswers({"3","","100","200","5","1","base","102","64","200","0","4"})
+    setupAnswers({"3","","100","200","4","1","base","102","64","200","0","0"})
     local saved=require("fleet_settings").load()
     eq(saved.tunnel.x,100); eq(saved.tunnel.z,200); eq(saved.tunnel.floors.base.exit.y,64)
 end)

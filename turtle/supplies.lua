@@ -9,7 +9,7 @@ local jobFuelGoal
 function supplies.withFuelGoal(goal, action, ...)
     local previous = jobFuelGoal
     jobFuelGoal = goal
-    local result = table.pack(pcall(action, ...))
+    local result = table.pack(pcall(config.withCache,action, ...))
     jobFuelGoal = previous
     if not result[1] then error(result[2], 0) end
     return table.unpack(result, 2, result.n)
@@ -69,7 +69,7 @@ function supplies.check(request)
     end
     local required = fuel.required(workMoves, afterReturn, c.navigation.reserve)
     if not fuel.has(required) then return false, "fuel", { requiredFuel = required } end
-    if inv.freeSlots() < (request.freeSlots or 0) then return false, "space", { requiredFuel = required } end
+    if not inv.hasFreeSlots(request.freeSlots or 0) then return false, "space", { requiredFuel = required } end
     local enough, missing = inv.hasMaterials(request.materials)
     if not enough then return false, "materials", { missing = missing, requiredFuel = required } end
     return true, nil, { requiredFuel = required }
@@ -86,7 +86,8 @@ function supplies.ensure(request)
         if not ok then return false, reason end
     end
     local c = config.load()
-    local options = { anchor = station, reserve = c.navigation.reserve, keepFuel = request.unloadFuel ~= true }
+    local options = { anchor = station, reserve = c.navigation.reserve, keepFuel = request.unloadFuel ~= true,
+        unloadNonfuelSlots=request.unloadNonfuelSlots==true }
     local function refuel(minimum)
         local target = minimum
         if jobFuelGoal then

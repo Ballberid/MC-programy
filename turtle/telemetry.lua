@@ -3,7 +3,7 @@ local inv = require("inventory")
 local telemetry = {}
 local options = { enabled = true, protocol = "craftoria.turtle.v1", interval = 2 }
 local provider
-local lastSent = -math.huge
+local lastAttempt = -math.huge
 local sequence = 0
 local activity = "idle"
 local progress
@@ -29,13 +29,15 @@ end
 
 function telemetry.setActivity(value)
     activity = value
-    return telemetry.emit("info", value, nil, true)
+    return telemetry.emit("info", value, nil, false)
 end
 
 -- Network failures must not stop movement or resource checks.
 function telemetry.emit(level, message, details, force)
     if not options.enabled then return false, "disabled" end
-    if not force and os.clock() - lastSent < options.interval then return true end
+    if not force and os.clock() - lastAttempt < options.interval then return true end
+    -- A missing modem must not trigger a new discovery attempt every step.
+    lastAttempt = os.clock()
     local ok, result, err = pcall(function()
         local ready, reason = network.open()
         if not ready then return false, reason end
@@ -53,7 +55,6 @@ function telemetry.emit(level, message, details, force)
         end
         if options.receiverId then rednet.send(options.receiverId, packet, options.protocol)
         else rednet.broadcast(packet, options.protocol) end
-        lastSent = os.clock()
         return true
     end)
     if not ok then return false, tostring(result) end

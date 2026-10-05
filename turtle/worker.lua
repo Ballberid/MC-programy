@@ -41,7 +41,7 @@ local function execute()
                 telemetry.setContext({ taskId = job.id, jobId = job.jobId })
                 nav.setRuntime(require("fleet_motion").new(client, settings.stations, nav.getPosition, client.state.dock), client.checkpoint, transit.estimate)
                 stations.setRuntime(client.acquire, client.release,true)
-                client.state.status = "running"; client.save(); client.status()
+                client.state.status = "running"; client.save(); client.status(true)
                 local ran, a, b, p = pcall(function()
                     if client.recovery then
                         local prepared, prepareErr = supplies.prepare()
@@ -68,6 +68,7 @@ local function execute()
                         if not left then return false,"dock_exit_blocked:"..tostring(leaveErr) end
                     end
                     if job.kind == "floor" then return require("building").run(job.a, job.b, job.block, nil, job.area) end
+                    if job.kind == "ceiling" then return require("building").runCeiling(job.a, job.b, job.block, nil, job.area) end
                     return require("mining").run(job.a, job.b, nil, client.retry and client.state.progress or nil)
                 end)
                 ok, result, progress = ran and a == true, ran and b or tostring(a), ran and p or nil
@@ -85,7 +86,7 @@ local function execute()
             if not ok and (not progress or not progress.returnedHome) then
                 client.state.status, client.state.error, client.state.progress = "recovery", result, progress or telemetry.getProgress()
                 client.paused, client.cancel = false, false
-                client.save(); client.status()
+                client.save(); client.status(true)
             else client.finish(ok, result, progress) end
             print(ok and "Uloha hotova. Cakam." or ("Uloha zastavena: " .. tostring(result)))
         end

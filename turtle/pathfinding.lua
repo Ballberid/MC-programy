@@ -1,12 +1,27 @@
 local pathfinding = {}
 local cells = {}
+local blocked = {}
 local temporary = {}
 local avoid
+local function excluded(p)
+    if not avoid or p.x<avoid.min.x or p.x>avoid.max.x or p.y<avoid.min.y or p.y>avoid.max.y
+        or p.z<avoid.min.z or p.z>avoid.max.z then return false end
+    if not avoid.walls then return true end
+    local g=avoid.opening
+    if g and p.x==g.x and p.y==g.y and p.z==g.z then return false end
+    return p.x==avoid.min.x or p.x==avoid.max.x or p.z==avoid.min.z or p.z==avoid.max.z
+end
+local function knownFree(p)
+    if excluded(p) then return false end
+    return cells[pathfinding.key(p)]==true
+end
+local verified=require("verified_routes").new(knownFree)
 -- Reserve a future construction volume without allocating every cell.
 -- It survives map resets and obstacle refreshes until the caller restores it.
 function pathfinding.setAvoid(box)
     local previous = avoid
     avoid = box
+    verified.clear()
     return previous
 end
 local directions = {
@@ -24,18 +39,26 @@ function pathfinding.distance(a, b)
 end
 
 function pathfinding.mark(p, free)
-    temporary[pathfinding.key(p)] = nil
-    cells[pathfinding.key(p)] = free
+    local key=pathfinding.key(p); local old=cells[key]
+    temporary[key] = nil
+    cells[key] = free
+    blocked[key] = free == false or nil
+    if old==true and free~=true then verified.clear()
+    elseif free==true and old~=true then verified.add(p) end
 end
 function pathfinding.markTemporary(p)
     local key=pathfinding.key(p)
     local prior=temporary[key]
+    if cells[key]==true then verified.clear() end
     temporary[key]={previous=prior and prior.previous or cells[key], untilTime=os.clock()+5}
     cells[key]=false
 end
 function pathfinding.refreshTemporary()
     for key,entry in pairs(temporary) do
-        if os.clock()>=entry.untilTime then cells[key]=entry.previous; temporary[key]=nil end
+        if os.clock()>=entry.untilTime then
+            cells[key]=entry.previous; temporary[key]=nil
+            if entry.previous==true then verified.clear() end
+        end
     end
 end
 function pathfinding.hasTemporary()
@@ -43,13 +66,26 @@ function pathfinding.hasTemporary()
 end
 
 function pathfinding.clear()
-    cells, temporary = {}, {}
+    cells, temporary, blocked = {}, {}, {}
+    verified.clear()
 end
 
 function pathfinding.forgetBlocked()
-    for key,entry in pairs(temporary) do cells[key]=entry.previous end
+    for key,entry in pairs(temporary) do
+        cells[key]=entry.previous
+        if entry.previous==true then verified.clear() end
+    end
     temporary={}
-    for key, free in pairs(cells) do if free == false then cells[key] = nil end end
+    -- Do not scan every visited quarry cell on every one-block movement.
+    for key in pairs(blocked) do if cells[key] == false then cells[key] = nil end end
+    blocked={}
+end
+
+function pathfinding.knownDistance(start,goal,maxNodes)
+    pathfinding.refreshTemporary()
+    return verified.distance(start,goal,function(a,b)
+        return pathfinding.find(a,b,{knownOnly=true,maxNodes=maxNodes})
+    end)
 end
 
 local function before(a, b)
@@ -92,9 +128,7 @@ function pathfinding.find(start, goal, options)
     options = options or {}
     local bounds = options.bounds
     local function allowed(p)
-        if avoid and p.x >= avoid.min.x and p.x <= avoid.max.x
-            and p.y >= avoid.min.y and p.y <= avoid.max.y
-            and p.z >= avoid.min.z and p.z <= avoid.max.z then return false end
+        if excluded(p) then return false end
         if bounds then
             for _, axis in ipairs({ "x", "y", "z" }) do
                 if p[axis] < bounds.min[axis] or p[axis] > bounds.max[axis] then return false end
@@ -104,6 +138,9 @@ function pathfinding.find(start, goal, options)
         return state ~= false and (not options.knownOnly or state == true)
     end
     if not allowed(goal) then return nil, "target_unreachable" end
+    local distance=pathfinding.distance(start,goal)
+    if distance==0 then return {} end
+    if distance==1 then return {goal} end
     local first = { p = start, cost = 0, score = pathfinding.distance(start, goal) }
     local heap, costs = {}, { [pathfinding.key(start)] = 0 }
     push(heap, first)
@@ -141,6 +178,12 @@ function pathfinding.bounds(a, b, detour)
     for _, axis in ipairs({ "x", "y", "z" }) do
         bounds.min[axis] = math.min(a[axis], b[axis]) - detour
         bounds.max[axis] = math.max(a[axis], b[axis]) + detour
+        -- A wall job has one fixed service opening. Include it in the
+        -- bounded search so supplies remain reachable on every work layer.
+        if avoid and avoid.walls and avoid.opening then
+            bounds.min[axis]=math.min(bounds.min[axis],avoid.opening[axis]-1)
+            bounds.max[axis]=math.max(bounds.max[axis],avoid.opening[axis]+1)
+        end
     end
     return bounds
 end

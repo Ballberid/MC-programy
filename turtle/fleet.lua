@@ -16,7 +16,7 @@ local function pickStations(c, kind)
         print("Stanica: " .. role .. " (fuel=palivo, output=vykladanie, materials=material)")
         if dialog.yes("Docasna truhla iba pre tuto ulohu?", false) then stations[role] = dialog.station()
         else
-            local optional = role == "materials" and kind ~= "floor"
+            local optional = role == "materials" and kind ~= "floor" and kind ~= "ceiling"
             if not next(c.stations) and not optional then print("Pridaj truhly cez fleet_setup."); return nil end
             local name = dialog.choose("Vyber " .. role, c.stations, c.defaults[role], optional)
             if name then stations[role] = store.copy(c.stations[name]) end
@@ -40,12 +40,13 @@ local function newJob(kind)
             seen[selected[i]] = true
         end
     else for i = 1, count do selected[i] = ids[i] end end
-    if kind == "floor" then print("Rohy su bloky podlahy s rovnakym Y; turtle chodi na Y+1 alebo Y-1.") end
+    local horizontal=kind=="floor" or kind=="ceiling"
+    if horizontal then print(kind=="floor" and "Podlaha: turtle chodi na Y+1 a kladie pod seba." or "Strop: turtle chodi na Y-1 a kladie nad seba.") end
     local a = dialog.point("Prvy roh oblasti", true)
-    local b = dialog.point("Protilahly roh oblasti", true)
+    local b = horizontal and dialog.flatPoint("Protilahly roh oblasti",a.y) or dialog.point("Protilahly roh oblasti", true)
     local block
-    if kind == "floor" then
-        local valid, invalid = require("floor_plan").new(a, b)
+    if horizontal then
+        local valid, invalid = (kind=="ceiling" and require("ceiling_plan") or require("floor_plan")).new(a, b)
         if not valid then print(invalid); return end
         block = dialog.text("ID bloku; Enter = vzorka z materialovej truhly", "")
         if block == "" then block = nil end
@@ -57,54 +58,81 @@ local function newJob(kind)
     local parts, reason = model.split(a, b, count)
     if not parts then print(reason); return end
     for i, part in ipairs(parts) do print("#" .. selected[i] .. ": " .. part.total .. " miest") end
-    if not dialog.yes(kind == "floor" and "Spustit stavanie podlahy?" or "Spustit spolocny vykop?", false) then return end
+    if not dialog.yes(horizontal and "Spustit stavanie?" or "Spustit spolocny vykop?", false) then return end
     local started, startErr = control.start(a, b, selected, stations, c.tunnel, floor, { kind = kind, block = block })
     print(started and "Ulohy odoslane. Potvrdenia sleduj na monitore." or ("Nespustene: " .. tostring(startErr)))
+end
+local function controlTarget(action)
+    local scope=dialog.number("Ovladat: 1 turtle, 2 celu ulohu, 3 vsetky",1,1,3)
+    if scope==2 then
+        local jobs=control.snapshot().jobs or {}
+        if #jobs==0 then print("Ziadne ulohy."); return end
+        for index,job in ipairs(jobs) do
+            print(index.." - Uloha #"..job.number.." "..job.kind.." "..job.status.." ("..table.concat(job.workers,",")..")")
+        end
+        local selected=dialog.number("Vyber ulohu zo zoznamu",nil,1,#jobs)
+        control.control(action,nil,jobs[selected].id)
+    elseif scope==3 then control.control(action)
+    else
+        local target=dialog.number("ID turtle; 0 = vsetky",0,0)
+        control.control(action,target~=0 and target or nil)
+    end
 end
 local function input()
     print("RIADIACI PC #" .. os.getComputerID())
     print("Na turtle: worker " .. os.getComputerID())
     while true do
-        print("1 vykop | 2 stav | 3 pause | 4 pokracovat | 5 navrat/stop | 6 nastavenia | 7 uvolnit servis/tunel | 8 koniec | 9 podlaha | 10 reset do idle")
-        local choice = dialog.number("Volba", 2, 1, 10)
+        print("NOVE ULOHY: 1 vykop | 2 podlaha | 3 strop")
+        print("OVLADANIE: 4 stav | 5 pauza | 6 pokracovat | 7 navrat/stop | 8 reset do idle")
+        print("NASTAVENIA: 9 zakladna | 10 uvolnit servis/tunel")
+        print("0 koniec")
+        local choice = dialog.number("Volba", 4, 0, 10)
         if choice == 1 then newJob()
-        elseif choice == 2 then
+        elseif choice == 2 then newJob("floor")
+        elseif choice == 3 then newJob("ceiling")
+        elseif choice == 4 then
             local snapshot = control.snapshot(); local s = snapshot.summary
             print("Hotove " .. s.completed .. "/" .. s.total .. "; zostava " .. s.remaining)
-            for _, id in ipairs(display.ids(snapshot)) do
-                local w = snapshot.workers[id]
-                print("#" .. id .. " " .. w.status .. " " .. w.age .. "s " .. tostring(w.error or "")
-                    .. (w.pendingControl and (" caka povel " .. w.pendingControl) or ""))
+            for _,job in ipairs(snapshot.jobs or {}) do
+                print("Uloha #"..job.number.." "..job.kind.." "..job.status..": "..job.summary.completed.."/"..job.summary.total)
             end
-        elseif choice >= 3 and choice <= 5 then
-            local target = dialog.number("ID turtle; 0 = vsetky", 0, 0)
-            control.control(({ "pause", "resume", "stop" })[choice-2], target ~= 0 and target or nil)
-        elseif choice == 6 then
+            for _,group in ipairs(display.groups(snapshot)) do
+                print(group.title..": "..group.completed.."/"..group.total)
+                for _, id in ipairs(group.ids) do
+                local w = snapshot.workers[id]
+                print("#" .. id .. " uloha "..tostring(w.jobNumber or "-").." " .. w.status .. " " .. w.age .. "s " .. tostring(w.error or "")
+                    .. (w.pendingControl and (" caka povel " .. w.pendingControl) or ""))
+                end
+            end
+        elseif choice >= 5 and choice <= 7 then
+            controlTarget(({ "pause", "resume", "stop" })[choice-4])
+        elseif choice == 9 then
             shell.run("fleet_setup"); control.settings = settings.load()
-        elseif choice == 7 then
+        elseif choice == 10 then
             print("Servis drzia: " .. table.concat(model.serviceOwners(control.state.locks),","))
             print("Tunel drzia: " .. table.concat(model.tunnelOwners(control.state.locks),","))
             print("Uvolni rezervacie iba ked turtle aj tunel fyzicky skontrolujes a cesta je volna.")
             if dialog.text("Pre uvolnenie napis VOLNE") == "VOLNE" then
-                control.state.locks.service, control.state.locks.tunnel = nil, nil; control.save()
+                control.state.locks.service, control.state.locks.tunnel = nil, nil
                 for resource in pairs(control.state.locks) do
                     if resource:match("^tunnel:") or resource:match("^door:") or resource:match("^station:") then control.state.locks[resource]=nil end
                 end
                 control.save()
             end
-        elseif choice == 9 then newJob("floor")
-        elseif choice==10 then
-            local target=dialog.number("Reset ID turtle; 0 = vsetky v dokoch",0,0)
-            control.control("reset",target~=0 and target or nil)
+        elseif choice==8 then
+            controlTarget("reset")
         else control.save(); return end
     end
 end
 local function receive()
+    local lastDraw=-math.huge
     while true do
         local sender, packet, protocol = rednet.receive(nil, 0.5)
         if sender then control.handle(sender, packet, protocol) end
         control.tick()
-        if monitor then display.draw(monitor, control.snapshot(), 0, true) end
+        if monitor and os.clock()-lastDraw>=1 then
+            lastDraw=os.clock(); display.draw(monitor, control.snapshot(), 0, true)
+        end
     end
 end
 parallel.waitForAny(receive, input)

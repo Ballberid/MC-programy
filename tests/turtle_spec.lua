@@ -31,6 +31,9 @@ local function reset()
     package.loaded.fleet_motion = nil
     package.loaded.building, package.loaded.floor_plan = nil, nil
     package.loaded.floor_access = nil
+    package.loaded.horizontal_access, package.loaded.ceiling_access, package.loaded.ceiling_plan = nil,nil,nil
+    package.loaded.surface_program = nil
+    package.loaded.wall_plan, package.loaded.wall_access = nil, nil
     package.loaded.fleet_floors = nil
     package.loaded.work_fuel = nil
     package.loaded.obstacles = nil
@@ -149,6 +152,7 @@ local function reset()
     end
     turtle.placeDown = function() return place("down") end
     turtle.placeUp = function() return place("up") end
+    turtle.place = function() return place("front") end
     local function drop(side, amount)
         local chest = W.chests[key(adjacent(side))]
         local item = W.slots[W.selected]
@@ -1189,5 +1193,9 @@ end)
 realLoadfile(ROOT .. "/tests/fleet_spec.lua")({ test = test, eq = eq,
     world = function() return W end, configured = configured, navReady = navReady })
 realLoadfile(ROOT .. "/tests/floor_spec.lua")({ test = test, eq = eq,
+    world = function() return W end, configured = configured, navReady = navReady })
+realLoadfile(ROOT .. "/tests/wall_spec.lua")({ test = test, eq = eq,
+    world = function() return W end, configured = configured, navReady = navReady })
+realLoadfile(ROOT .. "/tests/performance_spec.lua")({ test = test, eq = eq,
     world = function() return W end, configured = configured, navReady = navReady })
 print("All " .. tests .. " regression tests passed.")

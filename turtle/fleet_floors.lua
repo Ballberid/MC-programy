@@ -82,7 +82,7 @@ function floors.edit(c)
                 ok, err = floors.remove(t, name)
             end
         end
-        if ok then print("Upravene. Zmeny uloz vo volbe 4 hlavneho menu.")
+        if ok then print("Upravene. Zmeny uloz vo volbe 0 hlavneho menu.")
         elseif err then print(messages[err] or ("Neda sa upravit: " .. tostring(err))) end
     end
 end

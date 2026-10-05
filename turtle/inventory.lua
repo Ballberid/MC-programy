@@ -12,6 +12,18 @@ function inv.freeSlots()
     return #inv.freeSlotList()
 end
 
+-- Check fresh counts, but stop as soon as the required space is found.
+function inv.hasFreeSlots(amount)
+    if amount <= 0 then return true end
+    for slot = 1, 16 do
+        if turtle.getItemCount(slot) == 0 then
+            amount = amount - 1
+            if amount <= 0 then return true end
+        end
+    end
+    return false
+end
+
 function inv.count(name)
     local count = 0
     for slot = 1, 16 do
@@ -30,6 +42,9 @@ function inv.find(name)
 end
 
 function inv.select(name)
+    local selected = turtle.getSelectedSlot()
+    local item = turtle.getItemDetail(selected)
+    if item and item.name == name then return true end
     local slot, err = inv.find(name)
     if not slot then return false, err end
     return turtle.select(slot)
@@ -51,7 +66,7 @@ function inv.snapshot()
         local item = turtle.getItemDetail(slot)
         if item then items[#items + 1] = { slot = slot, name = item.name, count = item.count } end
     end
-    return { freeSlots = inv.freeSlots(), items = items }
+    return { freeSlots = 16 - #items, items = items }
 end
 
 function inv.hasMaterials(materials)

@@ -11,14 +11,16 @@ local telemetry = require("telemetry")
 local access = require("floor_access")
 local building = {}
 
-function building.validateArea(a, b)
-    local box, err = plan.new(a, b)
+function building.validateArea(a, b, kind, options)
+    local plan = kind == "walls" and require("wall_plan") or (kind == "ceiling" and require("ceiling_plan") or plan)
+    local box, err = plan.new(a, b, options)
     if not box then return nil, err end
     local c, reason = config.load()
     if not c then return nil, reason end
     for _, role in ipairs({ "fuel", "materials" }) do
         if not c.stations[role] then return nil, "station_missing:" .. role end
     end
+    if kind == "walls" and not c.stations.output then return nil,"station_missing:output" end
     local protected = plan.protected(box)
     for name, s in pairs(c.stations) do
         if cuboid.contains(protected, position.offset(s, s.direction, s.side)) or cuboid.contains(box, s) then
@@ -29,9 +31,13 @@ function building.validateArea(a, b)
     return box
 end
 
-local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
-    local box, err = building.validateArea(a, b)
+local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing, kind, options)
+    kind=kind or "floor"
+    local plan = kind == "walls" and require("wall_plan") or (kind == "ceiling" and require("ceiling_plan") or plan)
+    local box, err = building.validateArea(a, b, kind, options)
     if not box then return false, err end
+    local access = kind == "walls" and require("wall_access").new(box,a) or (kind == "ceiling" and require("ceiling_access") or access)
+    local label = kind == "walls" and "Steny" or (kind == "ceiling" and "Strop" or "Podlaha")
     if blockName ~= nil and (type(blockName) ~= "string" or not blockName:match("^[%w_%-]+:[%w_/%.-]+$")) then
         return false, "invalid_block_name"
     end
@@ -46,15 +52,26 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
         for slot = 16, 1, -1 do if turtle.getItemCount(slot) == 0 then spare = slot; break end end
         c.fuelSlots = { spare }
     end
+    if kind == "walls" then
+        -- Keep two additional slots available for demolition drops.
+        local reserved={}; for _,slot in ipairs(c.fuelSlots) do reserved[slot]=true end
+        local added=0
+        for slot=16,1,-1 do
+            if not reserved[slot] and turtle.getItemCount(slot)==0 and added<2 then
+                c.fuelSlots[#c.fuelSlots+1]=slot; reserved[slot]=true; added=added+1
+            end
+        end
+        if added<2 then return false,"walls_need_two_empty_slots" end
+    end
     if not blockName and not wholeArea then
         local sample = turtle.getItemDetail(selected)
         if sample then blockName = sample.name end
     end
     local paths = require("pathfinding")
     -- Fleet workers avoid the entire shared floor, including neighbours' tiles.
-    local previousAvoid = paths.setAvoid(wholeArea or box)
+    local previousAvoid = paths.setAvoid(kind=="walls" and plan.protected(box) or (wholeArea or box))
     local p = { total = box.volume, completed = 0, remaining = box.volume,
-        placed = 0, skipped = 0, taskType = "floor", phase = "prepare" }
+        placed = 0, skipped = 0, dug = 0, taskType = kind, phase = "prepare" }
     telemetry.setProgress(p)
     local function protectMaterial()
         -- Planks/logs used for construction must never be burned as fuel.
@@ -86,8 +103,8 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
         return math.max(inv.count(blockName), result)
     end
     local function restock(force)
+        if not force and inv.select(blockName) then return true end
         local have = inv.count(blockName)
-        if have > 0 and not force then return true end
         local desired = math.min(p.remaining, capacity())
         if have >= desired and have > 0 then return true end
         local moves = 2 * routeCost(c.stations.materials) + 1
@@ -102,7 +119,8 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
             local item = turtle.getItemDetail(slot)
             if not reserved[slot] and (not item or item.name == blockName) and turtle.getItemSpace(slot) > 0 then room = true; break end
         end
-        local ok, reason = supplies.ensure({ moves = moves, freeSlots = room and 0 or (1 + emptyReserved) })
+        local ok, reason = supplies.ensure({ moves = moves, freeSlots = room and 0 or (1 + emptyReserved),
+            unloadNonfuelSlots=kind=="walls" })
         if not ok then return false, reason end
         local options = assert(supplies.navigationOptions())
         options.allowPartialMaterials, options.exactMaterials = true, true
@@ -147,7 +165,13 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
             end
             local ready, reason = supplies.prepare(heading)
             if not ready then return false, reason end
-            if cuboid.contains(wholeArea or box, nav.getPosition()) then return false, "turtle_inside_floor_plane" end
+            if kind == "walls" then
+                local verified,verifyErr=stations.verify("output",assert(supplies.navigationOptions()))
+                if not verified then return false,verifyErr end
+            end
+            if cuboid.contains(wholeArea or box, nav.getPosition()) then
+                return false,kind=="walls" and "turtle_inside_room" or (kind .. "_inside_plane")
+            end
             if not blockName then
                 local enough, why = supplies.ensure({ moves = 2 * routeCost(c.stations.materials), freeSlots = 1 })
                 if not enough then return false, why end
@@ -156,10 +180,10 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
                 local protected, protectErr = protectMaterial(); if not protected then return false, protectErr end
             end
             p.block = blockName
-            telemetry.log("Podlaha: " .. box.volume .. " blokov; material " .. blockName)
+            telemetry.log(label .. ": " .. box.volume .. " blokov; material " .. blockName)
             local firstBlock = plan.cell(box, 1, a)
             local lastBlock = plan.cell(box, box.volume, a)
-            local initialSide = nav.getPosition().y < a.y and "up" or "down"
+            local initialSide = kind=="ceiling" and "up" or "down"
             local first, last = access.stand(firstBlock, initialSide), access.stand(lastBlock, initialSide)
             -- Two times work, travel, replenishment and the fuel-return reserve.
             local batches = math.ceil(box.volume / math.max(1, capacity()))
@@ -167,7 +191,7 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
                 return nav.knownDistance(target, from) or nav.estimateDistance(target, from)
             end
             local serviceTrip = math.max(estimate(c.stations.materials, first), estimate(c.stations.materials, last))
-            local required = 2 * (box.volume + estimate(first) + estimate(c.home, last)
+            local required = 2 * ((kind == "walls" and 3 or 1) * box.volume + estimate(first) + estimate(c.home, last)
                 + 2 * batches * serviceTrip + 2 * estimate(c.stations.fuel)
                 + c.navigation.reserve + 6 * c.navigation.maxDetour)
             p.startFuelRequired = required
@@ -191,45 +215,60 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
         end
         local prepared,prepareErr=stations.startup(prepare)
         if not prepared then return false,prepareErr end
+        if kind=="walls" then
+            local opened,openErr=access.openEntrance(blockName,p,supplyOrWait)
+            if not opened then return false,openErr end
+        end
         local preferred
         for index = 1, box.volume do
             local allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
             local block = plan.cell(box, index, a)
             p.phase = "building"
             local side, stand = access.reach(block, preferred)
-            if not side then return false, "floor_travel_failed:" .. tostring(stand) end
+            if not side then return false, kind .. "_travel_failed:" .. tostring(stand) end
             preferred = side
-            local synced, syncErr = nav.sync(); if not synced then return false, syncErr end
+            local synced, syncErr = nav.checkPosition(); if not synced then return false, syncErr end
             if nav.distance(nav.getPosition(), stand) ~= 0 then return false, "work_position_changed" end
+            if kind == "walls" then
+                local cleared,clearErr=access.clear(block,blockName,p,supplyOrWait)
+                if not cleared then return false,clearErr end
+            end
             local clear,waitErr,occupied,existing=require("obstacles").waitForTurtle(side,nav.checkpoint)
             if not clear then return false,waitErr end
             if occupied then
                 if existing.name ~= blockName then
-                    return false, "floor_occupied:" .. block.x .. "," .. block.y .. "," .. block.z .. ":" .. existing.name
+                    return false, kind .. "_occupied:" .. block.x .. "," .. block.y .. "," .. block.z .. ":" .. existing.name
                 end
                 p.skipped = p.skipped + 1
             else
                 local supplied, supplyErr = supplyOrWait(); if not supplied then return false, supplyErr end
                 allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
-                synced, syncErr = nav.sync(); if not synced then return false, syncErr end
+                synced, syncErr = nav.checkPosition(); if not synced then return false, syncErr end
                 if nav.distance(nav.getPosition(), stand) ~= 0 then return false, "work_position_changed" end
                 clear,waitErr,occupied,existing=require("obstacles").waitForTurtle(side,nav.checkpoint)
                 if not clear then return false,waitErr end
-                if occupied then return false, "floor_changed_during_service" end
+                if occupied then return false, kind .. "_changed_during_service" end
                 if not inv.select(blockName) then return false, "materials_missing" end
-                telemetry.setActivity("building_floor")
+                telemetry.setActivity("building_" .. kind)
                 local placed, placeErr = access.place(side)
                 if not placed then return false, "place_failed:" .. tostring(placeErr) end
-                -- placeDown also accepts non-block items; verify the actual block.
+                -- Placement also accepts non-block items; verify the actual block.
                 local present, built = access.inspect(side)
                 if not present or built.name ~= blockName then return false, "placed_block_mismatch" end
                 p.placed = p.placed + 1
             end
             paths.mark(block, false)
             p.completed, p.remaining = index, box.volume - index
-            telemetry.emit("info", "floor_progress", p, index == 1 or index == box.volume)
+            telemetry.emit("info", kind .. "_progress", p, index == 1 or index == box.volume)
         end
         p.phase = "returning"
+        if kind == "walls" then
+            local enough,why=supplies.ensure({moves=2*routeCost(c.stations.output)})
+            if not enough then return false,why end
+            local options=assert(supplies.navigationOptions()); options.unloadNonfuelSlots=true
+            local unloaded,unloadErr=stations.unload({},options)
+            if not unloaded then return false,unloadErr end
+        end
         if inv.count(blockName) > 0 then
             local enough, why = supplies.ensure({ moves = 2 * routeCost(c.stations.materials) })
             if not enough then return false, why end
@@ -239,8 +278,8 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
         local moved, moveErr = travel(c.home); if not moved then return false, moveErr end
         local turned, turnErr = nav.turnToDirection(c.home.direction); if not turned then return false, turnErr end
         p.phase, p.returnedHome = "complete", true
-        telemetry.setActivity("floor_complete")
-        telemetry.log("Podlaha hotova: " .. p.completed .. "/" .. p.total .. "; polozene " .. p.placed .. "; existujuce " .. p.skipped)
+        telemetry.setActivity(kind .. "_complete")
+        telemetry.log(label .. " hotove: " .. p.completed .. "/" .. p.total .. "; polozene " .. p.placed .. "; existujuce " .. p.skipped)
         return true
     end
     local ran, ok, reason = pcall(work)
@@ -268,5 +307,15 @@ function building.run(a, b, blockName, heading, wholeArea, onMaterialsMissing)
     local goal, err = require("work_fuel").new("floor", a, b)
     if not goal then return false, err end
     return supplies.withFuelGoal(goal, run, a, b, blockName, heading, wholeArea, onMaterialsMissing)
+end
+function building.runWalls(a,b,blockName,heading,onMaterialsMissing,options)
+    local goal,err=require("work_fuel").new("walls",a,b,options)
+    if not goal then return false,err end
+    return supplies.withFuelGoal(goal,run,a,b,blockName,heading,nil,onMaterialsMissing,"walls",options)
+end
+function building.runCeiling(a,b,blockName,heading,wholeArea,onMaterialsMissing)
+    local goal,err=require("work_fuel").new("ceiling",a,b)
+    if not goal then return false,err end
+    return supplies.withFuelGoal(goal,run,a,b,blockName,heading,wholeArea,onMaterialsMissing,"ceiling")
 end
 return building

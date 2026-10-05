@@ -17,6 +17,7 @@ if screen.setTextScale then screen.setTextScale(0.5) end
 local devices, snapshot, selection = {}, { workers = {} }, 0
 local hasFleet = false
 local lastFleet = 0
+local lastDraw = -math.huge
 local function valid(p, sender)
     return type(p) == "table" and p.version == 1 and p.id == sender
         and type(p.message) == "string" and #p.message <= 4096
@@ -28,11 +29,21 @@ local function validFleet(p, sender)
     local count = 0
     for id, w in pairs(p.workers) do
         if type(id) ~= "number" or type(w) ~= "table" or (w.packet ~= nil and type(w.packet) ~= "table") then return false end
+        if w.jobNumber~=nil and type(w.jobNumber)~="number" then return false end
         count = count + 1
+    end
+    if p.jobs~=nil then
+        if type(p.jobs)~="table" then return false end
+        local jobCount=0
+        for _,job in pairs(p.jobs) do
+            jobCount=jobCount+1
+            if jobCount>33 or type(job)~="table" or type(job.summary)~="table" then return false end
+        end
     end
     return count <= 32
 end
 local function draw()
+    lastDraw=os.clock()
     if not hasFleet then
         local summary = { total = 0, completed = 0, remaining = 0, active = 0, failed = 0 }
         snapshot.workers = {}
@@ -74,7 +85,7 @@ local function receive()
             devices[sender] = { packet = packet, received = os.clock() }
             snapshot.message = "Posledna sprava od #" .. sender
         end
-        draw()
+        if os.clock()-lastDraw>=1 then draw() end
     end
 end
 local function input()

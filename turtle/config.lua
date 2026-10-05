@@ -1,5 +1,16 @@
 local config = {}
 local path = "data/settings.txt"
+local cacheDepth,cached=0,nil
+-- A running job keeps settings in memory. Saves invalidate the snapshot;
+-- outside the job, setup/diagnostics always read the actual file.
+function config.withCache(action,...)
+    cacheDepth=cacheDepth+1
+    local result=table.pack(pcall(action,...))
+    cacheDepth=cacheDepth-1
+    if cacheDepth==0 then cached=nil end
+    if not result[1] then error(result[2],0) end
+    return table.unpack(result,2,result.n)
+end
 
 function config.defaults()
     return {
@@ -57,6 +68,7 @@ function config.validate(c)
 end
 
 function config.load()
+    if cacheDepth>0 and cached then return cached end
     local f = fs.open(path, "r")
     if not f then return nil, "config_missing" end
     local contents = f.readAll()
@@ -65,10 +77,12 @@ function config.load()
     if not ok or type(data) ~= "table" then return nil, "config_corrupt" end
     local valid, err = config.validate(data)
     if not valid then return nil, err end
+    if cacheDepth>0 then cached=data end
     return data
 end
 
 function config.save(data)
+    cached=nil
     local ok, err = config.validate(data)
     if not ok then return false, err end
     local contents = textutils.serialize(require("fleet_store").copy(data))

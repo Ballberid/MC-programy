@@ -60,7 +60,7 @@ function mining.stepTo(target, box, progress)
         local ready, reason = supplies.ensure({ moves = 1, freeSlots = 2, endpoint = target, unloadFuel = true })
         if not ready then return false, reason end
         if not adjacentPoint(target) then return false, "work_position_changed" end
-        local synced, syncErr = nav.sync()
+        local synced, syncErr = nav.checkPosition()
         if not synced then return false, syncErr end
         local side, sideErr = facing(target)
         if not side then return false, sideErr end
@@ -71,7 +71,7 @@ function mining.stepTo(target, box, progress)
             local peripheralSide = side == "up" and "top" or (side == "down" and "bottom" or "front")
             if peripheral.hasType(peripheralSide, "inventory") then return false, "inventory_in_area" end
         end
-        if detect(side) then
+        if hasBlock and detect(side) then
             telemetry.setActivity("mining")
             local broken, digErr = dig(side)
             if not broken then return false, "dig_failed:" .. tostring(digErr) end
@@ -79,9 +79,12 @@ function mining.stepTo(target, box, progress)
             -- Sand/gravel may fall before the next step. Recheck the inventory
             -- before every additional dig, including when still in one cell.
         end
-        if not detect(side) then
+        if not hasBlock or not detect(side) then
             local options, optionsErr = supplies.navigationOptions()
             if not options then return false, optionsErr end
+            -- The successful step updates the tracked coordinates. GPS is
+            -- checked at the configured interval rather than for every block.
+            options.positionVerified=true
             local moved, moveErr = nav.step(side, options)
             if moved then
                 markCompleted(target, progress)

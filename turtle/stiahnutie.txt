@@ -14,12 +14,13 @@ Na pocket computer alebo zobrazovacom PC potom spusti receiver.
 
 Riadenie viac turtle:
 Na hlavnom PC: fleet_setup, potom fleet (vypise svoje ID).
-Fleet_setup: 3 nastavuje tunel, 5 spravuje poschodia (pridat, premenovat, zmenit vystup, odstranit).
-Pri uprave poschodi nezadavas tunel znova. Zmeny uloz hlavnou volbou 4.
+Fleet_setup: 3 nastavuje tunel, 4 spravuje poschodia (pridat, premenovat, zmenit vystup, odstranit).
+Pri uprave poschodi nezadavas tunel znova. Zmeny uloz hlavnou volbou 0.
 Na kazdej turtle v jej doku: worker ID_HLAVNEHO_PC
 Doky musia smerovat do volnej chodby: pri starte turtle najprv ide jeden blok dopredu.
 Turtle startuju po 5 sekundach; kontrola truhiel ide priamo medzi truhlami bez navratov do doku.
-Fleet: 4 obnovi segment po odstraneni chyby; 5 vrati turtle; 10 resetuje zastavene turtle v dokoch do idle.
+Fleet: 1 vykop, 2 podlaha, 3 strop; 4 stav, 5 pauza, 6 pokracovat, 7 navrat, 8 reset v dokoch do idle.
+Nastavenia: 9 zakladna, 10 uvolnit rezervacie po kontrole; 0 koniec.
 Tunel 3x3 musi byt cely volny: dve zvisle drahy nahor, jedna nadol. Aktualizuj PC aj vsetky turtle spolu.
 Na tablete: receiver fleet ID_HLAVNEHO_PC
 Sipky prepnu turtle, 0 vrati celkovy prehlad.
@@ -28,9 +29,28 @@ Podrobny navod na monitory, tunel a truhly je vo FLEET_NAVOD.md.
 Stavanie jednoduchej podlahy:
 Samostatna turtle: setup (nastav fuel a materials), potom build a vyber 1 Podlaha.
 Build zobrazi dostupne stavebne programy; 0 ukonci menu. Priamo floor tiez funguje.
-Hlavny PC: fleet, volba 9 podlaha; turtle maju spusteny worker.
-Rohy su suradnice BLOKOV podlahy, oba maju rovnake Y. Turtle chodi na Y+1 alebo Y-1.
+Hlavny PC: fleet, volba 2 podlaha; turtle maju spusteny worker.
+Rohy su suradnice BLOKOV podlahy. Druhy roh ma len X a Z; Y preberie z prveho.
+Podlaha: turtle chodi iba na Y+1 a kladie pod seba. Na druhu stranu neprepina.
 Vzorku mozes dat do vybraneho slotu; pri vybere bloku potom staci Enter.
 Ked dojde material, build/floor sa vrati domov a caka: 1 po doplneni truhly pokracuje, 0 zrusi stavanie.
 Materialova truhla obsahuje jeden druh plneho stavebneho bloku.
 Podrobny navod je v PODLAHA_NAVOD.md.
+
+Steny miestnosti: build, volba 2 (alebo priamo walls).
+Zadaj dva protilahle rohy kvadra. Meni len styri bocne steny, bez podlahy a stropu.
+Potrebne truhly: fuel, materials, output; volny vnutorny obvod a pristup k servisnemu priechodu.
+Spravit aj rohy? [a/N]: Enter alebo n = bez rohov; a alebo y = s rohmi.
+Bez rohov nemeni rohove stlpce a nepotrebuje vonkajsi obvod. S rohmi treba pristup zvonka k rohom.
+Steny kladie pred seba zvnutra. Priechod uzavrie ako posledny po vyjdeni von.
+Podrobny navod je v STENY_NAVOD.md.
+
+Strop: build, volba 3 (alebo priamo ceiling). Na hlavnom PC fleet, volba 3.
+Prvy roh X/Y/Z, druhy len X/Z. Turtle chodi na Y-1 a kladie iba nad seba.
+Podrobny navod je v STROP_NAVOD.md.
+
+Viac uloh naraz: vo fleet zadaj vykop vybranym ID, potom podlahu alebo strop dalsim volnym turtle.
+Pauza/pokracovanie/navrat/reset: vyber 1 turtle, 2 celu ulohu alebo 3 vsetky.
+PC posiela cele zadania a sleduje stav; turtle samy riesia pohyb, palivo a material.
+Truhly a tunel maju spolocne rezervacie. PC musi byt dostupny pre ich nove pridelenie.
+Oblasti sucasnych uloh a ich servisne miesta sa nesmu prekryvat. Stare data sa migruju automaticky.

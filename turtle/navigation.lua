@@ -57,9 +57,7 @@ end
 function nav.knownDistance(target, from)
     from = from or position.get()
     if not from then return nil, "position_uninitialized" end
-    local route, err = paths.find(from, target, { knownOnly = true, maxNodes = settings.navigation.maxNodes })
-    if not route then return nil, err end
-    return #route
+    return paths.knownDistance(from,target,settings.navigation.maxNodes)
 end
 
 function nav.sync()
@@ -67,6 +65,14 @@ function nav.sync()
     if not ok and err == "position_mismatch" then paths.clear() end
     if ok then movesSinceGPS = 0 end
     return ok, err
+end
+
+-- Successful turtle movements already update the position. Work loops use
+-- periodic GPS; service journeys and explicit sync calls still force a fix.
+function nav.checkPosition()
+    if not position.get() then return false,"position_uninitialized" end
+    if movesSinceGPS>=settings.navigation.gpsEvery then return nav.sync() end
+    return true
 end
 
 local function stop(reason, goal, moved)
@@ -109,8 +115,14 @@ local function rawMove(x, y, z, options)
         local ok, err = nav.init()
         if not ok then return false, err end
     end
-    local synced, syncErr = nav.sync()
-    if not synced then return false, syncErr end
+    local checkedStep=options.positionVerified==true and options.maxMoves==1
+    if checkedStep then
+        local synced,syncErr=nav.checkPosition()
+        if not synced then return false,syncErr end
+    else
+        local synced, syncErr = nav.sync()
+        if not synced then return false, syncErr end
+    end
     local start = position.get()
     local anchor = options.anchor or settings.stations.fuel or start
     if not config.isPoint(anchor) then return false, "invalid_anchor" end
@@ -156,22 +168,28 @@ local function rawMove(x, y, z, options)
             -- Prefer an already known shorter return route when available.
             local nextReturn = nav.knownDistance(anchor, nextPoint)
             nextReturn = nextReturn or (returnCost + 1)
-            local enough = fuel.ensure(1 + nextReturn + reserve, fuel.slots(settings))
+            local required = 1 + nextReturn + reserve
+            -- Only scan inventory for burnable items when the tank is short.
+            local enough = fuel.has(required) or fuel.ensure(required, fuel.slots(settings))
             if not enough then return stop("fuel_reserve", goal, moved) end
             local side, sideErr = stepToward(nextPoint)
             if not side then return stop(sideErr, goal, moved) end
             local indefinite = options.waitForTurtles or (options.waitForTarget and paths.distance(nextPoint,goal)==0)
             local waitLimit=5; if indefinite then waitLimit=nil elseif options.tryOnce then waitLimit=0 end
-            local clear,waitErr=obstacles.waitForTurtle(side,nav.checkpoint,waitLimit)
+            local clear,waitErr,hasBlock=obstacles.waitForTurtle(side,nav.checkpoint,waitLimit)
             local temporaryObstacle = not clear and waitErr=="turtle_wait_timeout"
             if not clear and not temporaryObstacle then return stop(waitErr,goal,moved) end
             local success = false
             for attempt = 0, temporaryObstacle and -1 or settings.navigation.retries do
-                if detect(side) then break end
+                -- Air needs no second check. Inspect can also see fluids, so
+                -- retain detect's movement semantics for a present block.
+                if (attempt>0 or hasBlock) and detect(side) then break end
                 if position.move(side) then success = true; break end
                 if attempt < settings.navigation.retries then sleep(0.3) end
             end
             if not success then
+                local synced,syncErr=nav.sync()
+                if not synced then return stop(syncErr,goal,moved) end
                 local present,block=({front=turtle.inspect,up=turtle.inspectUp,down=turtle.inspectDown})[side]()
                 temporaryObstacle=temporaryObstacle or (present and obstacles.isTurtle(block))
                 if temporaryObstacle then paths.markTemporary(nextPoint)
@@ -193,10 +211,12 @@ local function rawMove(x, y, z, options)
         end
         if route and not obstructed then break end
     end
-    local ok, err = nav.sync()
-    if not ok then return stop(err, goal, moved) end
+    if not checkedStep then
+        local ok, err = nav.sync()
+        if not ok then return stop(err, goal, moved) end
+    end
     if options.direction ~= nil then
-        ok, err = position.turnTo(options.direction)
+        local ok, err = position.turnTo(options.direction)
         if not ok then return stop(err, goal, moved) end
     end
     telemetry.setActivity("arrived")

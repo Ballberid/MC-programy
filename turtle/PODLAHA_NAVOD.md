@@ -2,7 +2,7 @@
 
 Spusti `build` a vyber **1 – Podlaha**. Program `floor` položí obdĺžnik z jedného druhu bloku. Používa existujúce
 nastavenia originu a truhiel; rozmery zadáš pri spustení programu.
-Na hlavnom PC je rovnaká úloha dostupná cez `fleet`, voľbu **9 – podlaha**.
+Na hlavnom PC je rovnaká úloha dostupná cez `fleet`, voľbu **2 – podlaha**.
 
 ## Príprava samostatnej turtle
 
@@ -21,7 +21,7 @@ Ak ešte nemáš nastavené truhly, spusti `setup`. Pre stavanie potrebuješ:
 
 Pri truhle zadávaj **miesto, kde stojí turtle**, jej smer a stranu truhly.
 Origin určuje miesto návratu po práci. Nechaj voľné prístupové cesty a priestor
-nad alebo pod plánovanou podlahou; turtle pri tejto úlohe nekopá. Potrebuje dostupné GPS,
+nad plánovanou podlahou; turtle pri tejto úlohe nekopá. Potrebuje dostupné GPS,
 modem a počiatočné palivo na overenie cesty k palivovej truhle aj späť.
 Vyhradené palivové sloty sa pri naberaní stavebného materiálu preskočia. Ak nemáš
 žiadne vyhradené, počas stavby nechá jeden servisný slot pre palivo.
@@ -41,13 +41,13 @@ V menu vyber **1 – Podlaha**; **0 – Koniec** zatvorí menu. Po skončení al
 zrušení podlahy sa vrátiš do výberu programov. Priamy príkaz `floor` tiež funguje.
 
 Zadaj dva protiľahlé rohy obdĺžnika. Sú to súradnice **blokov podlahy**,
-oba rohy majú **rovnaké Y** a hranice sú zahrnuté.
+Pri prvom zadáš **X, Y a Z**, pri druhom iba **X a Z**. Výška sa preberie
+z prvého rohu; vrstva je vždy hrubá jeden blok a hranice sú zahrnuté.
 
 Príklad: `(100,63,100)` a `(104,63,104)` vytvoria podlahu **5×5 = 25 blokov**.
-Turtle sa pri kladení pohybuje na **Y=64** a kladie pod seba, alebo na **Y=62**
-a kladie nad seba. Skúsi prístup k prvému zadanému rohu zhora aj zdola, potom
-pokračuje cikcakom zo strany, ktorá fungovala. Pri samostatnom programe môže mať
-origin aj nad podlahou; jeho samotné miesto nesmie byť vyplnené blokom.
+Turtle sa pri kladení pohybuje iba na **Y=64** a kladie **pod seba**.
+Pri prekážke neprepne na prístup zdola. Origin nesmie byť vyplnený blokom;
+pre podlahu ho priprav nad plánovanou vrstvou.
 
 Pri otázke na blok nechaj prázdny Enter. Ak máš stavebný blok v práve vybranom
 slote, použije ho ako vzorku; pred spustením `build` preto vyber slot so správnym
@@ -74,9 +74,9 @@ Stavebné drevo v inventári chráni pred automatickým spálením.
 Celú budúcu rovinu podlahy vylúči z navigácie, aby si položenými blokmi
 nezablokovala cestu používanú na návrat alebo zásobovanie. Overí polohu a výsledok
 každého položenia; až potom miesto započíta medzi hotové.
-Prístup zhora/zdola má obchádzku najviac dva bloky, najviac osem preplánovaní
+Prístup zhora má obchádzku najviac dva bloky, najviac osem preplánovaní
 a limit krokov odvodený od vzdialenosti. Po neúspešnom pokuse sa vráti na
-overené miesto a až potom skúsi druhú stranu. Prekážky automaticky nebúra.
+overené miesto a oznámi chybu. Prekážky automaticky nebúra.
 
 - Rovnaký existujúci blok preskočí a započíta ako hotové miesto.
 - Keď pri samostatnom `build`/`floor` dôjde materiál, vráti sa na origin a čaká.
@@ -103,7 +103,7 @@ Tu sú povinné palivová, materiálová aj vykladacia stanica. Všetky vybrané
 používajú rovnaký materiál a dostanú vlastné neprekrývajúce sa segmenty.
 
 Pri tuneli vyber pracovné poschodie, ktorého výstup je v priestore pre turtle:
-pri podlahe na Y=63 teda výstup na Y=64 alebo Y=62. Doky, truhly, šachtu aj prístupové
+pri podlahe na Y=63 teda výstup na Y=64. Doky, truhly, šachtu aj prístupové
 koridory umiestni mimo plochy podlahy a priestoru nad aj pod ňou. Prístup k spoločným
 staniciam a tunelu riadi servisná rezervácia; samotné stavanie prebieha súbežne.
 
@@ -116,8 +116,9 @@ Detail rozlišuje `Polozene` a `Existujuce`. Pre samostatnú turtle stačí dote
 
 `build.lua` zobrazuje menu stavebných programov zo zoznamu `build_programs.lua`.
 Nový stavebný program do menu pridáš položkou s názvom, popisom a príkazom v tomto
-zozname a jeho súborom v update manifeste. `floor.lua` obsahuje dialóg,
-`floor_plan.lua` plán plochy, `floor_access.lua` prístup zhora/zdola a `building.lua` prácu:
+zozname a jeho súborom v update manifeste. `floor.lua` spúšťa spoločný dialóg
+`surface_program.lua`, `floor_plan.lua` plán plochy, `floor_access.lua` prístup
+zhora a `building.lua` prácu. Samostatný strop opisuje [STROP_NAVOD.md](STROP_NAVOD.md).
 
 ```lua
 local ok, err, progress = require("building").run(

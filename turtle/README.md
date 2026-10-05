@@ -1,8 +1,9 @@
 # Craftoria turtle knižnice
 
 Modulárny základ pre CC:Tweaked s programom `quarry` na kopanie kvádra
-a menu `build` na výber stavebného programu (zatiaľ podlaha `floor`).
-Postup opisuje [PODLAHA_NAVOD.md](PODLAHA_NAVOD.md).
+a menu `build`: podlaha `floor`, steny `walls` a strop `ceiling`.
+Postupy opisujú [PODLAHA_NAVOD.md](PODLAHA_NAVOD.md), [STENY_NAVOD.md](STENY_NAVOD.md)
+a [STROP_NAVOD.md](STROP_NAVOD.md).
 Viac turtle môže riadiť hlavný PC programom `fleet`; stavbu a inštaláciu opisuje
 [FLEET_NAVOD.md](FLEET_NAVOD.md).
 Knižnice sa načítavajú cez `require("navigation")` atď. Súbory nainštaluj do rovnakého
@@ -132,7 +133,7 @@ Pri nerozbitnom bloku, inventári, vode/láve, nedostatku zásob alebo
 nedoriešenej ceste úlohu označí ako nedokončenú, vypíše dôvod a pokúsi sa vrátiť
 domov bez kopania. Nastavené truhly nesmú byť vo výkope. Program neodčerpáva
 kvapaliny ani nemá automatické pokračovanie po reštarte. Po odstránení príčiny
-možno vo fleet použiť voľbu 4 na obnovenie pôvodného segmentu. Samostatne možno
+možno vo fleet použiť voľbu 6 na obnovenie pôvodného segmentu. Samostatne možno
 znova zadať rovnaké rohy; už vyprázdnené miesta prejde bez kopania.
 
 Po dokončení vyloží zvyšný materiál a vráti sa na konečné miesto aj smer zo setupu.
@@ -148,6 +149,7 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `position.lua` | Vnútorné sledovanie polohy, GPS, zisťovanie smeru |
 | `navigation.lua` | `init([heading])`, `getPosition()`, `sync()`, `turnToDirection(d)`, `moveToCoord(x,y,z,[options])`, `step(side,[options])`, `knownDistance(point,[from])`, `setOrigin()`, `getOrigin()`, `goHome([options])` |
 | `pathfinding.lua` | Ohraničené A*, mapa priechodných miest; `setAvoid(box)` rezervuje stavebnú oblasť a vracia predchádzajúcu rezerváciu |
+| `verified_routes.lua` | Pamäť overených návratových vzdialeností, postupné rozširovanie a zneplatnenie pri prekážke |
 | `fuel.lua` | `level()`, `has(amount)`, `refuel([target],[slots])`, `ensure(amount,[slots])`, `required(workMoves,returnMoves,reserve)`, `slots(settings)` |
 | `inventory.lua` | `freeSlots()`, `freeSlotList()`, `count(name)`, `find(name)`, `select(name)`, `space(name)`, `snapshot()`, `hasMaterials(materials)` |
 | `stations.lua` | `get(name)`, `visit(name,[options])`, `verify(name,[options])`, `refuel(target,[options])`, `unload([keep],[options])`, `takeMaterials(materials,[options])` |
@@ -161,8 +163,13 @@ naraz; dva rezervné sloty nemusia stačiť na ľubovoľné množstvo lootov z j
 | `quarry_entry.lua` | Výber a overovanie alternatívnych vstupov do kvádra |
 | `quarry.lua` | Herný dialóg na vykopanie oblasti |
 | `floor_plan.lua` | `new(a,b)`, `cell(box,index,first)`, `protected(box)`; bloky podlahy a priestor pre turtle nad aj pod nimi |
-| `floor_access.lua` | Ohraničený prístup k bloku podlahy zhora alebo zdola, kladenie pod seba alebo nad seba |
-| `building.lua` | `validateArea(a,b)`, `run(a,b,[blockName],[heading],[wholeArea],[onMaterialsMissing])`; vráti úspech, chybu a priebeh stavby |
+| `horizontal_access.lua` | Spoločný prístup k horizontálnej vrstve s pevnou stranou pokladania |
+| `floor_access.lua` | Podlaha: prístup iba zhora, pokladanie pod seba |
+| `ceiling_plan.lua`, `ceiling_access.lua` | Strop: jedna vrstva, prístup iba zdola a pokladanie nad seba |
+| `wall_plan.lua` | Obvod kvádra po vrstvách; štyri bočné steny, voliteľné rohové stĺpce |
+| `wall_access.lua` | Steny spredu z interiéru, voliteľné rohy zvonka a uzavretie dočasného priechodu na konci |
+| `walls.lua` | Dialóg stavby štyroch stien; `build` → 2. Postup je v [STENY_NAVOD.md](STENY_NAVOD.md) |
+| `building.lua` | `validateArea(a,b,[kind],[options])`, `run(a,b,[blockName],[heading],[wholeArea],[onMaterialsMissing])`, `runCeiling(...)`, `runWalls(a,b,[blockName],[heading],[onMaterialsMissing],[options])`; vráti úspech, chybu a priebeh stavby |
 | `floor.lua` | Herný dialóg na položenie obdĺžnikovej podlahy |
 | `build.lua`, `build_programs.lua` | Menu stavebných programov a zoznam jeho možností; spúšťa sa cez `build` |
 | `telemetry.lua` | `configure(settings,[positionProvider])`, `setActivity(text)`, `emit(level,message,[details],[force])`, `log(message,[level],[details])`, `capture(function,...)` |
@@ -235,6 +242,36 @@ knižnice obíde sledovanie stavu; GPS navyše nevie zistiť otočenie na mieste
 `position.lua` je vnútorná vrstva, jej priame pohyby obídu rezervu paliva.
 
 ## Navigácia a obmedzenia
+
+Návratové vzdialenosti sa uchovávajú v pamäti, aby sa pri každom bloku opakovane
+nehľadala tá istá cesta. `knownDistance()` vracia dĺžku overenej trasy; po skratke
+môže byť dočasne konzervatívne vyššia než najkratšia známa cesta. Pri strate
+priechodnosti, dočasnej turtle v známej ceste, zmene stavebnej oblasti alebo
+resete mapy sa pamäť zneplatní. Samotný návrat stále plánuje priechodnú trasu.
+
+Kopanie a susedné stavebné kroky sledujú polohu podľa úspešných pohybov.
+GPS sa počas práce overuje po `navigation.gpsEvery` úspešných krokoch,
+predvolene **16**. Nepodarený pohyb nemení súradnice ani počet prejdených krokov
+a vyvolá okamžitú kontrolu GPS. `nav.checkPosition()` robí intervalovú kontrolu,
+`nav.sync()` vynúti novú polohu. Bežné presuny k truhlám, tunelu a domov
+zachovávajú kontrolu GPS na začiatku, priebežne a na konci.
+Bežné zmeny aktivity sa vysielajú podľa intervalu telemetrie, predvolene dve
+sekundy. Chyby a dôležité výpisy sa stále môžu poslať okamžite.
+
+Pri dostatku paliva sa pri kroku neprehľadáva inventár kvôli dopĺňaniu.
+Kontrola voľných slotov končí hneď po nájdení požadovaného počtu; údaje sa overujú
+čerstvé pred kopaním. Stav inventára pre telemetriu sa zostavuje jedným priechodom.
+Pri stavbe sa využije aktuálne vybraný materiál; celý inventár sa počíta pri
+zásobovaní. Obnova prekážok prechádza iba evidované prekážky, nie celú prejdenú mapu.
+Priamo susedný dostupný cieľ nepotrebuje rozbehnúť vyhľadávanie trasy.
+
+Pri nesúlade GPS sa poloha aj mapa zneplatnia a práca sa zastaví pred ďalším
+kopaním či pokladaním. Samotné GPS neurčuje smer; pri obnovení treba polohu a
+otočenie znovu overiť, preto sa smer po neočakávanom premiestnení neodhaduje.
+
+Počas pracovnej úlohy sa nastavenia čítajú z pamäte. `config.save()` pamäť
+zneplatní, takže uložené zmeny sa načítajú; po skončení alebo chybe úlohy sa
+pamäť uvoľní. Ručné úpravy súboru nastavení počas práce sa nepreberajú automaticky.
 
 Mapa sa tvorí v pamäti počas jednej relácie. Po reštarte sa musí znova overiť
 palivová stanica cez `supplies.prepare()`. Nie je považovaná za dostupnú len preto,
@@ -350,3 +387,10 @@ prekážky treba overiť v Craftorii. Referencie API:
 [GPS](https://tweaked.cc/module/gps.html),
 [rednet](https://tweaked.cc/module/rednet.html),
 [monitor](https://tweaked.cc/peripheral/monitor.html).
+
+
+Riadiaci PC podporuje viac súčasných úloh pre rôzne turtle (výkop, podlaha, strop).
+Turtle vykonávajú celé zadanie samostatne a hlásia priebeh. PC eviduje úlohy,
+ovládanie a spoločné rezervácie; `fleet_jobs.lua` rieši ich oddelenie, konflikty
+oblastí a obnovu starého záznamu. Postup a ovládanie celej skupiny sú vo
+[FLEET_NAVOD.md](FLEET_NAVOD.md). Nastavenia ani záznamy pracovníkov pri aktualizácii nemaž.

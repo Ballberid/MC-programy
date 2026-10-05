@@ -18,19 +18,23 @@ function client.new(controller, dock)
     state.controlResults=state.controlResults or {}
     if state.task and state.status ~= "complete" and state.status ~= "failed" and state.status ~= "idle" then state.status = "recovery" end
     store.save(path, state)
-    local self = { state = state, replies = {}, held = {}, serial = 0, paused = false, cancel = false, lastSaved = os.clock() }
+    local self = { state = state, replies = {}, held = {}, serial = 0, paused = false, cancel = false, lastSaved = os.clock(), lastStatus = -math.huge }
     function self.save() store.save(path, state); self.lastSaved = os.clock() end
     function self.send(kind, extra)
         local packet = extra or {}; packet.kind, packet.version, packet.id = kind, 1, os.getComputerID()
         rednet.send(controller, packet, model.protocol)
     end
-    function self.status()
+    function self.status(force)
+        local now=os.clock()
+        if not force and now-self.lastStatus<1 then return end
+        self.lastStatus=now
         if state.status == "running" then
             state.progress = telemetry.getProgress() or state.progress
             if os.clock() - self.lastSaved >= 2 then self.save() end
         end
         for resource, token in pairs(state.pendingRelease) do self.send("release", { resource = resource, token = token }) end
         self.send("status", { status = self.paused and "paused" or state.status, taskId = state.task and state.task.id,
+            taskType = state.task and (state.task.kind or "quarry"),
             jobId = state.task and state.task.jobId, label = os.getComputerLabel(), dock = state.dock,
             position = nav.getPosition(), fuel = turtle.getFuelLevel(), inventory = inv.snapshot(),
             progress = state.progress, error = state.error,
@@ -117,7 +121,7 @@ function client.new(controller, dock)
             state.previous = config.load()
             state.seen[job.id] = true
             self.queued, self.recovery, self.retry = true, false, false
-            self.save(); self.status()
+            self.save(); self.status(true)
         elseif packet.kind == "control" then
             if (packet.request and state.controlSeen[packet.request])
                 or (type(packet.order) == "number" and packet.order <= (state.lastControl or 0)) then
@@ -149,13 +153,13 @@ function client.new(controller, dock)
             if type(packet.order) == "number" then state.lastControl = packet.order end
             if packet.request then state.controlSeen[packet.request] = true; self.save() end
             self.send("control_ack", { request = packet.request })
-            self.status()
+            self.status(true)
         end
     end
     function self.finish(ok, err, progress)
         state.status, state.error, state.progress = ok and "complete" or "failed", err, progress
         self.paused, self.cancel = false, false
-        self.save(); self.status()
+        self.save(); self.status(true)
     end
     return self
 end
