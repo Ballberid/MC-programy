@@ -188,6 +188,10 @@ kým ostatné úspešne dokončia úseky a vrátia sa; potom uzavrie posledný b
 Pri chybe inej turtle sa čaká na jej obnovenie. Pri zrušení môže priechod zostať
 otvorený. Pre viac turtle musí mať interiér aspoň 2×2 bloky na vyhýbanie, teda
 zadaný kváder aspoň 4×4 v X/Z. Pred štartom sa vypíšu súradnice priechodu.
+Ak výstup pracovného poschodia leží vo voľnom interiéri, použije sa uložený
+tunel a ďalší priechod cez stenu nevzniká. Výstupy, koridory a šachta sa pri
+stenách kontrolujú proti štyrom bočným plochám, nie proti celému objemu miestnosti;
+stavba nesmie uzavrieť používanú servisnú trasu priamo v stene.
 
 Nová oblasť nesmie kolidovať s iným rozpracovaným zadaním. Pri podlahe a strope
 sa chráni aj susedná výška na pohyb turtle. Chránené sú doky, truhly, tunel a

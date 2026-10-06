@@ -283,6 +283,28 @@ test("wall assignments require material stations and retain their exact work reg
     c,err=task.settings(job,dock()); eq(c,nil); eq(err,"invalid_wall_segment")
 end)
 
+test("wall tasks allow an interior shaft and floor exits but reject actual wall crossings",function()
+    local first,last={x=8,y=5,z=0},{x=17,y=8,z=9}
+    local parts,_,whole=require("fleet_model").splitWalls(first,last,2)
+    local st=stations(); st.materials={x=4,y=0,z=2,direction=1,side="front"}
+    local job={id="walls:1",jobId="walls",kind="walls",a=first,b=last,area=whole,stations=st,
+        wallOptions=parts[1].wallOptions,floor="upper",tunnel={x=12,z=4,
+        floors={base={exit={x=14,y=0,z=4}},upper={exit={x=14,y=6,z=4}}}}}
+    local task=require("fleet_task")
+    local c,err,box=task.settings(job,dock()); assert(c,err)
+    eq(box.interiorAccess,true); eq(job.wallOptions.interiorAccess,true)
+    eq(require("wall_plan").protected(box).opening,nil)
+    local stand=require("wall_access").new(box).stand(box.opening)
+    eq(stand.x,box.min.x+1)
+    job.tunnel.floors.upper.exit.x=17
+    c,err=task.settings(job,dock()); eq(c,nil); eq(err,"floor_exit_inside_area")
+    job.tunnel.floors.upper.exit.x=19
+    c,err=task.settings(job,dock()); eq(c,nil); eq(err,"floor_corridor_inside_area")
+    job.tunnel.floors.upper.exit.x=14; job.tunnel.z=1
+    job.tunnel.floors.upper.exit.z=1; job.tunnel.floors.base.exit.z=1
+    c,err=task.settings(job,dock()); eq(c,nil); eq(err,"tunnel_inside_area")
+end)
+
 test("fleet split covers reversed corners without overlapping cells", function()
     local cuboid, model = require("cuboid"), require("fleet_model")
     local a, b = { x = 11, y = 4, z = 5 }, { x = 2, y = 2, z = 2 }

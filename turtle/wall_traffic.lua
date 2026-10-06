@@ -4,6 +4,7 @@ local cuboid=require("cuboid")
 local plan=require("wall_plan")
 local traffic={}
 function traffic.new(client,box,base)
+    if box.interiorAccess then return base end
     local resource="wallgate:"..client.state.task.jobId
     local gate=box.opening
     local outward=gate.x==box.min.x and -1 or 1

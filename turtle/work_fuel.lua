@@ -19,7 +19,7 @@ function budget.new(kind, a, b, options)
         local finish = { x = last.x, y = last.y, z = last.z }
         if kind == "floor" then finish.y = last.y + 1 end
         if kind == "ceiling" then finish.y = last.y - 1 end
-        if kind == "walls" then finish.x=last.x+(last.x==box.min.x and -1 or 1) end
+        if kind == "walls" then finish=require("wall_access").new(box).stand(last) end
         local service = (kind == "floor" or kind == "ceiling" or kind == "walls") and c.stations.materials or c.stations.output
         local capacity = math.max(1, 16 - #c.fuelSlots - 2) * 64
         if kind == "floor" or kind == "ceiling" or kind == "walls" then
@@ -44,7 +44,7 @@ function budget.new(kind, a, b, options)
             if kind == "walls" then
                 first=require("wall_access").new(box).stand(plan.cell(box,1,a))
                 -- Enter through the service opening before reaching the inner wall face.
-                if not box.includeCorners then
+                if not box.includeCorners and not box.interiorAccess then
                     local gate={x=box.opening.x+(box.opening.x==box.min.x and -1 or 1),y=box.opening.y,z=box.opening.z}
                     entryCost=route(current,gate)+nav.distance(gate,first)
                 end

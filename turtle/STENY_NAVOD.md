@@ -15,6 +15,13 @@ Pri chybe zostáva priechod otvorený; po odstránení problému použi vo fleet
 **7 – Pokračovať** pre danú turtle. **8** znamená návrat/stop, **9** reset v doku.
 Pri zastavení celej úlohy sa uzavretie priechodu nevynucuje.
 
+Ak uložený výstup pracovného poschodia vedie do voľného interiéru miestnosti,
+fleet použije tento tunel na vstup aj zásobovanie. Dočasný priechod cez stenu
+vtedy nevytvára a všetky bloky stien kladie ako bežnú stavbu. Samotný výstup,
+koridor a používaná šachta smú byť v interiéri, ale nesmú zasahovať do bočných
+stien, ktoré by im stavba zablokovala. Výstup vo vnútri kvádra teda pri stenách
+nie je automaticky chyba. Pri kopaní, podlahe a strope zostávajú ich kontroly.
+
 V `setup` priprav truhly **fuel**, **materials** a **output**. Materiálová truhla
 má obsahovať jeden druh stavebného bloku. Blok vyber jeho ID alebo vzorkou vo
 vybranom slote; s prázdnym slotom a prázdnym ID sa použije vzorka z truhly.

@@ -19,7 +19,7 @@ function access.new(box)
     end
     local function same(p,q) return p.x==q.x and p.y==q.y and p.z==q.z end
     local function inside(block)
-        if same(block,box.opening) or (block.x==box.min.x or block.x==box.max.x)
+        if not box.interiorAccess and same(block,box.opening) or (block.x==box.min.x or block.x==box.max.x)
             and (block.z==box.min.z or block.z==box.max.z) then return nil end
         if block.x==box.min.x then return {x=block.x+1,y=block.y,z=block.z,direction=3} end
         if block.x==box.max.x then return {x=block.x-1,y=block.y,z=block.z,direction=1} end
@@ -38,6 +38,7 @@ function access.new(box)
         return nav.moveToCoord(p.x,p.y,p.z,options)
     end
     local function cross(target)
+        if box.interiorAccess then return true end
         local current=nav.getPosition()
         if interior(current)==interior(target) then return true end
         local outer,inner=gatePoints()

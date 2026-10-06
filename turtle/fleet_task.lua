@@ -50,21 +50,39 @@ function task.settings(job, dock, previous)
         if not job.floor or not job.tunnel.floors[job.floor] then return nil, "work_floor_missing" end
         local minimum, maximum
         for _, f in pairs(job.tunnel.floors) do
-            if cuboid.contains(protected, f.exit) then return nil, "floor_exit_inside_area" end
+            local exitHits=kind=="walls" and require("wall_plan").isWall(protected,f.exit)
+                or kind~="walls" and cuboid.contains(protected,f.exit)
+            if exitHits then return nil, "floor_exit_inside_area" end
             local p = f.exit
             if p.y >= protected.min.y and p.y <= protected.max.y then
                 local crossesX = p.z >= protected.min.z and p.z <= protected.max.z
                     and protected.min.x <= math.max(p.x, job.tunnel.x) and protected.max.x >= math.min(p.x, job.tunnel.x)
                 local crossesZ = p.x >= protected.min.x and p.x <= protected.max.x
                     and protected.min.z <= math.max(p.z, job.tunnel.z) and protected.max.z >= math.min(p.z, job.tunnel.z)
-                if crossesX or crossesZ then return nil, "floor_corridor_inside_area" end
+                local crosses=crossesX or crossesZ
+                if kind=="walls" then
+                    crosses=require("wall_plan").intersects(protected,{min={x=math.min(p.x,job.tunnel.x),y=p.y,z=math.min(p.z,job.tunnel.z)},
+                        max={x=math.max(p.x,job.tunnel.x),y=p.y,z=math.max(p.z,job.tunnel.z)}})
+                end
+                if crosses then return nil, "floor_corridor_inside_area" end
             end
             minimum = math.min(minimum or f.exit.y, f.exit.y)
             maximum = math.max(maximum or f.exit.y, f.exit.y)
         end
-        if protected.min.x <= job.tunnel.x + 1 and protected.max.x >= job.tunnel.x - 1
+        local shaftHits=protected.min.x <= job.tunnel.x + 1 and protected.max.x >= job.tunnel.x - 1
             and protected.min.z <= job.tunnel.z + 1 and protected.max.z >= job.tunnel.z - 1
-            and protected.min.y <= maximum and protected.max.y >= minimum then return nil, "tunnel_inside_area" end
+            and protected.min.y <= maximum and protected.max.y >= minimum
+        if kind=="walls" then
+            shaftHits=require("wall_plan").intersects(protected,{min={x=job.tunnel.x-1,y=minimum,z=job.tunnel.z-1},
+                max={x=job.tunnel.x+1,y=maximum,z=job.tunnel.z+1}})
+        end
+        if shaftHits then return nil, "tunnel_inside_area" end
+    end
+    if kind=="walls" then
+        -- An internal tunnel supplies permanent access: do not cut a second
+        -- doorway through the wall or require exterior access to close it.
+        local inside=job.tunnel and cuboid.contains(box,job.tunnel.floors[job.floor].exit) or false
+        job.wallOptions.interiorAccess=inside; box.interiorAccess=inside
     end
     return c, nil, box
 end

@@ -17,11 +17,22 @@ function plan.new(a,b,options)
     box.volume=(box.perimeter-(box.includeCorners and 0 or 4))*box.size.y
     local sz=a.z==box.max.z and -1 or 1
     box.opening={x=a.x,y=box.min.y+math.floor((box.size.y-1)/2),z=a.z+sz}
+    box.interiorAccess=options and options.interiorAccess==true or false
     if options and options.segment then return require("wall_segments").configure(box,options.segment,a) end
     return box
 end
 function plan.protected(box)
-    return {min=box.min,max=box.max,walls=true,opening=box.opening}
+    return {min=box.min,max=box.max,walls=true,opening=not box.interiorAccess and box.opening or nil}
+end
+-- Intersections with the four vertical faces, without scanning room cells.
+function plan.intersects(box, volume)
+    if volume.max.y<box.min.y or volume.min.y>box.max.y then return false end
+    local overlapsX=volume.max.x>=box.min.x and volume.min.x<=box.max.x
+    local overlapsZ=volume.max.z>=box.min.z and volume.min.z<=box.max.z
+    return overlapsZ and ((volume.min.x<=box.min.x and volume.max.x>=box.min.x)
+        or (volume.min.x<=box.max.x and volume.max.x>=box.max.x))
+        or overlapsX and ((volume.min.z<=box.min.z and volume.max.z>=box.min.z)
+        or (volume.min.z<=box.max.z and volume.max.z>=box.max.z))
 end
 function plan.isWall(box,p)
     return cuboid.contains(box,p) and (p.x==box.min.x or p.x==box.max.x or p.z==box.min.z or p.z==box.max.z)

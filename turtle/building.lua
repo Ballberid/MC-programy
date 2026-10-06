@@ -215,7 +215,7 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing, kind
         end
         local prepared,prepareErr=stations.startup(prepare)
         if not prepared then return false,prepareErr end
-        if kind=="walls" then
+        if kind=="walls" and not box.interiorAccess then
             local opened,openErr=access.openEntrance(blockName,p,supplyOrWait)
             if not opened then return false,openErr end
         end
@@ -224,7 +224,7 @@ local function run(a, b, blockName, heading, wholeArea, onMaterialsMissing, kind
             local allowed, denied = nav.checkpoint(); if not allowed then return false, denied end
             local block = plan.cell(box, index, a)
             p.phase = "building"
-            if kind=="walls" and box.closeOpening and index==box.volume and options.beforeClose then
+            if kind=="walls" and not box.interiorAccess and box.closeOpening and index==box.volume and options.beforeClose then
                 -- Wait at the dock rather than blocking the shared entrance.
                 p.phase="waiting_wall_workers"
                 local returned,returnErr=travel(c.home); if not returned then return false,returnErr end

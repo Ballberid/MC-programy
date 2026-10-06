@@ -2,7 +2,7 @@
 from collections import deque
 
 
-def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False):
+def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False, interior=False):
     prefix = (root / "tests" / "turtle_spec.lua").read_text(encoding="utf-8")
     prefix = prefix[:prefix.index('test("targeted refuel')]
     workers=tuple(range(41,41+worker_count))
@@ -71,6 +71,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().WALL_CORNERS = corners
         lua.globals().WALL_RECOVERY = recovery
         lua.globals().WALL_RESTOCK = restock
+        lua.globals().WALL_INTERIOR = interior
         lua.execute('''
             os.getComputerID = function() return MACHINE_ID end
             os.clock = function() return PY_CLOCK() end
@@ -127,6 +128,20 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                         end
                     end end end
                 end
+                if WALL_INTERIOR then
+                    local blocks,names={},{}
+                    for k,value in pairs(W.blocks) do
+                        local x,y,z=k:match("^(%-?%d+),(%-?%d+),(%-?%d+)$")
+                        local moved=x..","..(tonumber(y)+5)..","..z
+                        blocks[moved],names[moved]=value,W.blockNames[k]
+                    end
+                    W.blocks,W.blockNames=blocks,names
+                    -- No access to the old outside gate: use the shaft inside.
+                    W.blocks["7,6,1"],W.blockNames["7,6,1"]=true,"minecraft:dirt"
+                    for x=11,13 do for z=3,5 do
+                        W.blocks[x..",4,"..z],W.blockNames[x..",4,"..z]=nil,nil
+                    end end
+                end
             end
             if MIXED_JOBS then W.fuel,W.limit=20000,40000 end
             for _,entry in ipairs({{"placeDown","down"},{"placeUp","up"},{"place","front"}}) do
@@ -138,7 +153,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                 if JOB_KIND=="walls" and WALL_RECOVERY and MACHINE_ID==41 and #W.placements>=8 and not W.injectedFailure then
                     W.injectedFailure=true; return false,"temporary_test_obstruction"
                 end
-                if JOB_KIND=="walls" and p.x==8 and p.y==1 and p.z==1 then PY_GATE_SAFE(MACHINE_ID) end
+                if JOB_KIND=="walls" and not WALL_INTERIOR and p.x==8 and p.y==1 and p.z==1 then PY_GATE_SAFE(MACHINE_ID) end
                 local item=turtle.getItemDetail()
                 local ok,err=originalPlace()
                 if ok then PY_PLACED(MACHINE_ID,p.x,p.y,p.z,item.name) end
@@ -251,6 +266,11 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                 if JOB_KIND=="floor" then a,b={x=8,y=-1,z=0},{x=27,y=-1,z=15} end
                 if JOB_KIND=="ceiling" then a,b={x=8,y=1,z=0},{x=27,y=1,z=15} end
                 if JOB_KIND=="walls" then a,b={x=8,y=0,z=0},{x=17,y=3,z=9} end
+                if WALL_INTERIOR then
+                    a,b={x=8,y=5,z=0},{x=17,y=8,z=9}
+                    tunnel={x=12,z=4,floors={base={exit={x=14,y=0,z=4}},upper={exit={x=14,y=6,z=4}}}}
+                    floor="upper"
+                end
                 return CONTROL.start(a,b,WORKER_IDS,
                 {fuel={x=2,y=0,z=2,direction=1,side="front"},output={x=-2,y=0,z=2,direction=3,side="front"},
                 materials={x=2,y=0,z=-2,direction=1,side="front"}},tunnel,floor,{kind=JOB_KIND,includeCorners=WALL_CORNERS})''')
@@ -312,14 +332,16 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     if kind=="walls":
         if recovery: assert resumed, "The failed worker must resume after a coordinator restart"
         for x,y,z in mined:
-            assert 8<=x<=17 and 0<=y<=3 and 0<=z<=9
+            assert 8<=x<=17 and (5 if interior else 0)<=y<=(8 if interior else 3) and 0<=z<=9
             assert x in (8,17) or z in (0,9)
             if not corners: assert not (x in (8,17) and z in (0,9))
         for identity in workers:
             world=machines[identity][1]["world"]()
             for p in world["digs"].values():
                 assert (p["x"],p["y"],p["z"]) in mined, "No demolition outside the requested walls"
-            assert world["blockNames"]["8,1,1"]=="minecraft:stone", "Shared opening must be closed"
+            gate_key="8,6,1" if interior else "8,1,1"
+            assert world["blockNames"][gate_key]=="minecraft:stone", "The last wall block must be completed"
+            if interior: assert world["blockNames"]["7,6,1"]=="minecraft:dirt", "No exterior doorway may be dug"
             if restock: assert world["materialVisits"]>=4, "Workers must return through the shared gate for repeated material trips"
         assert not list(control.state["locks"].values()), "All doorway and station locks must be released"
     if mixed:
@@ -328,4 +350,5 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     label = "mixed quarry + floor, 640 cells" if mixed else (f"{kind}, pipelined shaft startup" if shaft else kind)
     if recovery: label += ", worker retry and controller restart"
     if restock: label += ", repeated material trips"
+    if interior: label += ", tunnel exit inside room"
     print(f"PASS radio integration ({label}): {worker_count} concurrent workers, 1 controller, {expected} cells and distinct docks", flush=True)

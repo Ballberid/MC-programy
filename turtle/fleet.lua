@@ -68,8 +68,12 @@ local function newJob(kind)
     if not parts then print(reason); return end
     if wallArea then
         local g=wallArea.opening
-        print("Spolocny priechod: "..g.x..","..g.y..","..g.z.."; pristup zvonka musi byt volny.")
-        print("Posledna turtle ho uzavrie po navrate ostatnych do dokov.")
+        if c.tunnel and floor and require("cuboid").contains(wallArea,c.tunnel.floors[floor].exit) then
+            print("Vstup cez tunel do interieru; docasny priechod cez stenu netreba.")
+        else
+            print("Spolocny priechod: "..g.x..","..g.y..","..g.z.."; pristup zvonka musi byt volny.")
+            print("Posledna turtle ho uzavrie po navrate ostatnych do dokov.")
+        end
     end
     for i, part in ipairs(parts) do print("#" .. selected[i] .. ": " .. part.total .. " miest") end
     if not dialog.yes(kind~="quarry" and "Spustit stavanie?" or "Spustit spolocny vykop?", false) then return end
