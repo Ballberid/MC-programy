@@ -1,7 +1,19 @@
 # Štyri steny miestnosti
 
 Na turtle spusti `build` a vyber **2 – Steny miestnosti**. Priamy príkaz `walls`
-funguje tiež. Tento program beží samostatne na jednej turtle.
+funguje tiež. Pre **viac turtle** spusti na hlavnom PC `fleet` a vyber
+**4 – Steny**; na turtle nechaj bežať `worker ID_PC`.
+
+Vo fleet vyber počet alebo konkrétne ID, oba rohy kvádra, rohy áno/nie, materiál,
+truhly **fuel / materials / output** a pracovné poschodie. Obvod sa rozdelí na
+samostatné úseky v celej výške; podlaha, strop a vnútro sa nemenia.
+Pre viac turtle potrebuje miestnosť interiér aspoň 2×2 bloky (kváder aspoň 4×4 v X/Z).
+Stačí prístup k jednému spoločnému priechodu, ktorého súradnice PC vypíše.
+Pri jeho prechode sa turtle vystriedajú, na stenách pracujú súčasne. Posledná
+turtle počká v doku na úspešný návrat ostatných, potom priechod uzavrie zvonka.
+Pri chybe zostáva priechod otvorený; po odstránení problému použi vo fleet
+**7 – Pokračovať** pre danú turtle. **8** znamená návrat/stop, **9** reset v doku.
+Pri zastavení celej úlohy sa uzavretie priechodu nevynucuje.
 
 V `setup` priprav truhly **fuel**, **materials** a **output**. Materiálová truhla
 má obsahovať jeden druh stavebného bloku. Blok vyber jeho ID alebo vzorkou vo
@@ -45,9 +57,13 @@ a miesto na vykopané predmety. Truhly a iné inventáre nevykope. Voda, láva a
 nezničiteľný blok stavbu zastavia s chybou. Na inú turtle počká.
 
 Palivo a miesto v inventári kontroluje priebežne. Vykopané predmety vykladá do
-`output`, materiál berie z `materials`. Keď materiál dôjde, vráti sa domov a čaká:
+`output`, materiál berie z `materials`. Pri samostatnom programe, keď materiál dôjde, vráti sa domov a čaká:
 **1** po doplnení truhly pokračuje, **0** stavbu zruší. Po dokončení vyloží odpad,
 vráti zvyšný stavebný materiál a ide domov. Tablet ukazuje priebeh aj položené bloky.
 
-Po nahratí nových súborov na GitHub spusti `update turtle` a `reboot`. Na tablete
+Vo fleet po doplnení prázdnej materiálovej truhly použi **7 – Pokračovať** pre
+zastavenú turtle; ostatné môžu ďalej stavať. Správne dokončené bloky preskočí.
+
+Po nahratí nových súborov na GitHub spusti na PC `update controller`, na turtle
+`update turtle` a reštartuj programy. Dáta nemaž. Na tablete
 aktualizuj aj `update receiver`. Updater stiahne nové knižnice automaticky.

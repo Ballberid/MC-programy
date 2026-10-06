@@ -78,6 +78,25 @@ function client.new(controller, dock)
         state.pendingRelease[resource] = held.token; self.save()
         self.send("release", { resource = resource, token = held.token })
     end
+    function self.awaitWalls()
+        local request="walls:"..state.task.id
+        local last,lastReply=-math.huge,os.clock()
+        telemetry.setActivity("waiting_wall_workers")
+        while os.clock()-lastReply<300 do
+            local ok,err=self.checkpoint(); if not ok then return false,err end
+            if os.clock()-last>=2 then
+                self.send("walls_ready",{request=request,taskId=state.task.id}); last=os.clock()
+            end
+            local reply=self.replies[request]
+            if reply then
+                self.replies[request]=nil; lastReply=os.clock()
+                if reply.granted then return true end
+                if reply.error then return false,reply.error end
+            end
+            sleep(0.2)
+        end
+        return false,"controller_unreachable:wall_completion"
+    end
     function self.clearClaims()
         -- Only release this worker's tokens. Never clear another owner's lock.
         for resource,token in pairs(state.lockTokens) do
@@ -102,7 +121,7 @@ function client.new(controller, dock)
     function self.handle(sender, packet)
         if sender ~= controller or type(packet) ~= "table" or packet.version ~= 1 then return end
         if packet.kind == "discover" then self.status()
-        elseif packet.kind == "lock_reply" and type(packet.request) == "string" then
+        elseif (packet.kind == "lock_reply" or packet.kind=="walls_reply") and type(packet.request) == "string" then
             self.replies[packet.request] = packet
         elseif packet.kind == "release_reply" and type(packet.resource) == "string" and type(packet.token) == "string"
             and state.pendingRelease[packet.resource] == packet.token then

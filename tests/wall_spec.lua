@@ -12,6 +12,43 @@ local function setup(amount)
     return W
 end
 local function key(p) return p.x..","..p.y..","..p.z end
+test("fleet wall segments cover each requested block once and share a single last opening",function()
+    local plan,model=require("wall_plan"),require("fleet_model")
+    for _,corners in ipairs({false,true}) do
+        for _,x in ipairs({4,10}) do for _,z in ipairs({4,12}) do for _,y in ipairs({0,3}) do
+            local first={x=x,y=y,z=z}
+            local last={x=x==4 and 10 or 4,y=3-y,z=z==4 and 12 or 4}
+            for _,count in ipairs({1,2,3,7,24}) do
+                local parts,err,whole=model.splitWalls(first,last,count,{includeCorners=corners})
+                assert(parts,err)
+                local seen,total,closers={},0,0
+                for _,part in ipairs(parts) do
+                    local box=assert(plan.new(part.a,part.b,part.wallOptions))
+                    eq(key(box.opening),key(whole.opening)); eq(box.volume,part.total)
+                    if box.closeOpening then
+                        closers=closers+1; eq(key(plan.cell(box,box.volume,part.a)),key(whole.opening))
+                    end
+                    for i=1,box.volume do
+                        local p=assert(plan.cell(box,i,part.a)); assert(plan.isWall(whole,p))
+                        assert(not seen[key(p)],"overlap: "..key(p)); seen[key(p)]=true; total=total+1
+                    end
+                end
+                eq(closers,1); eq(total,whole.volume)
+                for i=1,whole.volume do assert(seen[key(plan.cell(whole,i,first))]) end
+            end
+        end end end
+    end
+end)
+
+test("fleet wall validation rejects malformed segments and narrow shared interiors",function()
+    local plan,model=require("wall_plan"),require("fleet_model")
+    for _,range in ipairs({{first=0,last=2},{first=2,last=1},{first=1,last=999},{first=1.5,last=2}}) do
+        local box,err=plan.new(a,b,{includeCorners=false,segment=range})
+        eq(box,nil); eq(err,"invalid_wall_segment")
+    end
+    local parts,err=model.splitWalls(a,b,2)
+    eq(parts,nil); eq(err,"fleet_walls_need_two_blocks_of_interior_width")
+end)
 test("wall plan without corners covers every face cell once for all starting corners",function()
     local plan=require("wall_plan")
     for _,size in ipairs({{3,3},{3,5},{5,3},{4,7}}) do

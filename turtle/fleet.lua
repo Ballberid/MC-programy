@@ -16,7 +16,7 @@ local function pickStations(c, kind)
         print("Stanica: " .. role .. " (fuel=palivo, output=vykladanie, materials=material)")
         if dialog.yes("Docasna truhla iba pre tuto ulohu?", false) then stations[role] = dialog.station()
         else
-            local optional = role == "materials" and kind ~= "floor" and kind ~= "ceiling"
+            local optional = role == "materials" and kind == "quarry"
             if not next(c.stations) and not optional then print("Pridaj truhly cez fleet_setup."); return nil end
             local name = dialog.choose("Vyber " .. role, c.stations, c.defaults[role], optional)
             if name then stations[role] = store.copy(c.stations[name]) end
@@ -45,8 +45,15 @@ local function newJob(kind)
     local a = dialog.point("Prvy roh oblasti", true)
     local b = horizontal and dialog.flatPoint("Protilahly roh oblasti",a.y) or dialog.point("Protilahly roh oblasti", true)
     local block
-    if horizontal then
-        local valid, invalid = (kind=="ceiling" and require("ceiling_plan") or require("floor_plan")).new(a, b)
+    local corners=false
+    if kind=="walls" then
+        print("Steny: styri bocne plochy, bez podlahy a stropu.")
+        print("Rohy potrebuju pristup zvonka; bez rohov stavia zvnutra.")
+        corners=dialog.yes("Spravit aj rohy?",false)
+    end
+    if kind~="quarry" then
+        local plan=kind=="walls" and require("wall_plan") or (kind=="ceiling" and require("ceiling_plan") or require("floor_plan"))
+        local valid, invalid = plan.new(a,b,kind=="walls" and {includeCorners=corners} or nil)
         if not valid then print(invalid); return end
         block = dialog.text("ID bloku; Enter = vzorka z materialovej truhly", "")
         if block == "" then block = nil end
@@ -55,11 +62,18 @@ local function newJob(kind)
     local stations = pickStations(c, kind); if not stations then return end
     local floor
     if c.tunnel then floor = dialog.choose("Pracovne poschodie", c.tunnel.floors) end
-    local parts, reason = model.split(a, b, count)
+    local parts,reason,wallArea
+    if kind=="walls" then parts,reason,wallArea=model.splitWalls(a,b,count,{includeCorners=corners})
+    else parts,reason=model.split(a,b,count) end
     if not parts then print(reason); return end
+    if wallArea then
+        local g=wallArea.opening
+        print("Spolocny priechod: "..g.x..","..g.y..","..g.z.."; pristup zvonka musi byt volny.")
+        print("Posledna turtle ho uzavrie po navrate ostatnych do dokov.")
+    end
     for i, part in ipairs(parts) do print("#" .. selected[i] .. ": " .. part.total .. " miest") end
-    if not dialog.yes(horizontal and "Spustit stavanie?" or "Spustit spolocny vykop?", false) then return end
-    local started, startErr = control.start(a, b, selected, stations, c.tunnel, floor, { kind = kind, block = block })
+    if not dialog.yes(kind~="quarry" and "Spustit stavanie?" or "Spustit spolocny vykop?", false) then return end
+    local started, startErr = control.start(a, b, selected, stations, c.tunnel, floor, { kind = kind, block = block,includeCorners=corners })
     print(started and "Ulohy odoslane. Potvrdenia sleduj na monitore." or ("Nespustene: " .. tostring(startErr)))
 end
 local function controlTarget(action)
@@ -82,15 +96,16 @@ local function input()
     print("RIADIACI PC #" .. os.getComputerID())
     print("Na turtle: worker " .. os.getComputerID())
     while true do
-        print("NOVE ULOHY: 1 vykop | 2 podlaha | 3 strop")
-        print("OVLADANIE: 4 stav | 5 pauza | 6 pokracovat | 7 navrat/stop | 8 reset do idle")
-        print("NASTAVENIA: 9 zakladna | 10 uvolnit servis/tunel")
+        print("NOVE ULOHY: 1 vykop | 2 podlaha | 3 strop | 4 steny")
+        print("OVLADANIE: 5 stav | 6 pauza | 7 pokracovat | 8 navrat/stop | 9 reset do idle")
+        print("NASTAVENIA: 10 zakladna | 11 uvolnit rezervacie")
         print("0 koniec")
-        local choice = dialog.number("Volba", 4, 0, 10)
+        local choice = dialog.number("Volba", 5, 0, 11)
         if choice == 1 then newJob()
         elseif choice == 2 then newJob("floor")
         elseif choice == 3 then newJob("ceiling")
-        elseif choice == 4 then
+        elseif choice == 4 then newJob("walls")
+        elseif choice == 5 then
             local snapshot = control.snapshot(); local s = snapshot.summary
             print("Hotove " .. s.completed .. "/" .. s.total .. "; zostava " .. s.remaining)
             for _,job in ipairs(snapshot.jobs or {}) do
@@ -104,22 +119,22 @@ local function input()
                     .. (w.pendingControl and (" caka povel " .. w.pendingControl) or ""))
                 end
             end
-        elseif choice >= 5 and choice <= 7 then
-            controlTarget(({ "pause", "resume", "stop" })[choice-4])
-        elseif choice == 9 then
-            shell.run("fleet_setup"); control.settings = settings.load()
+        elseif choice >= 6 and choice <= 8 then
+            controlTarget(({ "pause", "resume", "stop" })[choice-5])
         elseif choice == 10 then
+            shell.run("fleet_setup"); control.settings = settings.load()
+        elseif choice == 11 then
             print("Servis drzia: " .. table.concat(model.serviceOwners(control.state.locks),","))
             print("Tunel drzia: " .. table.concat(model.tunnelOwners(control.state.locks),","))
             print("Uvolni rezervacie iba ked turtle aj tunel fyzicky skontrolujes a cesta je volna.")
             if dialog.text("Pre uvolnenie napis VOLNE") == "VOLNE" then
                 control.state.locks.service, control.state.locks.tunnel = nil, nil
                 for resource in pairs(control.state.locks) do
-                    if resource:match("^tunnel:") or resource:match("^door:") or resource:match("^station:") then control.state.locks[resource]=nil end
+                    if resource:match("^tunnel:") or resource:match("^door:") or resource:match("^station:") or resource:match("^wallgate:") then control.state.locks[resource]=nil end
                 end
                 control.save()
             end
-        elseif choice==8 then
+        elseif choice==9 then
             controlTarget("reset")
         else control.save(); return end
     end

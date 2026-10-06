@@ -2,7 +2,7 @@
 from collections import deque
 
 
-def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False):
+def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False):
     prefix = (root / "tests" / "turtle_spec.lua").read_text(encoding="utf-8")
     prefix = prefix[:prefix.index('test("targeted refuel')]
     workers=tuple(range(41,41+worker_count))
@@ -36,7 +36,8 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         key = f"{x},{y},{z}"
         for identity, (_, env) in machines.items():
             if identity != 99 and identity != machine:
-                env["world"]()["blocks"][key] = None
+                world=env["world"]()
+                world["blocks"][key],world["blockNames"][key] = None,None
 
     def placed(machine, x, y, z, name):
         key = f"{x},{y},{z}"
@@ -44,6 +45,12 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             if identity != 99 and identity != machine:
                 world = env["world"]()
                 world["blocks"][key], world["blockNames"][key] = True, name
+
+    def gate_safe(machine):
+        for identity in workers:
+            if identity==machine: continue
+            world=machines[identity][1]["world"]()
+            assert (world["x"],world["y"],world["z"])==(0,0,-2*(identity-41)), "Cannot close the opening before the other turtles reach their docks"
 
     for identity in queues:
         lua = runtime_type(unpack_returned_tuples=True)
@@ -57,9 +64,13 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().PY_OCCUPIED = occupied
         lua.globals().PY_CLEARED = cleared
         lua.globals().PY_PLACED = placed
+        lua.globals().PY_GATE_SAFE = gate_safe
         lua.globals().JOB_KIND = kind
         lua.globals().MIXED_JOBS = mixed
         lua.globals().USE_SHAFT = shaft
+        lua.globals().WALL_CORNERS = corners
+        lua.globals().WALL_RECOVERY = recovery
+        lua.globals().WALL_RESTOCK = restock
         lua.execute('''
             os.getComputerID = function() return MACHINE_ID end
             os.clock = function() return PY_CLOCK() end
@@ -99,13 +110,35 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                     end end
                 end
             else W.fuel,W.limit=20000,40000 end
+            if JOB_KIND=="walls" then
+                -- An excavated room in solid earth, accessible at one opening.
+                for x=7,18 do for y=-1,4 do for z=-1,10 do
+                    if x<=8 or x>=17 or z<=0 or z>=9 or y<0 or y>3 then
+                        local k=x..","..y..","..z
+                        W.blocks[k],W.blockNames[k]=true,"minecraft:dirt"
+                    end
+                end end end
+                W.blocks["7,1,1"],W.blockNames["7,1,1"]=nil,nil
+                if WALL_CORNERS then
+                    -- Corners explicitly require outside access.
+                    for x=7,18 do for y=0,3 do for z=-1,10 do
+                        if x==7 or x==18 or z==-1 or z==10 then
+                            local k=x..","..y..","..z; W.blocks[k],W.blockNames[k]=nil,nil
+                        end
+                    end end end
+                end
+            end
             if MIXED_JOBS then W.fuel,W.limit=20000,40000 end
-            for _,entry in ipairs({{"placeDown","down"},{"placeUp","up"}}) do
+            for _,entry in ipairs({{"placeDown","down"},{"placeUp","up"},{"place","front"}}) do
             local name,side=entry[1],entry[2]
             local originalPlace=turtle[name]
             turtle[name]=function()
                 local p=TEST_ENV.adjacent(side)
                 if PY_OCCUPIED(MACHINE_ID,p.x,p.y,p.z) then return false end
+                if JOB_KIND=="walls" and WALL_RECOVERY and MACHINE_ID==41 and #W.placements>=8 and not W.injectedFailure then
+                    W.injectedFailure=true; return false,"temporary_test_obstruction"
+                end
+                if JOB_KIND=="walls" and p.x==8 and p.y==1 and p.z==1 then PY_GATE_SAFE(MACHINE_ID) end
                 local item=turtle.getItemDetail()
                 local ok,err=originalPlace()
                 if ok then PY_PLACED(MACHINE_ID,p.x,p.y,p.z,item.name) end
@@ -141,6 +174,10 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                     local p=TEST_ENV.adjacent(side)
                     if PY_OCCUPIED(MACHINE_ID,p.x,p.y,p.z) then return false end
                     local ok,err=original()
+                    if ok and WALL_RESTOCK and p.x==2 and p.y==0 and p.z==-2 then
+                        W.materialVisits=(W.materialVisits or 0)+1
+                        W.chests["3,0,-2"].items={{name="minecraft:stone",count=8}}
+                    end
                     if ok and not FIRST_MOVE then FIRST_MOVE={x=p.x,y=p.y,z=p.z}; FIRST_MOVE_AT=os.clock() end
                     coroutine.yield(); return ok,err
                 end
@@ -165,6 +202,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     autonomy_confirmed=False
     restarted=False
     autonomy_before=None
+    resumed=False
     owners, started, worked_together, startup_overlap, shaft_overlap, opposite_overlap = set(), False, False, False, False, False
     for _ in range(20000):
         clock[0] += 0.05
@@ -185,6 +223,11 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             main.execute('CONTROL=require("fleet_controller").new(require("fleet_settings").defaults())')
             restarted=True
         control = main.globals().CONTROL
+        if recovery and not resumed and control.state["workers"][41] and control.state["workers"][41]["status"]=="failed":
+            assert machines[41][1]["world"]()["blockNames"]["8,1,1"]!="minecraft:stone", "Failure must leave the shared opening usable"
+            main.execute('CONTROL=require("fleet_controller").new(require("fleet_settings").defaults()); CONTROL.control("resume",41)')
+            control=main.globals().CONTROL
+            resumed=True
         snapshot=control.snapshot()
         owner = snapshot["serviceOwner"]
         owners.update(snapshot["serviceOwners"].values())
@@ -207,9 +250,10 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                 end
                 if JOB_KIND=="floor" then a,b={x=8,y=-1,z=0},{x=27,y=-1,z=15} end
                 if JOB_KIND=="ceiling" then a,b={x=8,y=1,z=0},{x=27,y=1,z=15} end
+                if JOB_KIND=="walls" then a,b={x=8,y=0,z=0},{x=17,y=3,z=9} end
                 return CONTROL.start(a,b,WORKER_IDS,
                 {fuel={x=2,y=0,z=2,direction=1,side="front"},output={x=-2,y=0,z=2,direction=3,side="front"},
-                materials={x=2,y=0,z=-2,direction=1,side="front"}},tunnel,floor,{kind=JOB_KIND})''')
+                materials={x=2,y=0,z=-2,direction=1,side="front"}},tunnel,floor,{kind=JOB_KIND,includeCorners=WALL_CORNERS})''')
             assert ok is True, ok
             started = True
         if mixed and started and not second_started and len(list(machines[41][1]["world"]()["digs"].values()))>=5:
@@ -221,7 +265,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             second_started=True
         tasks={i:t for job in control.state["jobs"].values() for i,t in job["tasks"].items()}
         def counter_for(i):
-            return "placements" if kind in ("floor","ceiling") or (mixed and i==42) else "digs"
+            return "placements" if kind in ("floor","ceiling","walls") or (mixed and i==42) else "digs"
         dug_counts = [len(list(machines[i][1]["world"]()[counter_for(i)].values())) for i in workers]
         if mixed and second_started and not autonomy_started and all(5<n<100 for n in dug_counts):
             autonomy_started=True
@@ -246,7 +290,8 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         assert shaft_overlap, "Two workers should travel in separate shaft columns concurrently"
         assert control.snapshot()["tunnelOwner"] is None
     summary = control.snapshot()["summary"]
-    assert summary["completed"] == (640 if mixed else 320) and summary["remaining"] == 0
+    expected = (144 if corners else 128) if kind=="walls" else (640 if mixed else 320)
+    assert summary["completed"] == expected and summary["remaining"] == 0
     mined = set()
     for identity in workers:
         expected_z=-2*(identity-41)
@@ -258,11 +303,29 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             point = (p["x"], p["y"], p["z"])
             assert point not in mined
             mined.add(point)
-    assert len(mined) == (640 if mixed else 320)
-    if kind in ("floor", "ceiling"):
-        assert summary["placed"] == 320 and summary["kind"] == kind
+    assert len(mined) == expected
+    if kind in ("floor", "ceiling", "walls"):
+        assert summary["kind"] == kind
+        if recovery:
+            assert summary["placed"]+summary["skipped"]==expected
+        else: assert summary["placed"] == expected
+    if kind=="walls":
+        if recovery: assert resumed, "The failed worker must resume after a coordinator restart"
+        for x,y,z in mined:
+            assert 8<=x<=17 and 0<=y<=3 and 0<=z<=9
+            assert x in (8,17) or z in (0,9)
+            if not corners: assert not (x in (8,17) and z in (0,9))
+        for identity in workers:
+            world=machines[identity][1]["world"]()
+            for p in world["digs"].values():
+                assert (p["x"],p["y"],p["z"]) in mined, "No demolition outside the requested walls"
+            assert world["blockNames"]["8,1,1"]=="minecraft:stone", "Shared opening must be closed"
+            if restock: assert world["materialVisits"]>=4, "Workers must return through the shared gate for repeated material trips"
+        assert not list(control.state["locks"].values()), "All doorway and station locks must be released"
     if mixed:
         assert second_started and autonomy_confirmed and restarted and summary["kind"]=="mixed" and summary["placed"]==320
         assert len(list(control.state["jobs"].values()))==2
     label = "mixed quarry + floor, 640 cells" if mixed else (f"{kind}, pipelined shaft startup" if shaft else kind)
-    print(f"PASS radio integration ({label}): {worker_count} concurrent workers, 1 controller, {640 if mixed else 320} cells and distinct docks", flush=True)
+    if recovery: label += ", worker retry and controller restart"
+    if restock: label += ", repeated material trips"
+    print(f"PASS radio integration ({label}): {worker_count} concurrent workers, 1 controller, {expected} cells and distinct docks", flush=True)

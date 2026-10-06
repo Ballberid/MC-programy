@@ -25,6 +25,22 @@ function model.split(a, b, count)
     return segments
 end
 
+function model.splitWalls(a,b,count,options)
+    local plan=require("wall_plan")
+    local box,err=plan.new(a,b,{includeCorners=options~=nil and options.includeCorners==true})
+    if not box then return nil,err end
+    local ranges,reason=require("wall_segments").split(box,count)
+    if not ranges then return nil,reason end
+    if count>1 and (box.size.x<4 or box.size.z<4) then return nil,"fleet_walls_need_two_blocks_of_interior_width" end
+    local parts={}
+    for i,range in ipairs(ranges) do
+        local opts={includeCorners=box.includeCorners,segment=range}
+        local part=assert(plan.new(a,b,opts))
+        parts[i]={a={x=a.x,y=a.y,z=a.z},b={x=b.x,y=b.y,z=b.z},total=part.volume,wallOptions=opts}
+    end
+    return parts,nil,box
+end
+
 function model.summary(job)
     local summary = { total = job and job.total or 0, completed = 0, dug = 0, active = 0, failed = 0,
         kind = job and job.kind or "quarry", placed = 0, skipped = 0 }
@@ -59,7 +75,8 @@ function model.acquire(locks, resource, owner, token)
     local traffic=type(resource)=="string" and (resource=="tunnel:up:1" or resource=="tunnel:up:2"
         or resource=="tunnel:down" or resource:match("^door:%-?%d+,%-?%d+,%-?%d+$"))
     local station=type(resource)=="string" and resource:match("^station:%-?%d+,%-?%d+,%-?%d+$")
-    if resource ~= "service" and resource ~= "tunnel" and not traffic and not station then return false, "unknown_resource" end
+    local wallgate=type(resource)=="string" and resource:match("^wallgate:[%w_:%.%-]+$") and #resource<=150
+    if resource ~= "service" and resource ~= "tunnel" and not traffic and not station and not wallgate then return false, "unknown_resource" end
     if station and locks.service and locks.service.owner~=owner then return false,"occupied" end
     -- An old exclusive reservation cannot be bypassed during migration.
     if traffic and locks.tunnel and locks.tunnel.owner~=owner then return false,"occupied" end

@@ -46,29 +46,33 @@ function controller.new(settings)
     function self.start(a, b, ids, stations, tunnel, floor, options)
         options = options or {}
         local kind = options.kind or "quarry"
-        if kind ~= "quarry" and kind ~= "floor" and kind ~= "ceiling" then return false, "invalid_task_kind" end
+        if kind ~= "quarry" and kind ~= "floor" and kind ~= "ceiling" and kind ~= "walls" then return false, "invalid_task_kind" end
         if kind == "floor" or kind == "ceiling" then
             local valid, invalid = (kind=="ceiling" and require("ceiling_plan") or require("floor_plan")).new(a, b)
             if not valid then return false, invalid end
         end
-        local segments, err = model.split(a, b, #ids); if not segments then return false, err end
+        local segments,err,wallArea
+        if kind=="walls" then segments,err,wallArea=model.splitWalls(a,b,#ids,options)
+        else segments,err=model.split(a,b,#ids) end
+        if not segments then return false, err end
         local available, seen = {}, {}
         for _, id in ipairs(self.available()) do available[id] = true end
         state.serial = (state.serial or 0) + 1
         local jobId = tostring(os.getComputerID()) .. ":" .. tostring(os.epoch("utc")) .. ":" .. state.serial
-        local area = assert(cuboid.new(a, b))
+        local area = wallArea or assert(cuboid.new(a, b))
         local protected = (kind == "floor" or kind == "ceiling") and require("floor_plan").protected(area) or area
         for id, w in pairs(state.workers) do
             if cuboid.contains(protected, w.dock) then return false, "dock_inside_area:" .. id end
         end
         local job = { id = jobId, kind = kind, area=area, total = area.volume, tasks = {} }
+        if kind=="walls" then job.closer=ids[#ids] end
         for index, id in ipairs(ids) do
             if seen[id] or not available[id] then return false, "worker_unavailable:" .. tostring(id) end
             seen[id] = true
             local s = segments[index]
             local assignment = { id = jobId .. ":" .. index, jobId = jobId, a = s.a, b = s.b,
                 area = area, stations = store.copy(stations), tunnel = store.copy(tunnel), floor = floor,
-                kind = kind, block = options.block, lane=(index-1)%2+1, startDelay=(index-1)*5 }
+                kind = kind, block = options.block, wallOptions=store.copy(s.wallOptions), lane=(index-1)%2+1, startDelay=(index-1)*5 }
             local c, invalid = taskLib.settings(assignment, state.workers[id].dock)
             if not c then return false, invalid end
             job.tasks[id] = { id = assignment.id, total = s.total, status = "assigned", assignment = assignment }
@@ -137,13 +141,27 @@ function controller.new(settings)
                 state.workers[sender].status, state.workers[sender].error = "recovery", p.error
                 self.save()
             end
+        elseif p.kind=="walls_ready" then
+            local t,job=jobs.task(sender)
+            local valid=t and t.id==p.taskId and job.kind=="walls" and job.closer==sender
+            local ready=valid==true
+            if valid then
+                for id,other in pairs(job.tasks) do
+                    if id~=sender and (other.status~="complete" or not other.progress or other.progress.completed~=other.total) then ready=false end
+                end
+            end
+            self.send(sender,"walls_reply",{request=p.request,granted=ready,error=not valid and "invalid_wall_closer" or nil})
         elseif p.kind == "lock" then
             local w = state.workers[sender]
             local granted = false
             local reason
             if w and w.taskId == p.taskId and type(p.request) == "string" then
                 local held=state.locks[p.resource]
-                granted,reason = model.acquire(state.locks, p.resource, sender, p.request)
+                local _,job=jobs.task(sender)
+                if type(p.resource)=="string" and p.resource:match("^wallgate:")
+                    and (not job or job.kind~="walls" or p.resource~="wallgate:"..job.id) then
+                    reason="unknown_resource"
+                else granted,reason = model.acquire(state.locks, p.resource, sender, p.request) end
                 if granted and not held then self.save() end
             end
             self.send(sender, "lock_reply", { request = p.request, granted = granted, resource = p.resource, error=reason })

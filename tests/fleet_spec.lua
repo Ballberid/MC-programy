@@ -123,7 +123,7 @@ test("fleet menu targets an entire selected job without commanding another job",
     peripheral.find=function() return nil end
     local sent={}
     rednet.send=function(id,p) sent[#sent+1]={id=id,action=p.action,taskId=p.taskId}; return true end
-    local choices={5,6,7,8,0}; local dialog=require("fleet_dialog")
+    local choices={6,7,8,9,0}; local dialog=require("fleet_dialog")
     dialog.number=function(prompt)
         if prompt=="Volba" then assert(#choices>0); return table.remove(choices,1) end
         if prompt:find("Ovladat:",1,true) or prompt=="Vyber ulohu zo zoznamu" then return 2 end
@@ -229,21 +229,58 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     require("fleet_controller").new=function() return control end
     peripheral.find=function() return nil end
     shell={run=function(name) runs[#runs+1]=name; return true end}
-    local choices={1,2,3,4,5,6,7,8,9,10,0}
+    local choices={1,2,3,4,5,6,7,8,9,10,11,0}
     local dialog=require("fleet_dialog")
     dialog.number=function(prompt,default)
         if prompt=="Volba" then assert(#choices>0); return table.remove(choices,1) end
         return default
     end
     dialog.yes=function(prompt) return prompt:find("Spustit",1,true)~=nil end
-    dialog.point=function() return {x=8,y=0,z=4} end
-    dialog.flatPoint=function() return {x=9,y=0,z=5} end
+    local points=0
+    dialog.point=function() points=points+1; return points%2==1 and {x=8,y=0,z=4} or {x=11,y=2,z=7} end
+    dialog.flatPoint=function(_,y) return {x=9,y=y,z=5} end
     dialog.text=function(prompt) return prompt:find("VOLNE",1,true) and "VOLNE" or "" end
     dialog.choose=function(_,_,default) return default end
     parallel.waitForAny=function(_,input) input() end
     assert(pcall(loadfile(ROOT.."/turtle/fleet.lua")))
-    eq(table.concat(kinds,","),"quarry,floor,ceiling")
+    eq(table.concat(kinds,","),"quarry,floor,ceiling,walls")
     eq(table.concat(actions,","),"pause,resume,stop,reset"); eq(runs[1],"fleet_setup"); eq(#choices,0)
+end)
+
+test("fleet wall closure waits for completed peers and persists across controller restarts",function()
+    local c,m=controllerWithWorkers()
+    local st=stations(); st.materials={x=4,y=0,z=2,direction=1,side="front"}
+    assert(c.start({x=8,y=0,z=4},{x=14,y=2,z=10},{41,42,43},st,nil,nil,{kind="walls"}))
+    local job=c.state.job; eq(job.total,60); eq(job.closer,43)
+    local response
+    rednet.send=function(_,p) if p.kind=="walls_reply" then response=p end; return true end
+    local function query(id,taskId)
+        c.handle(id,{version=1,id=id,kind="walls_ready",request="query",taskId=taskId or job.tasks[id].id},m.protocol)
+        return response
+    end
+    eq(query(43).granted,false); eq(query(41).error,"invalid_wall_closer")
+    for _,id in ipairs({41,42}) do
+        c.handle(id,{version=1,id=id,kind="status",status="complete",taskId=job.tasks[id].id,dock=dock(),
+            progress={completed=job.tasks[id].total}},m.protocol)
+    end
+    eq(query(43).granted,true)
+    c=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(query(43).granted,true); eq(query(43,"old-task").granted,false)
+    c.state.jobs[job.id].tasks[42].status="failed"
+    eq(query(43).granted,false)
+end)
+
+test("wall assignments require material stations and retain their exact work region",function()
+    local model,task=require("fleet_model"),require("fleet_task")
+    local first,last={x=8,y=0,z=4},{x=14,y=2,z=10}
+    local parts,_,whole=model.splitWalls(first,last,2)
+    local job={id="walls:1",jobId="walls",kind="walls",a=first,b=last,area=whole,
+        stations=stations(),wallOptions=parts[1].wallOptions}
+    local c,err=task.settings(job,dock()); eq(c,nil); eq(err,"station_missing:materials")
+    job.stations.materials={x=4,y=0,z=2,direction=1,side="front"}
+    local valid,_,box=task.settings(job,dock()); assert(valid); eq(box.volume,parts[1].total)
+    job.wallOptions.segment.last=999
+    c,err=task.settings(job,dock()); eq(c,nil); eq(err,"invalid_wall_segment")
 end)
 
 test("fleet split covers reversed corners without overlapping cells", function()

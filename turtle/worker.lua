@@ -39,7 +39,9 @@ local function execute()
                 telemetry.configure(settings.telemetry, nav.getPosition)
                 telemetry.setProgress(client.state.progress)
                 telemetry.setContext({ taskId = job.id, jobId = job.jobId })
-                nav.setRuntime(require("fleet_motion").new(client, settings.stations, nav.getPosition, client.state.dock), client.checkpoint, transit.estimate)
+                local motion=require("fleet_motion").new(client, settings.stations, nav.getPosition, client.state.dock)
+                if job.kind=="walls" then motion=require("wall_traffic").new(client,box,motion) end
+                nav.setRuntime(motion, client.checkpoint, transit.estimate)
                 stations.setRuntime(client.acquire, client.release,true)
                 client.state.status = "running"; client.save(); client.status(true)
                 local ran, a, b, p = pcall(function()
@@ -69,6 +71,11 @@ local function execute()
                     end
                     if job.kind == "floor" then return require("building").run(job.a, job.b, job.block, nil, job.area) end
                     if job.kind == "ceiling" then return require("building").runCeiling(job.a, job.b, job.block, nil, job.area) end
+                    if job.kind=="walls" then
+                        local options=store.copy(job.wallOptions)
+                        options.beforeClose=client.awaitWalls
+                        return require("building").runWalls(job.a,job.b,job.block,nil,nil,options)
+                    end
                     return require("mining").run(job.a, job.b, nil, client.retry and client.state.progress or nil)
                 end)
                 ok, result, progress = ran and a == true, ran and b or tostring(a), ran and p or nil

@@ -43,6 +43,8 @@ function access.new(box)
         local outer,inner=gatePoints()
         local first,second=outer,inner
         if interior(current) then first,second=inner,outer end
+        -- Fleet traffic reserves the gate before approaching either endpoint.
+        if box.segment then return move(second) end
         local ok,err=move(first); if not ok then return false,err end
         return move(second)
     end

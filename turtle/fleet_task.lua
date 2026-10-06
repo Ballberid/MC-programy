@@ -11,12 +11,13 @@ function task.settings(job, dock, previous)
     if job.startDelay ~= nil and (type(job.startDelay) ~= "number" or job.startDelay ~= math.floor(job.startDelay)
         or job.startDelay < 0 or job.startDelay > 300) then return nil, "invalid_start_delay" end
     if job.lane~=nil and job.lane~=1 and job.lane~=2 then return nil,"invalid_tunnel_lane" end
-    if kind ~= "quarry" and kind ~= "floor" and kind ~= "ceiling" then return nil, "invalid_task_kind" end
-    if (kind == "floor" or kind == "ceiling") and job.block ~= nil and (type(job.block) ~= "string" or not job.block:match("^[%w_%-]+:[%w_/%.-]+$")) then
+    if kind ~= "quarry" and kind ~= "floor" and kind ~= "ceiling" and kind ~= "walls" then return nil, "invalid_task_kind" end
+    if kind ~= "quarry" and job.block ~= nil and (type(job.block) ~= "string" or not job.block:match("^[%w_%-]+:[%w_/%.-]+$")) then
         return nil, "invalid_block_name"
     end
-    local plan=kind=="ceiling" and require("ceiling_plan") or require("floor_plan")
-    local box, err = ((kind == "floor" or kind == "ceiling") and plan.new or cuboid.new)(job.a, job.b)
+    if kind=="walls" and (type(job.wallOptions)~="table" or type(job.wallOptions.segment)~="table") then return nil,"invalid_wall_segment" end
+    local plan=kind=="walls" and require("wall_plan") or (kind=="ceiling" and require("ceiling_plan") or require("floor_plan"))
+    local box, err = (kind ~= "quarry" and plan.new or cuboid.new)(job.a, job.b,job.wallOptions)
     if not box then return nil, err end
     local c = store.copy(previous or config.defaults())
     c.start, c.home, c.stations = store.copy(dock), store.copy(dock), store.copy(job.stations)
@@ -24,9 +25,14 @@ function task.settings(job, dock, previous)
     local ok, reason = config.validate(c)
     if not ok then return nil, reason end
     if not c.stations.fuel or not c.stations.output then return nil, "fuel_output_required" end
-    if (kind == "floor" or kind == "ceiling") and not c.stations.materials then return nil, "station_missing:materials" end
+    if kind ~= "quarry" and not c.stations.materials then return nil, "station_missing:materials" end
     local protected = job.area or box
     if type(protected) ~= "table" or not config.isPoint(protected.min) or not config.isPoint(protected.max) then return nil, "invalid_area" end
+    if kind=="walls" then
+        for _,axis in ipairs({"x","y","z"}) do
+            if protected.min[axis]~=box.min[axis] or protected.max[axis]~=box.max[axis] then return nil,"wall_area_mismatch" end
+        end
+    end
     if kind == "floor" or kind == "ceiling" then
         if protected.min.y ~= protected.max.y then return nil, "floor_corners_need_same_y" end
         protected = require("floor_plan").protected(protected)

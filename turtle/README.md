@@ -140,7 +140,7 @@ Pri nerozbitnom bloku, inventári, vode/láve, nedostatku zásob alebo
 nedoriešenej ceste úlohu označí ako nedokončenú, vypíše dôvod a pokúsi sa vrátiť
 domov bez kopania. Nastavené truhly nesmú byť vo výkope. Program neodčerpáva
 kvapaliny ani nemá automatické pokračovanie po reštarte. Po odstránení príčiny
-možno vo fleet použiť voľbu 6 na obnovenie pôvodného segmentu. Samostatne možno
+možno vo fleet použiť voľbu 7 na obnovenie pôvodného segmentu. Samostatne možno
 znova zadať rovnaké rohy; už vyprázdnené miesta prejde bez kopania.
 
 Po dokončení vyloží zvyšný materiál a vráti sa na konečné miesto aj smer zo setupu.

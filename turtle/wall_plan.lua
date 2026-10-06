@@ -17,6 +17,7 @@ function plan.new(a,b,options)
     box.volume=(box.perimeter-(box.includeCorners and 0 or 4))*box.size.y
     local sz=a.z==box.max.z and -1 or 1
     box.opening={x=a.x,y=box.min.y+math.floor((box.size.y-1)/2),z=a.z+sz}
+    if options and options.segment then return require("wall_segments").configure(box,options.segment,a) end
     return box
 end
 function plan.protected(box)
@@ -28,6 +29,7 @@ end
 -- Finish the four corner columns outside first. Remaining faces are built
 -- from the interior by layers. The service opening is always the last cell.
 function plan.cell(box,index,first)
+    if box.segment then return require("wall_segments").cell(box,index,first) end
     if index<1 or index>box.volume then return nil,"invalid_cell_index" end
     if index==box.volume then return {x=box.opening.x,y=box.opening.y,z=box.opening.z} end
     local sx=first.x==box.max.x and -1 or 1

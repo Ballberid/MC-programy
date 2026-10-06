@@ -19,8 +19,8 @@ Pri uprave poschodi nezadavas tunel znova. Zmeny uloz hlavnou volbou 0.
 Na kazdej turtle v jej doku: worker ID_HLAVNEHO_PC
 Doky musia smerovat do volnej chodby: pri starte turtle najprv ide jeden blok dopredu.
 Turtle startuju po 5 sekundach; kontrola truhiel ide priamo medzi truhlami bez navratov do doku.
-Fleet: 1 vykop, 2 podlaha, 3 strop; 4 stav, 5 pauza, 6 pokracovat, 7 navrat, 8 reset v dokoch do idle.
-Nastavenia: 9 zakladna, 10 uvolnit rezervacie po kontrole; 0 koniec.
+Fleet: 1 vykop, 2 podlaha, 3 strop, 4 steny; 5 stav, 6 pauza, 7 pokracovat, 8 navrat, 9 reset v dokoch do idle.
+Nastavenia: 10 zakladna, 11 uvolnit rezervacie po kontrole; 0 koniec.
 Tunel 3x3 musi byt cely volny: dve zvisle drahy nahor, jedna nadol. Aktualizuj PC aj vsetky turtle spolu.
 Na tablete: receiver fleet ID_HLAVNEHO_PC
 Sipky prepnu turtle, 0 vrati celkovy prehlad.
@@ -38,6 +38,9 @@ Materialova truhla obsahuje jeden druh plneho stavebneho bloku.
 Podrobny navod je v PODLAHA_NAVOD.md.
 
 Steny miestnosti: build, volba 2 (alebo priamo walls).
+Viac turtle: na hlavnom PC fleet, volba 4. Na turtle worker ID_PC.
+Zadaj dva rohy kvadra, material, truhly a poschodie; obvod rozdeli na samostatne useky.
+Spolocny priechod necha otvoreny; posledna turtle ho uzavrie po navrate ostatnych do dokov.
 Zadaj dva protilahle rohy kvadra. Meni len styri bocne steny, bez podlahy a stropu.
 Potrebne truhly: fuel, materials, output; volny vnutorny obvod a pristup k servisnemu priechodu.
 Spravit aj rohy? [a/N]: Enter alebo n = bez rohov; a alebo y = s rohmi.

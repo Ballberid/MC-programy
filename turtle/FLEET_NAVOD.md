@@ -3,6 +3,7 @@
 Táto verzia riadi viac turtle pri **kopaní**, **stavaní rovnej podlahy** aj **stropu**.
 Postup na podlahu a význam jej súradníc opisuje [PODLAHA_NAVOD.md](PODLAHA_NAVOD.md).
 Strop spustíš voľbou **3**; postup opisuje [STROP_NAVOD.md](STROP_NAVOD.md).
+Steny miestnosti spustíš voľbou **4**; postup opisuje [STENY_NAVOD.md](STENY_NAVOD.md).
 Pri podlahe turtle kladie iba pod seba, pri strope iba nad seba. Pri druhom
 rohu zadávaš len X a Z, výška sa preberie z prvého a vrstva má jeden blok.
 Každá vybraná turtle dostane vlastný neprekrývajúci sa kváder a vracia sa do
@@ -146,26 +147,27 @@ Hlavné menu:
 | 1 | Nový výkop: počet/ID turtle, rohy, truhly a poschodie |
 | 2 | Nová podlaha: počet/ID turtle, X/Y/Z prvého rohu, X/Z druhého, materiál, truhly a poschodie |
 | 3 | Nový strop: rovnaké zadanie ako podlaha, turtle kladie nad seba |
-| 4 | Celkový priebeh a turtle zoskupené podľa druhu práce |
-| 5 | Pozastavenie konkrétnej turtle alebo všetkých |
-| 6 | Pokračovanie pauzy alebo obnovenie segmentu po chybe (`failed`/`recovery`) |
-| 7 | Zastavenie úlohy a pokus o návrat do doku; aj zo stavu `recovery` |
-| 8 | Reset zastavenej turtle v doku do `idle`; ID 0 = všetky |
-| 9 | Nastavenia základne; zmeny platia pre nasledujúce úlohy |
-| 10 | Ručné uvoľnenie rezervácií po fyzickej kontrole |
+| 4 | Nové steny: rohy kvádra, počet/ID turtle, materiál, truhly, poschodie a voliteľné rohy |
+| 5 | Celkový priebeh a turtle zoskupené podľa druhu práce |
+| 6 | Pozastavenie konkrétnej turtle alebo všetkých |
+| 7 | Pokračovanie pauzy alebo obnovenie segmentu po chybe (`failed`/`recovery`) |
+| 8 | Zastavenie úlohy a pokus o návrat do doku; aj zo stavu `recovery` |
+| 9 | Reset zastavenej turtle v doku do `idle`; ID 0 = všetky |
+| 10 | Nastavenia základne; zmeny platia pre nasledujúce úlohy |
+| 11 | Ručné uvoľnenie rezervácií po fyzickej kontrole |
 | 0 | Ukončenie hlavného programu |
 
 Monitor aj terminál zoskupujú turtle pod **Stavanie**, **Kopanie** a
 **Ostatné/pripravené**. Pri stavbe sa rozlišuje podlaha, strop a steny. Zaradenie
 sa riadi pridelenou úlohou aj pri pauze alebo tankovaní. Každá skupina má vlastný
 súčet hotových miest zo svojich zadaní; celkový ukazovateľ hore sčíta evidované úlohy.
-Pri turtle sa zobrazuje aj číslo úlohy, napríklad `podlaha/2`. Voľba **4** vypíše
+Pri turtle sa zobrazuje aj číslo úlohy, napríklad `podlaha/2`. Voľba **5** vypíše
 každú úlohu zvlášť s priebehom a stavom.
 Pri dlhom zozname sa stránky striedajú každých päť sekúnd a opakujú názov skupiny.
 Na tablete zostáva prepínanie na detail jednotlivej turtle šípkami.
 Môže bežať **viac spoločných úloh súčasne**, každá s inými turtle, oblasťou,
 materiálom, truhlami a pracovným poschodím. Po spustení výkopu môžeš hneď zvoliť
-**2 – podlaha** alebo **3 – strop** a prideliť mu ďalšie voľné turtle.
+**2 – podlaha**, **3 – strop** alebo **4 – steny** a prideliť mu ďalšie voľné turtle.
 Napríklad voľbou 1 pošli ID 41 a 42 kopať, potom voľbou 2 pošli ID 43 stavať.
 Pri zadávaní sa ponúkajú iba dostupné turtle bez rozbehnutej úlohy, čakajúceho
 povelu alebo držanej rezervácie. Rezervácia inej pracujúcej turtle nové zadanie
@@ -177,6 +179,15 @@ na pokyn PC pre každý krok. PC eviduje úlohy, prijíma stav, posiela ovládac
 povely a prideľuje spoločné rezervácie. Pri výpadku PC môže turtle pokračovať
 v rozrobenej práci, ale nové rezervácie truhiel a tunela vyžadujú spojenie s PC.
 Rezervácie sa pri výpadku automaticky neuvoľňujú.
+
+Pri stenách sa rozdelia stĺpce vonkajšieho obvodu; nevznikajú priečky medzi
+segmentmi. Každá turtle spraví svoj úsek v celej zadanej výške. Spoločný priechod
+zostáva otvorený počas práce aj zásobovania. Prechod cez neho sa krátko rezervuje,
+stavanie na pracovisku pokračuje súčasne. Turtle určená na uzavretie čaká v doku,
+kým ostatné úspešne dokončia úseky a vrátia sa; potom uzavrie posledný blok zvonka.
+Pri chybe inej turtle sa čaká na jej obnovenie. Pri zrušení môže priechod zostať
+otvorený. Pre viac turtle musí mať interiér aspoň 2×2 bloky na vyhýbanie, teda
+zadaný kváder aspoň 4×4 v X/Z. Pred štartom sa vypíšu súradnice priechodu.
 
 Nová oblasť nesmie kolidovať s iným rozpracovaným zadaním. Pri podlahe a strope
 sa chráni aj susedná výška na pohyb turtle. Chránené sú doky, truhly, tunel a
@@ -228,7 +239,7 @@ Na rovnakom poschodí a pri servisných návštevách sa spoločné cesty stále
 Prehľad na PC a tablete ukazuje osobitne držiteľa servisu a zoznam turtle v tuneli.
 Obsadená rezervácia pri odpovedajúcom hlavnom PC už nevyprší po piatich minútach.
 Bez odpovede PC približne päť minút sa ohlási `controller_unreachable`; po oprave
-spojenia použi voľbu 6. Žiadna rezervácia offline turtle sa neodoberá automaticky.
+spojenia použi voľbu 7. Žiadna rezervácia offline turtle sa neodoberá automaticky.
 Na bežnej ceste sa na inú turtle čaká päť sekúnd a potom sa hľadá obchádzka.
 Na presnej parkovacej pozícii truhly aj v pruhu tunela sa čaká na uvoľnenie;
 pozastavenie a stop zostávajú funkčné. Dočasná turtle sa neukladá ako pevná stena.
@@ -289,7 +300,7 @@ Pôvodné `receiver` a `receiver ID_TURTLE` zostávajú dostupné pre samostatn�
 
 1. Postav základňu a jeden pracovný výstup z tunela.
 2. Spusti `fleet` na PC a `worker ID_PC` na **dvoch** turtle v oddelených dokoch.
-3. V menu PC cez voľbu 4 over, že obe sú `idle` a pravidelne odpovedajú.
+3. V menu PC cez voľbu 5 over, že obe sú `idle` a pravidelne odpovedajú.
 4. Vyber malý skúšobný výkop, napríklad **6×2×4** na pracovnom poschodí,
    s voľným prístupom k prvému rohu každého segmentu. Do oblasti nezahrň podlahu,
    ktorú chceš zachovať, ani časti servisnej infraštruktúry.
@@ -307,29 +318,29 @@ PC pravidelne opakuje nepotvrdené zadania a uchováva stav úloh aj rezerváci�
 Priebežné počítadlá sa ukladajú približne každé dve sekundy; posledné okamihy
 pred výpadkom nemusia byť zaznamenané. Nejde o záznam každého pohybu na obnovu výkopu.
 Po prerušení worker prejde do `recovery`: výkop sa **automaticky neobnoví**.
-Na PC voľbou 7 pošli tejto turtle návrat do doku. Ak návrat zlyhá, najprv
+Na PC voľbou 8 pošli tejto turtle návrat do doku. Ak návrat zlyhá, najprv
 skontroluj GPS, palivo a priechodnosť; problém sa zobrazí pri danej turtle.
-Po odstránení prekážky môžeš namiesto návratu zvoliť **6** a ID konkrétnej turtle.
+Po odstránení prekážky môžeš namiesto návratu zvoliť **7** a ID konkrétnej turtle.
 Pôvodná úloha aj pridelený segment sa zachovajú, ostatné turtle môžu ďalej pracovať.
 Pri výkope sa prejde už vykopaná časť od vstupu a potom dokončí zvyšok.
 Hotové bunky sa nezapočítajú druhýkrát. Bez uloženého kontrolného bodu sa segment
 overí celý. Pri inej turtle v kopanej bunke sa čaká (`waiting_turtle`), bez kopania
 do nej; pauza aj stop zostávajú funkčné. Voda a láva úlohu zastavia, po odstránení
-môžeš použiť voľbu 6. Dáta pracovníka ani hlavného PC pri obnovení nemaž.
+môžeš použiť voľbu 7. Dáta pracovníka ani hlavného PC pri obnovení nemaž.
 
 Neodpovedajúcej turtle sa segment ani rezervácia automaticky neodoberú. Mohla
-zostať v tuneli alebo pred truhlou. Rezerváciu ručne uvoľni voľbou 10 až po
+zostať v tuneli alebo pred truhlou. Rezerváciu ručne uvoľni voľbou 11 až po
 kontrole, že priechod je voľný a pôvodná turtle už nepokračuje v presune.
 Na uvoľnenie program vyžaduje text `VOLNE`.
-Po návrate všetkých turtle môžeš použiť **8 → 3**, aby boli `idle` a zabudli
+Po návrate všetkých turtle môžeš použiť **9 → 3**, aby boli `idle` a zabudli
 pridelenú úlohu. Reset zachová dok, párovanie, truhly, poschodia a tunel.
 Rozbehnutá turtle alebo turtle mimo doku reset odmietne; najprv použi návrat 7.
 Reset nie je potrebný na nové zadanie: stavy `complete` a `failed` tiež prijímajú
 novú úlohu, keď daná turtle nedrží rezerváciu ani nečaká na povel.
 Ostatné skupiny môžu ďalej pracovať. Nové zadanie neúspešnej turtle nahradí jej
-pôvodný segment; na pokračovanie pôvodného zadania použi radšej voľbu 6.
+pôvodný segment; na pokračovanie pôvodného zadania použi radšej voľbu 7.
 
-Po reštarte sa práca neobnoví sama; pokračovanie vyžiadaj voľbou 6. Nejde o
+Po reštarte sa práca neobnoví sama; pokračovanie vyžiadaj voľbou 7. Nejde o
 presné pokračovanie posledného fyzického kroku: uložený stav môže byť mierne starší
 a prejdená časť výkopu sa overí znova. Pri podlahe sa znova skontroluje segment,
 už položené správne bloky sa preskočia.

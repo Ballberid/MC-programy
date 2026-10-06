@@ -50,7 +50,9 @@
     { "source": "ceiling.lua", "target": "ceiling.lua", "roles": ["turtle"] },
     { "source": "floor.lua", "target": "floor.lua", "roles": ["turtle"] },
     { "source": "walls.lua", "target": "walls.lua", "roles": ["turtle"] },
-    { "source": "wall_plan.lua", "target": "wall_plan.lua", "roles": ["turtle"] },
+    { "source": "wall_plan.lua", "target": "wall_plan.lua", "roles": ["turtle", "controller", "receiver"] },
+    { "source": "wall_segments.lua", "target": "wall_segments.lua", "roles": ["turtle", "controller", "receiver"] },
+    { "source": "wall_traffic.lua", "target": "wall_traffic.lua", "roles": ["turtle"] },
     { "source": "wall_access.lua", "target": "wall_access.lua", "roles": ["turtle"] },
     { "source": "build_programs.lua", "target": "build_programs.lua", "roles": ["turtle"] },
     { "source": "build.lua", "target": "build.lua", "roles": ["turtle"] }

@@ -9,12 +9,13 @@ function display.activity(w)
     local p=w.packet or {}
     local activity=p.activity or status or "?"
     local labels={checking_gps="GPS",waiting_start="Start pauza",waiting_turtle="Ina turtle",
-        waiting_return_route="Caka cesta",moving="Presun",arrived="Na mieste"}
+        waiting_return_route="Caka cesta",waiting_wall_workers="Caka ostatnych",moving="Presun",arrived="Na mieste"}
     if labels[activity] then return labels[activity] end
     if type(activity)=="string" then
         if activity:match("^waiting:station:") or activity=="waiting:service" then return "Caka truhla" end
         if activity:match("^waiting:tunnel") then return "Caka tunel" end
         if activity:match("^waiting:door:") then return "Caka vchod" end
+        if activity:match("^waiting:wallgate:") then return "Caka priechod" end
     end
     return tostring(activity)
 end
