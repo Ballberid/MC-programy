@@ -18,7 +18,8 @@ Fleet_setup: 3 nastavuje tunel, 4 spravuje poschodia (pridat, premenovat, zmenit
 Pri uprave poschodi nezadavas tunel znova. Zmeny uloz hlavnou volbou 0.
 Na kazdej turtle v jej doku: worker ID_HLAVNEHO_PC
 Doky musia smerovat do volnej chodby: pri starte turtle najprv ide jeden blok dopredu.
-Turtle startuju po 5 sekundach; kontrola truhiel ide priamo medzi truhlami bez navratov do doku.
+Turtle startuju v poradi vyberu po uvolneni prvej truhly (fuel); dovtedy cakaju v dokoch.
+Kontrola truhiel ide priamo medzi truhlami bez navratov do doku.
 Fleet: 1 vykop, 2 podlaha, 3 strop, 4 steny; 5 stav, 6 pauza, 7 pokracovat, 8 navrat, 9 reset v dokoch do idle.
 Nastavenia: 10 zakladna, 11 uvolnit rezervacie po kontrole; 0 koniec.
 Tunel 3x3 musi byt cely volny: dve zvisle drahy nahor, jedna nadol. Aktualizuj PC aj vsetky turtle spolu.

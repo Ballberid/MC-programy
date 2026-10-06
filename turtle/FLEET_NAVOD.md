@@ -51,9 +51,13 @@ Turtle v doku otoč smerom do voľnej chodby. Pri odchode najprv prejde **jeden 
 dopredu** v uloženom smere doku a až potom odbočí. Pred každým dokom preto nechaj
 voľnú bunku; smer sa berie z pôvodného párovania pracovníka.
 
-PC odošle zadania všetkým vybraným turtle naraz. Začínajú v poradí výberu
-s rozostupom **5 sekúnd**, bez čakania na dokončenie kontroly truhiel alebo vstup
-predchádzajúcej turtle do tunela. Pri štartovej príprave idú medzi potrebnými
+PC odošle zadania všetkým vybraným turtle naraz. Začínajú v poradí výberu:
+každá ešte v doku čaká na rezerváciu prvej kontrolovanej truhly (**fuel**).
+Ďalšia vyrazí až po skutočnom uvoľnení jej obslužného miesta predchádzajúcou
+turtle; pevnú päťsekundovú pauzu nepoužívajú. Po potvrdení uvoľnenia môže byť
+odchod oneskorený najviac bežným dvojsekundovým opakovaním požiadavky.
+Na dokončenie ostatných kontrol ani na vstup do tunela sa nečaká.
+Pri štartovej príprave idú medzi potrebnými
 truhlami priamo a od poslednej pokračujú k práci. Dopĺňanie počas práce sa naďalej
 vracia na pracovné miesto.
 

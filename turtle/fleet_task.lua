@@ -10,6 +10,9 @@ function task.settings(job, dock, previous)
     local kind = job.kind or "quarry"
     if job.startDelay ~= nil and (type(job.startDelay) ~= "number" or job.startDelay ~= math.floor(job.startDelay)
         or job.startDelay < 0 or job.startDelay > 300) then return nil, "invalid_start_delay" end
+    if job.startAfter~=nil and (type(job.startAfter)~="string" or #job.startAfter>100 or job.startAfter==job.id) then
+        return nil,"invalid_start_predecessor"
+    end
     if job.lane~=nil and job.lane~=1 and job.lane~=2 then return nil,"invalid_tunnel_lane" end
     if kind ~= "quarry" and kind ~= "floor" and kind ~= "ceiling" and kind ~= "walls" then return nil, "invalid_task_kind" end
     if kind ~= "quarry" and job.block ~= nil and (type(job.block) ~= "string" or not job.block:match("^[%w_%-]+:[%w_/%.-]+$")) then

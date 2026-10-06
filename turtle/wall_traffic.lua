@@ -3,7 +3,7 @@ local nav=require("navigation")
 local cuboid=require("cuboid")
 local plan=require("wall_plan")
 local traffic={}
-function traffic.new(client,box,base)
+function traffic.new(client,box,base,leaveParking)
     if box.interiorAccess then return base end
     local resource="wallgate:"..client.state.task.jobId
     local gate=box.opening
@@ -13,7 +13,29 @@ function traffic.new(client,box,base)
     local function interior(p) return cuboid.contains(box,p) and not plan.isWall(box,p) end
     return function(target,options,rawMove)
         local current=nav.getPosition()
-        if interior(current)==interior(target) then return base(target,options,rawMove) end
+        local needsGate=nav.distance(target,outer)==0 or interior(current)~=interior(target)
+        if needsGate and not client.held[resource] and leaveParking then
+            -- Never wait for a room entrance while occupying a supply chest:
+            -- the turtle already using the entrance may need that same chest.
+            local ok,err=leaveParking(target,options,rawMove); if not ok then return false,err end
+            current=nav.getPosition()
+        end
+        if interior(current)==interior(target) then
+            -- Opening the entrance is part of using it. Reserve before
+            -- approaching its outer endpoint, including during startup tours.
+            local entrance=nav.distance(target,outer)==0
+            if entrance and not client.held[resource] then
+                local ok,err=client.acquire(resource); if not ok then return false,err end
+            end
+            local o=options
+            if entrance then
+                o={}; for k,v in pairs(options) do o[k]=v end
+                o.waitForTarget=true
+            end
+            local ok,err,details=base(target,o,rawMove)
+            if ok and client.held[resource] and nav.distance(nav.getPosition(),gate)>1 then client.release(resource) end
+            return ok,err,details
+        end
         if not client.held[resource] and (nav.distance(current,inner)==0 or nav.distance(current,outer)==0) then
             -- A builder can finish a neighbouring tile at a doorway endpoint.
             -- Clear that endpoint before waiting for a worker coming the other way.

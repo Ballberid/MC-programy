@@ -38,18 +38,23 @@ function motion.new(client, stations, position, dock)
         sleep(0.5)
         end
     end
-    return function(target,options,rawMove)
+    local function move(target,options,rawMove)
         local resource=stationAt(target)
         if parked and not same(parking,target) then
             local ok,err=leaveParking(target,options,rawMove); if not ok then return false,err end
         end
         if resource and parked~=resource then
-            local ok,err=client.acquire(resource); if not ok then return false,err end
+            -- A worker may already reserve its first chest while still docked.
+            -- Adopt that claim rather than nesting it and keeping it after departure.
+            if not (client.held and client.held[resource]) then
+                local ok,err=client.acquire(resource); if not ok then return false,err end
+            end
             parked,parking=resource,{x=target.x,y=target.y,z=target.z}
         end
         local ok,err,details=transit.move(target,options,rawMove,client.acquire,client.release,position)
         if not ok and not same(position(),parking) then releaseParking() end
         return ok,err,details
     end
+    return move,leaveParking
 end
 return motion

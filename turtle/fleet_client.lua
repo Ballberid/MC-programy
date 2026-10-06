@@ -45,7 +45,7 @@ function client.new(controller, dock)
         if self.cancel then self.cancel = false; return false, "job_cancelled" end
         return true
     end
-    function self.acquire(resource)
+    function self.acquire(resource, startup)
         if self.held[resource] then self.held[resource].depth = self.held[resource].depth + 1; return true end
         state.lockSerial = (state.lockSerial or 0) + 1
         local request = state.lockTokens[resource] or (tostring(os.getComputerID()) .. ":" .. state.lockSerial)
@@ -55,7 +55,7 @@ function client.new(controller, dock)
         while os.clock() - lastReply < 300 do
             local ok, err = self.checkpoint(); if not ok then return false, err end
             if os.clock() - last >= 2 and not state.pendingRelease[resource] then
-                self.send("lock", { resource = resource, request = request, taskId = state.task and state.task.id })
+                self.send("lock", { resource = resource, request = request, taskId = state.task and state.task.id, startup=startup==true or nil })
                 last = os.clock()
             end
             local reply = self.replies[request]

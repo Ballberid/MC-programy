@@ -72,7 +72,8 @@ function controller.new(settings)
             local s = segments[index]
             local assignment = { id = jobId .. ":" .. index, jobId = jobId, a = s.a, b = s.b,
                 area = area, stations = store.copy(stations), tunnel = store.copy(tunnel), floor = floor,
-                kind = kind, block = options.block, wallOptions=store.copy(s.wallOptions), lane=(index-1)%2+1, startDelay=(index-1)*5 }
+                kind = kind, block = options.block, wallOptions=store.copy(s.wallOptions), lane=(index-1)%2+1,
+                startAfter=index>1 and (jobId..":"..(index-1)) or nil }
             local c, invalid = taskLib.settings(assignment, state.workers[id].dock)
             if not c then return false, invalid end
             job.tasks[id] = { id = assignment.id, total = s.total, status = "assigned", assignment = assignment }
@@ -157,12 +158,28 @@ function controller.new(settings)
             local reason
             if w and w.taskId == p.taskId and type(p.request) == "string" then
                 local held=state.locks[p.resource]
-                local _,job=jobs.task(sender)
+                local current,job=jobs.task(sender)
+                local startupBlocked=false
+                if p.startup and current then
+                    local fuel=current.assignment.stations.fuel
+                    if p.resource~="station:"..fuel.x..","..fuel.y..","..fuel.z then
+                        reason="invalid_startup_station"; startupBlocked=true
+                    elseif current.assignment.startAfter then
+                        for _,previous in pairs(job.tasks) do
+                            if previous.id==current.assignment.startAfter and not previous.startupClaimed
+                                and previous.status~="complete" and previous.status~="failed" and previous.status~="cancelled" then
+                                reason="occupied"; startupBlocked=true; break
+                            end
+                        end
+                    end
+                end
                 if type(p.resource)=="string" and p.resource:match("^wallgate:")
                     and (not job or job.kind~="walls" or p.resource~="wallgate:"..job.id) then
                     reason="unknown_resource"
-                else granted,reason = model.acquire(state.locks, p.resource, sender, p.request) end
-                if granted and not held then self.save() end
+                elseif not startupBlocked then granted,reason = model.acquire(state.locks, p.resource, sender, p.request) end
+                local newStartup=granted and p.startup and current and not current.startupClaimed
+                if newStartup then current.startupClaimed=true end
+                if granted and (not held or newStartup) then self.save() end
             end
             self.send(sender, "lock_reply", { request = p.request, granted = granted, resource = p.resource, error=reason })
         elseif p.kind == "release" then

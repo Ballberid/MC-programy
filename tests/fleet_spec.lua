@@ -535,7 +535,8 @@ test("controller dispatches only the selected available workers", function()
     eq(c.state.job.tasks[42].total + c.state.job.tasks[43].total, 48)
     eq(c.state.workers[41].status, "idle"); eq(c.state.workers[42].status, "assigned")
     eq(c.state.job.tasks[42].assignment.lane,1); eq(c.state.job.tasks[43].assignment.lane,2)
-    eq(c.state.job.tasks[42].assignment.startDelay,0); eq(c.state.job.tasks[43].assignment.startDelay,5)
+    eq(c.state.job.tasks[42].assignment.startAfter,nil)
+    eq(c.state.job.tasks[43].assignment.startAfter,c.state.job.tasks[42].id)
     eq(c.start(t.a, t.b, { 41 }, t.stations), false)
 end)
 test("controller also protects the dock of an unselected turtle", function()
@@ -740,6 +741,88 @@ test("shared-station parking holds the reservation until departing the station",
     assert(move(stations().fuel, {}, raw)); eq(depth, 1)
     assert(move(stations().fuel, {}, raw)); eq(depth, 1)
     assert(move(dock(), {}, raw)); eq(depth, 0)
+end)
+
+test("startup claims follow assignment order and wait for release across a controller restart",function()
+    local c,m=controllerWithWorkers(); local job=assignment()
+    assert(c.start(job.a,job.b,{41,42,43},job.stations))
+    local work=c.state.job
+    local reply
+    rednet.send=function(_,p) if p.kind=="lock_reply" then reply=p end; return true end
+    local function claim(id,resource)
+        c.handle(id,{version=1,id=id,kind="lock",taskId=work.tasks[id].id,request="start"..id,
+            resource=resource or "station:2,0,2",startup=true},m.protocol)
+        return reply
+    end
+    eq(claim(42).granted,false); eq(reply.error,"occupied")
+    eq(claim(41).granted,true); eq(work.tasks[41].startupClaimed,true)
+    eq(claim(42).granted,false)
+    c=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(claim(42).granted,false)
+    c.handle(41,{version=1,id=41,kind="release",resource="station:2,0,2",token="start41"},m.protocol)
+    eq(claim(43).granted,false); eq(claim(42).granted,true)
+    eq(claim(43,"station:-2,0,2").error,"invalid_startup_station")
+    c.handle(42,{version=1,id=42,kind="release",resource="station:2,0,2",token="start42"},m.protocol)
+    eq(claim(43).granted,true)
+end)
+
+test("first chest motion adopts a dock reservation and releases it only after a successful departure",function()
+    assert(require("transit").configure(nil))
+    local resource="station:2,0,2"
+    local client={held={[resource]={depth=1}},acquire=function() error("duplicate claim") end}
+    local p=dock(); local releases=0
+    client.release=function(r) eq(r,resource); client.held[r]=nil; releases=releases+1 end
+    local move=require("fleet_motion").new(client,stations(),function() return p end,dock())
+    local function raw(x,y,z) p={x=x,y=y,z=z}; return true end
+    assert(move({x=0,y=0,z=-1},{},raw)); eq(releases,0)
+    assert(move(stations().fuel,{},raw)); eq(releases,0); eq(client.held[resource].depth,1)
+    local attempts=0
+    local function depart(x,y,z)
+        attempts=attempts+1
+        if attempts==1 then eq(releases,0); return false,"target_unreachable" end
+        return raw(x,y,z)
+    end
+    assert(move({x=8,y=0,z=2},{},depart)); eq(releases,1)
+end)
+
+test("cancelling startup keeps the worker docked and clears unanswered reservations",function()
+    env.configured(stations()); env.navReady()
+    local cleared,finished=0,false
+    local client={queued=true,held={},state={dock=dock(),task=assignment(),status="assigned"},
+        save=function() end,status=function() end,checkpoint=function() return true end,
+        release=function() error("unexpected held reservation") end,
+        acquire=function(resource,startup)
+            eq(resource,"station:2,0,2"); eq(startup,true)
+            return false,"job_cancelled"
+        end,
+        clearClaims=function() cleared=cleared+1 end,
+        finish=function(ok,err,p)
+            eq(ok,false); eq(err,"job_cancelled"); eq(p.returnedHome,true)
+            finished=true; error("test_finished",0)
+        end}
+    require("fleet_client").new=function() return client end
+    parallel.waitForAny=function(_,execute) execute() end
+    local ok,err=pcall(loadfile(ROOT.."/turtle/worker.lua"),"99","0")
+    eq(ok,false); eq(err,"test_finished"); eq(finished,true); eq(cleared,1); eq(world().moves,0)
+end)
+
+test("room entrance waiting frees a supply chest before acquiring the doorway",function()
+    local box=assert(require("wall_plan").new({x=8,y=0,z=0},{x=17,y=3,z=9},{includeCorners=false}))
+    local p={x=2,y=0,z=2}; require("navigation").getPosition=function() return p end
+    local station="station:2,0,2"
+    local client={state={task={jobId="test-wall"}},held={[station]={depth=1}}}
+    local releasedParking,claims,releases=0,0,0
+    client.acquire=function(r)
+        eq(client.held[station],nil); claims=claims+1; client.held[r]={depth=1}; return true
+    end
+    client.release=function(r) client.held[r]=nil; releases=releases+1 end
+    local function base(target) p={x=target.x,y=target.y,z=target.z}; return true end
+    local function leaveParking()
+        eq(releasedParking,0); client.held[station]=nil; releasedParking=1; return true
+    end
+    local move=require("wall_traffic").new(client,box,base,leaveParking)
+    assert(move({x=7,y=1,z=1},{})); eq(claims,1); eq(releases,0); eq(releasedParking,1)
+    assert(move({x=9,y=1,z=1},{})); eq(claims,1); eq(releases,1)
 end)
 
 test("chest departure probes another cell and releases the old endpoint before acquiring the next", function()

@@ -9,8 +9,23 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     queues = {identity:deque() for identity in (99,*workers)}
     machines = {}
     clock = [0.0]
+    departures=[]
+    radio_errors=[]
+
+    def departure_safe(machine):
+        control=machines[99][0].globals().CONTROL
+        claim=control.state["locks"]["station:2,0,2"]
+        assert claim and claim["owner"]==machine, "Workers must reserve their first chest before leaving the dock"
+        for identity in workers:
+            if identity==machine: continue
+            world=machines[identity][1]["world"]()
+            assert (world["x"],world["y"],world["z"])!=(2,0,2), "Departure must wait until the first chest is physically free"
+        departures.append(machine)
 
     def send(source, recipient, message, protocol):
+        if protocol=="craftoria.turtle.v1" and '["level"]="error"' in message:
+            radio_errors.append(message)
+            if len(radio_errors)>8: radio_errors.pop(0)
         destinations = [recipient] if recipient is not None else [i for i in queues if i != source]
         for target in destinations:
             if target in queues:
@@ -65,6 +80,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().PY_CLEARED = cleared
         lua.globals().PY_PLACED = placed
         lua.globals().PY_GATE_SAFE = gate_safe
+        lua.globals().PY_DEPARTURE_SAFE = departure_safe
         lua.globals().JOB_KIND = kind
         lua.globals().MIXED_JOBS = mixed
         lua.globals().USE_SHAFT = shaft
@@ -193,7 +209,10 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                         W.materialVisits=(W.materialVisits or 0)+1
                         W.chests["3,0,-2"].items={{name="minecraft:stone",count=8}}
                     end
-                    if ok and not FIRST_MOVE then FIRST_MOVE={x=p.x,y=p.y,z=p.z}; FIRST_MOVE_AT=os.clock() end
+                    if ok and not FIRST_MOVE then
+                        PY_DEPARTURE_SAFE(MACHINE_ID)
+                        FIRST_MOVE={x=p.x,y=p.y,z=p.z}; FIRST_MOVE_AT=os.clock()
+                    end
                     coroutine.yield(); return ok,err
                 end
             end
@@ -296,14 +315,15 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             break
     else:
         states = {i: control.state["workers"][i]["status"] for i in workers}
-        raise AssertionError(f"Fleet did not complete: {states}")
+        positions={i:tuple(machines[i][1]["world"]()[k] for k in ("x","y","z")) for i in workers}
+        failures={i:control.state["workers"][i]["error"] for i in workers}
+        for message in radio_errors[-5:]: print(message, flush=True)
+        raise AssertionError(f"Fleet did not complete: {states}, positions={positions}, errors={failures}")
     assert owners == set(workers)
     for index,identity in enumerate(workers):
         first=machines[identity][0].globals().FIRST_MOVE
         assert (first["x"],first["y"],first["z"]) == (4 if shaft else 0,0,-2*index-1), "Dock departure must first move forward"
-        if index and not mixed:
-            previous=machines[workers[index-1]][0].globals().FIRST_MOVE_AT
-            assert machines[identity][0].globals().FIRST_MOVE_AT-previous >= 4.8, "Workers must start five seconds apart"
+    assert departures==list(workers), "Workers must depart in assignment order as the first chest becomes free"
     assert worked_together, "Workers should process their segments concurrently"
     if shaft:
         assert startup_overlap, "Second worker should use service before the first reaches its excavation"
