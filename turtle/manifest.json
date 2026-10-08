@@ -36,6 +36,7 @@
     { "source": "fleet_client.lua", "target": "fleet_client.lua", "roles": ["turtle"] },
     { "source": "fleet_motion.lua", "target": "fleet_motion.lua", "roles": ["turtle"] },
     { "source": "worker.lua", "target": "worker.lua", "roles": ["turtle"] },
+    { "source": "startup.lua", "target": "startup.lua", "roles": ["turtle"] },
     { "source": "fleet_display.lua", "target": "fleet_display.lua", "roles": ["controller", "receiver"] },
     { "source": "fleet_controller.lua", "target": "fleet_controller.lua", "roles": ["controller"] },
     { "source": "fleet_jobs.lua", "target": "fleet_jobs.lua", "roles": ["controller"] },
