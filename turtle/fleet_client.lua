@@ -37,7 +37,7 @@ function client.new(controller, dock)
             taskType = state.task and (state.task.kind or "quarry"),
             jobId = state.task and state.task.jobId, label = os.getComputerLabel(), dock = state.dock,
             position = nav.getPosition(), fuel = turtle.getFuelLevel(), inventory = inv.snapshot(),
-            progress = state.progress, error = state.error,
+            progress = state.progress, error = state.error, startupComplete=state.startupComplete==true,
             activity = self.paused and "paused" or telemetry.getActivity() })
     end
     function self.checkpoint()
@@ -115,6 +115,7 @@ function client.new(controller, dock)
         self.clearClaims()
         self.paused,self.cancel,self.recovery,self.retry=false,false,false,false
         state.task,state.progress,state.error,state.previous=nil,nil,nil,nil
+        state.startupComplete=nil
         state.status="idle"; telemetry.setProgress(nil); telemetry.setActivity("idle"); self.save()
         return true
     end
@@ -136,6 +137,7 @@ function client.new(controller, dock)
             local c, err = task.settings(job, state.dock, config.load())
             if not c then self.send("reject", { taskId = job.id, error = err }); return end
             state.task, state.status, state.progress, state.error = job, "assigned", nil, nil
+            state.startupComplete=nil
             telemetry.setProgress(nil)
             state.previous = config.load()
             state.seen[job.id] = true

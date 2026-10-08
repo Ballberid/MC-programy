@@ -381,11 +381,15 @@ test("startup visits go chest to chest and restore normal return behaviour even 
     nav.getPosition=function() return p end
     nav.moveToCoord=function(x,y,z) p={x=x,y=y,z=z}; calls[#calls+1]=p; return true end
     peripheral.hasType=function() return true end
-    lib.setRuntime(nil,nil,true)
+    local finished=0
+    lib.setRuntime(nil,nil,true,function() finished=finished+1 end)
     assert(lib.startup(function() assert(lib.verify("fuel")); return lib.verify("output") end))
     eq(#calls,2); eq(calls[1].x,2); eq(calls[2].x,-2)
     eq(p.x,-2)
+    eq(finished,1)
+    eq(lib.startup(function() return false,"test failure" end),false); eq(finished,1)
     eq(pcall(function() lib.startup(function() error("test failure") end) end),false)
+    eq(finished,1)
     assert(lib.verify("fuel")); eq(#calls,4); eq(p.x,-2)
 end)
 test("durable state survives interrupted rename without forgetting reservations", function()
@@ -760,7 +764,7 @@ test("shared-station parking holds the reservation until departing the station",
     assert(move(dock(), {}, raw)); eq(depth, 0)
 end)
 
-test("startup claims follow assignment order and wait for release across a controller restart",function()
+test("startup claims wait for the entire chest tour across a controller restart",function()
     local c,m=controllerWithWorkers(); local job=assignment()
     assert(c.start(job.a,job.b,{41,42,43},job.stations))
     local work=c.state.job
@@ -777,10 +781,38 @@ test("startup claims follow assignment order and wait for release across a contr
     c=require("fleet_controller").new(require("fleet_settings").defaults())
     eq(claim(42).granted,false)
     c.handle(41,{version=1,id=41,kind="release",resource="station:2,0,2",token="start41"},m.protocol)
+    eq(claim(42).granted,false)
+    local function finished(id)
+        c.handle(id,{version=1,id=id,kind="status",taskId=work.tasks[id].id,status="running",
+            dock=dock(),startupComplete=true},m.protocol)
+    end
+    finished(41)
+    c=require("fleet_controller").new(require("fleet_settings").defaults())
+    eq(c.state.job.tasks[41].startupComplete,true)
     eq(claim(43).granted,false); eq(claim(42).granted,true)
     eq(claim(43,"station:-2,0,2").error,"invalid_startup_station")
     c.handle(42,{version=1,id=42,kind="release",resource="station:2,0,2",token="start42"},m.protocol)
+    eq(claim(43).granted,false)
+    finished(42)
     eq(claim(43).granted,true)
+end)
+
+test("startup finishes only after physically leaving the final chest",function()
+    assert(require("transit").configure(nil))
+    local p=dock(); local finished,releases=0,0
+    local client={acquire=function() return true end,release=function() releases=releases+1 end}
+    local move,_,finish=require("fleet_motion").new(client,stations(),function() return p end,dock(),function()
+        eq(p.x==stations().output.x and p.y==stations().output.y and p.z==stations().output.z,false)
+        finished=finished+1
+    end)
+    local function raw(x,y,z) p={x=x,y=y,z=z}; return true end
+    assert(move(stations().fuel,{},raw))
+    assert(move(stations().output,{},raw)); eq(finished,0); eq(releases,1)
+    finish(); eq(finished,0)
+    local allowed=move({x=8,y=0,z=4},{},function() return false,"target_unreachable" end)
+    eq(allowed,false); eq(finished,0); eq(releases,1)
+    assert(move({x=8,y=0,z=4},{},raw)); eq(finished,1); eq(releases,2)
+    assert(move(dock(),{},raw)); eq(finished,1)
 end)
 
 test("first chest motion adopts a dock reservation and releases it only after a successful departure",function()

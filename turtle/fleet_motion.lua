@@ -2,14 +2,22 @@
 local transit = require("transit")
 local nav = require("navigation")
 local motion = {}
-function motion.new(client, stations, position, dock)
+function motion.new(client, stations, position, dock, onStartupComplete)
     local parked,parking
+    local startupPending=false
+    local function notifyStartup()
+        if startupPending and not parked then
+            startupPending=false
+            if onStartupComplete then onStartupComplete() end
+        end
+    end
     local function same(a,b) return a and b and a.x==b.x and a.y==b.y and a.z==b.z end
     local function stationAt(p)
         for _,s in pairs(stations) do if same(p,s) then return "station:"..s.x..","..s.y..","..s.z end end
     end
     local function releaseParking()
         if parked then client.release(parked); parked,parking=nil,nil end
+        notifyStartup()
     end
     local function leaveParking(target,options,rawMove)
         if not parked then return true end
@@ -55,6 +63,10 @@ function motion.new(client, stations, position, dock)
         if not ok and not same(position(),parking) then releaseParking() end
         return ok,err,details
     end
-    return move,leaveParking
+    local function finishStartup()
+        startupPending=true
+        notifyStartup()
+    end
+    return move,leaveParking,finishStartup
 end
 return motion

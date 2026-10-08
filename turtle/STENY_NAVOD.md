@@ -29,8 +29,9 @@ voľný prístup nadol do miestnosti. Podlahu, strop ani prekážky na tejto ces
 nevykope. Aj presuny po materiál používajú rovnaké hranice navigácie ako ostatné úlohy.
 
 Odchod z dokov je spoločný pre kopanie, podlahu, strop aj steny. Každá turtle
-ešte v doku rezervuje prvú truhlu (`fuel`); ďalšia odíde až po jej fyzickom
-uvoľnení predchádzajúcou turtle. Dokončenie celej kontroly truhiel sa nečaká.
+ešte v doku rezervuje prvú truhlu (`fuel`); ďalšia odíde až keď predchádzajúca
+dokončí celú kontrolu truhiel vrátane naloženia materiálu a fyzicky opustí
+posledné obslužné miesto. Na pracovisku už pracujú súbežne.
 
 V `setup` priprav truhly **fuel**, **materials** a **output**. Materiálová truhla
 má obsahovať jeden druh stavebného bloku. Blok vyber jeho ID alebo vzorkou vo

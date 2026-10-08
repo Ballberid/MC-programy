@@ -53,10 +53,12 @@ voľnú bunku; smer sa berie z pôvodného párovania pracovníka.
 
 PC odošle zadania všetkým vybraným turtle naraz. Začínajú v poradí výberu:
 každá ešte v doku čaká na rezerváciu prvej kontrolovanej truhly (**fuel**).
-Ďalšia vyrazí až po skutočnom uvoľnení jej obslužného miesta predchádzajúcou
-turtle; pevnú päťsekundovú pauzu nepoužívajú. Po potvrdení uvoľnenia môže byť
+Ďalšia vyrazí až keď predchádzajúca dokončí celú úvodnú kontrolu truhiel,
+natankuje podľa potreby, naloží materiál a fyzicky opustí posledné obslužné miesto.
+Pevnú päťsekundovú pauzu nepoužívajú. Po potvrdení dokončenia môže byť
 odchod oneskorený najviac bežným dvojsekundovým opakovaním požiadavky.
-Na dokončenie ostatných kontrol ani na vstup do tunela sa nečaká.
+Na vstup predchádzajúcej turtle do tunela sa nečaká. Toto pravidlo je spoločné
+pre kopanie, podlahu, strop aj steny; samotná práca zostáva súbežná.
 Pri štartovej príprave idú medzi potrebnými
 truhlami priamo a od poslednej pokračujú k práci. Dopĺňanie počas práce sa naďalej
 vracia na pracovné miesto.

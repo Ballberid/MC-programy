@@ -4,10 +4,11 @@ local fuel = require("fuel")
 local inv = require("inventory")
 local telemetry = require("telemetry")
 local stations = {}
-local acquire, release,managed,tourHome
-function stations.setRuntime(lockHandler, releaseHandler,movementManaged)
+local acquire, release,managed,tourHome,startupFinished
+function stations.setRuntime(lockHandler, releaseHandler,movementManaged,finishStartup)
     acquire, release = lockHandler, releaseHandler
     managed=movementManaged==true
+    startupFinished=finishStartup
 end
 function stations.isManaged() return managed end
 function stations.startup(action)
@@ -15,6 +16,7 @@ function stations.startup(action)
     local previous=tourHome; tourHome=nav.getPosition()
     local result=table.pack(pcall(action)); tourHome=previous
     if not result[1] then error(result[2],0) end
+    if result[2]==true and startupFinished then startupFinished() end
     return table.unpack(result,2,result.n)
 end
 

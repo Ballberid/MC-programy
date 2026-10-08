@@ -131,6 +131,7 @@ function controller.new(settings)
                 label = p.label, fuel = p.fuel, inventory = p.inventory, position = p.position, progress = p.progress }
             if t and p.taskId == t.id then
                 local changed = t.status ~= p.status
+                if p.startupComplete==true and not t.startupComplete then t.startupComplete=true; changed=true end
                 t.status, t.error = p.status, p.error
                 w.packet.progress = updateProgress(t, p.progress)
                 if changed then self.save() end
@@ -166,7 +167,7 @@ function controller.new(settings)
                         reason="invalid_startup_station"; startupBlocked=true
                     elseif current.assignment.startAfter then
                         for _,previous in pairs(job.tasks) do
-                            if previous.id==current.assignment.startAfter and not previous.startupClaimed
+                            if previous.id==current.assignment.startAfter and not previous.startupComplete
                                 and previous.status~="complete" and previous.status~="failed" and previous.status~="cancelled" then
                                 reason="occupied"; startupBlocked=true; break
                             end

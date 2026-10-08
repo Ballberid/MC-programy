@@ -16,6 +16,12 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         control=machines[99][0].globals().CONTROL
         claim=control.state["locks"]["station:2,0,2"]
         assert claim and claim["owner"]==machine, "Workers must reserve their first chest before leaving the dock"
+        if departures:
+            previous=departures[-1]
+            task=control.state["job"]["tasks"][previous]
+            # Separate jobs can start independently; assignments in a job share the tour gate.
+            if task:
+                assert task["startupComplete"], "Departure must wait for the entire preceding chest tour"
         for identity in workers:
             if identity==machine: continue
             world=machines[identity][1]["world"]()
@@ -325,8 +331,11 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     for index,identity in enumerate(workers):
         first=machines[identity][0].globals().FIRST_MOVE
         assert (first["x"],first["y"],first["z"]) == (4 if shaft else 0,0,-2*index-1), "Dock departure must first move forward"
-    assert departures==list(workers), "Workers must depart in assignment order as the first chest becomes free"
-    assert worked_together, "Workers should process their segments concurrently"
+    assert departures==list(workers), "Workers must depart in assignment order after the preceding chest tour"
+    # The tiny corner fixture can finish before the second chest tour ends.
+    # Larger jobs still verify autonomous concurrent work after serialized startup.
+    if not corners:
+        assert worked_together, "Workers should process their segments concurrently"
     if shaft:
         assert startup_overlap, "Second worker should use service before the first reaches its excavation"
         assert shaft_overlap, "Two workers should travel in separate shaft columns concurrently"
