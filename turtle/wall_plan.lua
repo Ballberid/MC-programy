@@ -24,6 +24,12 @@ end
 function plan.protected(box)
     return {min=box.min,max=box.max,walls=true,opening=not box.interiorAccess and box.opening or nil}
 end
+-- A floor exit above/below the wall height can enter without crossing a face.
+-- An exit within the room footprint can also descend/ascend through its interior.
+function plan.directAccess(box,p)
+    return p.y<box.min.y or p.y>box.max.y
+        or (p.x>box.min.x and p.x<box.max.x and p.z>box.min.z and p.z<box.max.z)
+end
 -- Intersections with the four vertical faces, without scanning room cells.
 function plan.intersects(box, volume)
     if volume.max.y<box.min.y or volume.min.y>box.max.y then return false end

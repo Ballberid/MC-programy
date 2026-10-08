@@ -88,6 +88,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().WALL_RECOVERY = recovery
         lua.globals().WALL_RESTOCK = restock
         lua.globals().WALL_INTERIOR = interior
+        lua.globals().WALL_EXIT_Y = 22 if interior == "above" else (3 if interior == "below" else 6)
         lua.execute('''
             os.getComputerID = function() return MACHINE_ID end
             os.clock = function() return PY_CLOCK() end
@@ -156,6 +157,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                     W.blocks["7,6,1"],W.blockNames["7,6,1"]=true,"minecraft:dirt"
                     for x=11,13 do for z=3,5 do
                         W.blocks[x..",4,"..z],W.blockNames[x..",4,"..z]=nil,nil
+                        W.blocks[x..",9,"..z],W.blockNames[x..",9,"..z]=nil,nil
                     end end
                 end
             end
@@ -287,7 +289,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                 if JOB_KIND=="walls" then a,b={x=8,y=0,z=0},{x=17,y=3,z=9} end
                 if WALL_INTERIOR then
                     a,b={x=8,y=5,z=0},{x=17,y=8,z=9}
-                    tunnel={x=12,z=4,floors={base={exit={x=14,y=0,z=4}},upper={exit={x=14,y=6,z=4}}}}
+                    tunnel={x=12,z=4,floors={base={exit={x=14,y=0,z=4}},upper={exit={x=14,y=WALL_EXIT_Y,z=4}}}}
                     floor="upper"
                 end
                 return CONTROL.start(a,b,WORKER_IDS,
@@ -370,5 +372,5 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     label = "mixed quarry + floor, 640 cells" if mixed else (f"{kind}, pipelined shaft startup" if shaft else kind)
     if recovery: label += ", worker retry and controller restart"
     if restock: label += ", repeated material trips"
-    if interior: label += ", tunnel exit inside room"
+    if interior: label += ", tunnel exit " + (interior if isinstance(interior, str) else "inside room")
     print(f"PASS radio integration ({label}): {worker_count} concurrent workers, 1 controller, {expected} cells and distinct docks", flush=True)

@@ -68,7 +68,7 @@ local function newJob(kind)
     if not parts then print(reason); return end
     if wallArea then
         local g=wallArea.opening
-        if c.tunnel and floor and require("cuboid").contains(wallArea,c.tunnel.floors[floor].exit) then
+        if c.tunnel and floor and require("wall_plan").directAccess(wallArea,c.tunnel.floors[floor].exit) then
             print("Vstup cez tunel do interieru; docasny priechod cez stenu netreba.")
         else
             print("Spolocny priechod: "..g.x..","..g.y..","..g.z.."; pristup zvonka musi byt volny.")

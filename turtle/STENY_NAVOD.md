@@ -22,6 +22,16 @@ koridor a používaná šachta smú byť v interiéri, ale nesmú zasahovať do 
 stien, ktoré by im stavba zablokovala. Výstup vo vnútri kvádra teda pri stenách
 nie je automaticky chyba. Pri kopaní, podlahe a strope zostávajú ich kontroly.
 
+Výstup môže byť aj nad hornou alebo pod spodnou hranicou stien. Turtle použije
+voľnú cestu do interiéru a pokračuje po vnútornom obvode; pomocný priechod zvonka
+nevyžaduje. Napríklad steny Y=40–49 môžu mať výstup na Y=63, ak je od neho
+voľný prístup nadol do miestnosti. Podlahu, strop ani prekážky na tejto ceste
+nevykope. Aj presuny po materiál používajú rovnaké hranice navigácie ako ostatné úlohy.
+
+Odchod z dokov je spoločný pre kopanie, podlahu, strop aj steny. Každá turtle
+ešte v doku rezervuje prvú truhlu (`fuel`); ďalšia odíde až po jej fyzickom
+uvoľnení predchádzajúcou turtle. Dokončenie celej kontroly truhiel sa nečaká.
+
 V `setup` priprav truhly **fuel**, **materials** a **output**. Materiálová truhla
 má obsahovať jeden druh stavebného bloku. Blok vyber jeho ID alebo vzorkou vo
 vybranom slote; s prázdnym slotom a prázdnym ID sa použije vzorka z truhly.
@@ -46,7 +56,7 @@ rohový blok nedá položiť priamo pred seba. Pri voľbe **bez rohov** ich pone
 pôvodné; prístup k nim zvonka nepotrebuje. Ostatné steny stavia **pred seba z vnútorného obvodu**.
 Na pracovnom mieste nikdy nestojí v budovanej stene.
 
-Nechá jeden dočasný priechod na strane prvého rohu. Jeho súradnice vypíše pred
+Bez priameho vstupu z pracovného poschodia nechá jeden dočasný priechod na strane prvého rohu. Jeho súradnice vypíše pred
 štartom. Priechod otvorí, používa ho na vstup a zásobovanie, potom vyjde von
 a **uzavrie ho ako posledný blok**. Pri chybe alebo zrušení môže zostať otvorený.
 

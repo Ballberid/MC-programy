@@ -1,7 +1,6 @@
 -- Interior wall access. Corners and the final opening are completed outside.
 local nav=require("navigation")
 local supplies=require("supplies")
-local config=require("config")
 local plan=require("wall_plan")
 local cuboid=require("cuboid")
 local obstacles=require("obstacles")
@@ -71,17 +70,16 @@ function access.new(box)
                 if not returned then return nil,"approach_return_failed:"..tostring(returnErr) end
                 lastError=crossErr
             else
-                distance=nav.estimateDistance(p)
                 local options=assert(supplies.navigationOptions())
                 options.direction=p.direction
-                options.maxDetour=math.min(2,config.load().navigation.maxDetour)
-                options.maxMoves=math.min(config.load().navigation.maxMoves,distance+12)
+                -- Initial access and restocking routes need the same bounded
+                -- navigation as other jobs, including passage openings above us.
+                local routeMoves,routeDetour=options.maxMoves,options.maxDetour
                 local adjacent=nav.distance(nav.getPosition(),p)<=1
                 if adjacent then options.maxMoves,options.maxDetour,options.positionVerified=1,0,true end
                 local ok,reason=nav.moveToCoord(p.x,p.y,p.z,options)
-                if not ok and adjacent and (reason=="target_unreachable" or reason=="no_route") then
-                    options.maxMoves=math.min(config.load().navigation.maxMoves,distance+12)
-                    options.maxDetour=math.min(2,config.load().navigation.maxDetour)
+                if not ok and adjacent and (reason=="target_unreachable" or reason=="no_route" or reason=="move_limit") then
+                    options.maxMoves,options.maxDetour=routeMoves,routeDetour
                     ok,reason=nav.moveToCoord(p.x,p.y,p.z,options)
                 end
                 if ok then return "front",p end

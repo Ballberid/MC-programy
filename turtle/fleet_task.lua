@@ -84,7 +84,7 @@ function task.settings(job, dock, previous)
     if kind=="walls" then
         -- An internal tunnel supplies permanent access: do not cut a second
         -- doorway through the wall or require exterior access to close it.
-        local inside=job.tunnel and cuboid.contains(box,job.tunnel.floors[job.floor].exit) or false
+        local inside=job.tunnel and plan.directAccess(box,job.tunnel.floors[job.floor].exit) or false
         job.wallOptions.interiorAccess=inside; box.interiorAccess=inside
     end
     return c, nil, box

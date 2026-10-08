@@ -296,6 +296,13 @@ test("wall tasks allow an interior shaft and floor exits but reject actual wall 
     eq(require("wall_plan").protected(box).opening,nil)
     local stand=require("wall_access").new(box).stand(box.opening)
     eq(stand.x,box.min.x+1)
+    for _,height in ipairs({3,22}) do
+        job.tunnel.floors.upper.exit.y=height
+        c,err,box=task.settings(job,dock()); assert(c,err)
+        eq(box.interiorAccess,true); eq(require("wall_plan").protected(box).opening,nil)
+        eq(require("wall_access").new(box).stand(box.opening).x,box.min.x+1)
+    end
+    job.tunnel.floors.upper.exit.y=6
     job.tunnel.floors.upper.exit.x=17
     c,err=task.settings(job,dock()); eq(c,nil); eq(err,"floor_exit_inside_area")
     job.tunnel.floors.upper.exit.x=19
@@ -303,6 +310,16 @@ test("wall tasks allow an interior shaft and floor exits but reject actual wall 
     job.tunnel.floors.upper.exit.x=14; job.tunnel.z=1
     job.tunnel.floors.upper.exit.z=1; job.tunnel.floors.base.exit.z=1
     c,err=task.settings(job,dock()); eq(c,nil); eq(err,"tunnel_inside_area")
+end)
+
+test("wall entry classification accounts for height without allowing face crossings",function()
+    local plan=require("wall_plan")
+    local box=assert(plan.new({x=7488,y=49,z=-2497},{x=7551,y=40,z=-2560},{includeCorners=false}))
+    eq(plan.directAccess(box,{x=7489,y=63,z=-2498}),true)
+    eq(plan.directAccess(box,{x=7489,y=39,z=-2498}),true)
+    eq(plan.directAccess(box,{x=7489,y=45,z=-2498}),true)
+    eq(plan.directAccess(box,{x=7487,y=45,z=-2498}),false)
+    eq(plan.directAccess(box,{x=7488,y=45,z=-2498}),false)
 end)
 
 test("fleet split covers reversed corners without overlapping cells", function()
