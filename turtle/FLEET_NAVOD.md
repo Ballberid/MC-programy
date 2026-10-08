@@ -63,6 +63,12 @@ Pri štartovej príprave idú medzi potrebnými
 truhlami priamo a od poslednej pokračujú k práci. Dopĺňanie počas práce sa naďalej
 vracia na pracovné miesto.
 
+Pri zadávaní úlohy PC vypíše názov vybraného poschodia a súradnice výstupu.
+Ak zadanie odmietne ešte pred odoslaním, zobrazí `Nespustene: ...` a počká na
+Enter, aby dôvod neprekrylo menu. Posledné odmietnutie, rohy a vybraný výstup
+uloží do `data/fleet-last-start-error.txt`; na PC ho otvoríš cez
+`edit data/fleet-last-start-error.txt`. Odmietnuté zadanie nemení stav turtle.
+
 Rezervuje sa iba konkrétne obslužné miesto pri truhle. Pri rôznych truhlách môžu
 pracovať súčasne; pri tej istej sa vystriedajú. Pred rezerváciou ďalšej truhly
 turtle opustí predchádzajúce miesto, aby si navzájom neblokovali odchod.

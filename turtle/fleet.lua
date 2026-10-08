@@ -62,6 +62,10 @@ local function newJob(kind)
     local stations = pickStations(c, kind); if not stations then return end
     local floor
     if c.tunnel then floor = dialog.choose("Pracovne poschodie", c.tunnel.floors) end
+    if floor then
+        local p=c.tunnel.floors[floor].exit
+        print("Poschodie: "..floor.."; vystup "..p.x..","..p.y..","..p.z)
+    end
     local parts,reason,wallArea
     if kind=="walls" then parts,reason,wallArea=model.splitWalls(a,b,count,{includeCorners=corners})
     else parts,reason=model.split(a,b,count) end
@@ -79,6 +83,12 @@ local function newJob(kind)
     if not dialog.yes(kind~="quarry" and "Spustit stavanie?" or "Spustit spolocny vykop?", false) then return end
     local started, startErr = control.start(a, b, selected, stations, c.tunnel, floor, { kind = kind, block = block,includeCorners=corners })
     print(started and "Ulohy odoslane. Potvrdenia sleduj na monitore." or ("Nespustene: " .. tostring(startErr)))
+    if not started then
+        store.save("data/fleet-last-start-error.txt",{error=startErr,kind=kind,a=a,b=b,floor=floor,
+            exit=floor and c.tunnel.floors[floor].exit or nil,workers=selected})
+        print("Dovod ulozeny v data/fleet-last-start-error.txt. Turtle nedostali novu ulohu.")
+        dialog.text("Enter = navrat do menu","")
+    end
 end
 local function controlTarget(action)
     local scope=dialog.number("Ovladat: 1 turtle, 2 celu ulohu, 3 vsetky",1,1,3)

@@ -222,8 +222,13 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
         materials={x=4,y=0,z=2,direction=1,side="front"}}; c.defaults={fuel="fuel",output="output",materials="materials"}
     require("fleet_settings").load=function() return c end
     local kinds,actions,runs={},{},{}
+    local failuresAcknowledged=0
     local control={settings=c,state={locks={}},available=function() return {41} end,
-        start=function(_,_,_,_,_,_,options) kinds[#kinds+1]=options.kind; return true end,
+        start=function(_,_,_,_,_,_,options)
+            kinds[#kinds+1]=options.kind
+            if options.kind=="quarry" then return false,"floor_exit_inside_area" end
+            return true
+        end,
         control=function(action) actions[#actions+1]=action end,save=function() end,
         snapshot=function() return {workers={},summary={completed=0,total=0,remaining=0}} end}
     require("fleet_controller").new=function() return control end
@@ -239,12 +244,18 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     local points=0
     dialog.point=function() points=points+1; return points%2==1 and {x=8,y=0,z=4} or {x=11,y=2,z=7} end
     dialog.flatPoint=function(_,y) return {x=9,y=y,z=5} end
-    dialog.text=function(prompt) return prompt:find("VOLNE",1,true) and "VOLNE" or "" end
+    dialog.text=function(prompt)
+        if prompt=="Enter = navrat do menu" then failuresAcknowledged=failuresAcknowledged+1 end
+        return prompt:find("VOLNE",1,true) and "VOLNE" or ""
+    end
     dialog.choose=function(_,_,default) return default end
     parallel.waitForAny=function(_,input) input() end
     assert(pcall(loadfile(ROOT.."/turtle/fleet.lua")))
     eq(table.concat(kinds,","),"quarry,floor,ceiling,walls")
     eq(table.concat(actions,","),"pause,resume,stop,reset"); eq(runs[1],"fleet_setup"); eq(#choices,0)
+    eq(failuresAcknowledged,1)
+    local failure=require("fleet_store").load("data/fleet-last-start-error.txt",{})
+    eq(failure.error,"floor_exit_inside_area"); eq(failure.kind,"quarry"); eq(failure.a.x,8)
 end)
 
 test("fleet wall closure waits for completed peers and persists across controller restarts",function()

@@ -2,7 +2,9 @@
 from collections import deque
 
 
-def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False, interior=False):
+def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False, interior=False, shaft_down=False):
+    if shaft_down:
+        shaft = True
     prefix = (root / "tests" / "turtle_spec.lua").read_text(encoding="utf-8")
     prefix = prefix[:prefix.index('test("targeted refuel')]
     workers=tuple(range(41,41+worker_count))
@@ -90,6 +92,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().JOB_KIND = kind
         lua.globals().MIXED_JOBS = mixed
         lua.globals().USE_SHAFT = shaft
+        lua.globals().SHAFT_WORK_Y = -31 if shaft_down else 40
         lua.globals().WALL_CORNERS = corners
         lua.globals().WALL_RECOVERY = recovery
         lua.globals().WALL_RESTOCK = restock
@@ -126,11 +129,12 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             W.chests["-3,0,2"]={items={}}
             W.chests["3,0,-2"]={items={{name="minecraft:stone",count=640}}}
             if JOB_KIND=="quarry" or MIXED_JOBS then
-                local bottom,top=USE_SHAFT and 21 or -19,USE_SHAFT and 40 or 0
+                local top=USE_SHAFT and SHAFT_WORK_Y or 0
+                local bottom=top-19
                 for x=8,11 do for y=bottom,top do for z=0,3 do W.blocks[x..","..y..","..z]=true end end end
                 if USE_SHAFT then
                     for x=-20,30 do for z=-20,20 do
-                        if math.abs(x)>1 or math.abs(z)>1 then W.blocks[x..",20,"..z]=true end
+                        if math.abs(x)>1 or math.abs(z)>1 then W.blocks[x..","..math.floor(SHAFT_WORK_Y/2)..","..z]=true end
                     end end
                 end
             else W.fuel,W.limit=20000,40000 end
@@ -275,19 +279,22 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         owners.update(snapshot["serviceOwners"].values())
         tunnel_owner = control.snapshot()["tunnelOwner"]
         if shaft:
-            in_shaft=[machines[i][1]["world"]() for i in workers if 0 < machines[i][1]["world"]()["y"] < 40]
+            low, high = (-31, 0) if shaft_down else (0, 40)
+            in_shaft=[machines[i][1]["world"]() for i in workers if low < machines[i][1]["world"]()["y"] < high]
             shaft_overlap = shaft_overlap or len(in_shaft)>=2
             opposite_overlap = opposite_overlap or (any(w["x"]==-1 for w in in_shaft) and any(w["x"]==1 for w in in_shaft))
         if shaft and owner is not None and tunnel_owner is not None and owner != tunnel_owner:
             first_world = machines[tunnel_owner][1]["world"]()
-            startup_overlap = startup_overlap or (first_world["y"] > 0 and len(list(first_world["digs"].values())) == 0)
+            travelling = first_world["y"] < 0 if shaft_down else first_world["y"] > 0
+            startup_overlap = startup_overlap or (travelling and len(list(first_world["digs"].values())) == 0)
         if not started and len(list(control.available().values())) == worker_count:
             main.globals().WORKER_IDS=main.table_from((41,) if mixed else workers)
             ok = main.execute('''local a,b={x=8,y=0,z=0},{x=11,y=-19,z=3}
                 local tunnel,floor
                 if USE_SHAFT then
-                    a,b={x=8,y=40,z=0},{x=11,y=21,z=3}
-                    tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}},upper={exit={x=2,y=40,z=0}}}}
+                    a,b={x=8,y=SHAFT_WORK_Y,z=0},{x=11,y=SHAFT_WORK_Y-19,z=3}
+                    tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}},upper={exit={x=2,y=SHAFT_WORK_Y,z=0}}}}
+                    if SHAFT_WORK_Y<0 then tunnel.floors.middle={exit={x=2,y=-5,z=0}} end
                     floor="upper"
                 end
                 if JOB_KIND=="floor" then a,b={x=8,y=-1,z=0},{x=27,y=-1,z=15} end
@@ -338,7 +345,8 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         assert worked_together, "Workers should process their segments concurrently"
     if shaft:
         assert startup_overlap, "Second worker should use service before the first reaches its excavation"
-        assert shaft_overlap, "Two workers should travel in separate shaft columns concurrently"
+        if not shaft_down:
+            assert shaft_overlap, "Two workers should travel in separate shaft columns concurrently"
         assert control.snapshot()["tunnelOwner"] is None
     summary = control.snapshot()["summary"]
     expected = (144 if corners else 128) if kind=="walls" else (640 if mixed else 320)
@@ -382,4 +390,5 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
     if recovery: label += ", worker retry and controller restart"
     if restock: label += ", repeated material trips"
     if interior: label += ", tunnel exit " + (interior if isinstance(interior, str) else "inside room")
+    if shaft_down: label += ", third floor below service level"
     print(f"PASS radio integration ({label}): {worker_count} concurrent workers, 1 controller, {expected} cells and distinct docks", flush=True)
