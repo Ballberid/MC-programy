@@ -1,15 +1,16 @@
--- Hlavny PC: front = povolenie, left = spawner, back = Mekanism teleporter.
+-- Hlavny PC: front = povolenie, right = spawner, back = Mekanism teleporter.
 local PROTOCOL = "oltar.v1"
 local INTERVAL = 2
+local SPAWNER_SIDE = "right"
 local states, owners = {}, {}
 local frequency
 local previousInput, previousOutput, teleportError
 local previousTarget = false
 
 local function setSpawner(active)
-    redstone.setOutput("left", active)
+    redstone.setOutput(SPAWNER_SIDE, active)
     if previousOutput ~= active then
-        print("Spawner (left): " .. tostring(active))
+        print("Spawner (" .. SPAWNER_SIDE .. "): " .. tostring(active))
         previousOutput = active
     end
 end
@@ -131,5 +132,5 @@ local function run()
 end
 
 local ok, err = pcall(run)
-redstone.setOutput("left", false)
+redstone.setOutput(SPAWNER_SIDE, false)
 if not ok then printError(tostring(err)) end

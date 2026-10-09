@@ -11,7 +11,7 @@ Program vypíše ID tohto PC, ktoré zadáš na pomocných PC.
 | Strana hlavného PC | Zapojenie |
 | --- | --- |
 | `front` (predná) | Vstup: True povoľuje dopĺňanie mobov |
-| `left` (ľavá) | Výstup na spawner |
+| `right` | Výstup na spawner (vľavo pri pohľade na obrazovku PC) |
 | `back` (zadná) | Mekanism Teleporter |
 
 V Mekanisme vytvor verejné frekvencie `oltar_1`, `oltar_2`, `oltar_3`,
@@ -20,7 +20,7 @@ Teleporter za hlavným PC musí mať bezpečnosť **Public** a byť prístupný 
 periféria s metódou `setFrequency(name)`.
 Požiadavky vychádzajú z [oficiálnej dokumentácie Mekanismu](https://mekanism.github.io/computer_data/10.7.0.html).
 
-Pri štarte hlavný PC nastaví ľavý výstup podľa predného vstupu a následne
+Pri štarte hlavný PC nastaví výstup `right` podľa predného vstupu a následne
 frekvenciu `oltar_1`, aj keď je predný vstup False. Potom vyberá prvý oltár,
 ktorý nemá True, v poradí 1, 2, 3, 4. Zatiaľ neohlásený stav považuje za
 neobsadený. Pri štyroch True spawner vypne. Keď niektorý stav klesne na
@@ -31,7 +31,7 @@ Predný vstup False okamžite vypne spawner; stavové správy sa stále prijíma
 Po opätovnom zapnutí sa pokračuje podľa aktuálnych stavov.
 Pri chybe teleportera sa spawner vypne, program vypíše dôvod a po oprave
 automaticky zopakuje nastavenie. Ukončenie cez Ctrl+T tiež vypne spawner.
-Program vypisuje zmeny vstupu `front` a výstupu `left`. Okrem redstone
+Program vypisuje zmeny vstupu `front` a výstupu `right`. Okrem redstone
 udalostí kontroluje vstup každých 0,25 sekundy.
 Stavy sa uchovávajú v pamäti a po reštarte sa načítajú z pomocných PC.
 Posledná frekvencia ostáva zvolená pri plnom oltári aj vypnutom vstupe.
