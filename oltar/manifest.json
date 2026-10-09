@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "files": [
+    { "source": "oltar_update.lua", "target": "update.lua", "roles": ["main", "client", "router"] },
+    { "source": "startup.lua", "target": "startup.lua", "roles": ["main", "client", "router"] },
+    { "source": "main.lua", "target": "main.lua", "roles": ["main"] },
+    { "source": "client.lua", "target": "client.lua", "roles": ["client"] },
+    { "source": "router.lua", "target": "router.lua", "roles": ["router"] }
+  ]
+}
