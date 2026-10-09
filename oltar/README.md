@@ -33,6 +33,8 @@ Pri chybe teleportera sa spawner vypne, program vypíše dôvod a po oprave
 automaticky zopakuje nastavenie. Ukončenie cez Ctrl+T tiež vypne spawner.
 Program vypisuje zmeny vstupu `front` a výstupu `right`. Okrem redstone
 udalostí kontroluje vstup každých 0,25 sekundy.
+Ak teleporter poskytuje `getFrequency`, program overuje skutočnú zvolenú
+frekvenciu pred potvrdením prepnutia. Pri nezhode vypne spawner a skúša znova.
 Stavy sa uchovávajú v pamäti a po reštarte sa načítajú z pomocných PC.
 Posledná frekvencia ostáva zvolená pri plnom oltári aj vypnutom vstupe.
 

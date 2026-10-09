@@ -27,11 +27,25 @@ local function openNetwork()
 end
 
 local function setFrequency(name)
-    if frequency == name then return end
     local teleporter = peripheral.wrap("back")
     assert(teleporter and type(teleporter.setFrequency) == "function",
         "Na zadnej strane chyba Mekanism teleporter s metodou setFrequency.")
+    local function readFrequency()
+        local value = teleporter.getFrequency()
+        if type(value) == "table" then return value.key or value.name end
+        if type(value) == "string" then return value end
+    end
+    if frequency == name then
+        if type(teleporter.getFrequency) ~= "function" then return end
+        local ok, actual = pcall(readFrequency)
+        if ok and actual == name then return end
+        frequency = nil
+    end
     teleporter.setFrequency(name)
+    if type(teleporter.getFrequency) == "function" then
+        local actual = readFrequency()
+        assert(actual == name, "Teleporter nepotvrdil " .. name .. "; aktualna frekvencia: " .. tostring(actual))
+    end
     frequency = name
     print("Teleport -> " .. name)
 end
@@ -105,6 +119,9 @@ local function run()
                 owners[name] = sender
                 if states[name] ~= message.active then
                     print(name .. " (PC " .. sender .. "): " .. tostring(message.active))
+                    if not redstone.getInput("front") then
+                        print("Predny vstup je False: teleport neprepinam, spawner je vypnuty.")
+                    end
                 end
                 states[name] = message.active
                 update()

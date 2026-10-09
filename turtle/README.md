@@ -107,8 +107,16 @@ Overenie prístupu k palivovej truhle môže prebehnúť aj bez tankovania.
 Ak palivo začne dochádzať počas práce, cieľ tankovania sa prepočíta na zostávajúci
 výkop alebo podlahu (pri fleet na vlastný segment), servisné presuny a rezervy,
 s dvojnásobnou zásobou. Zohľadňuje aj trasu cez servisný tunel a kapacitu nádrže.
-Menšia zásoba v truhle dovolí pokračovať, ak stačí na ďalší krok a bezpečný návrat;
+K dopĺňaniu vyrazí skôr, keď palivo klesne pod dvojnásobok potreby najbližšej
+činnosti a návratu, ak ešte nepokrýva cieľ pre zostávajúcu prácu. Rezerva počíta
+aj povinný prejazd cez výstupy a pruhy tunela, hoci mapa pozná kratšiu skratku.
+Menšia zásoba v truhle dovolí pokračovať, ak pokryje činnosť, bezpečný návrat a
+aspoň ďalších 32 krokov;
 prázdna truhla bez potrebného minima ukončí pokus bez opakovaného tankovania.
+Palivo sa prenáša po stackoch až do cieľa, bez obmedzenia na 16 stackov.
+Obsadený palivový slot hlási `no_slot_for_fuel`; nepovažuje sa za úspešné
+natankovanie. Pri vykladaní výkopu sa z palivových slotov odstránia aj nepalivové
+vykopané predmety, aby zostalo miesto na ďalšie tankovanie.
 Potom sa vráti na miesto,
 kde bola turtle pri štarte úlohy. Ak je priamo pod ňou blok patriaci do výkopu,
 vykope ho, vstúpi do oblasti a prekope sa k prvému zadanému rohu iba cez bloky

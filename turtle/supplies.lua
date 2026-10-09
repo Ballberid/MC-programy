@@ -58,6 +58,8 @@ function supplies.check(request)
     if not station then return false, stationErr end
     local returnMoves, routeErr = nav.knownDistance(station)
     if not returnMoves then return false, "fuel_route_unknown:" .. tostring(routeErr) end
+    -- The managed shaft route can be longer than a shortcut in the known map.
+    returnMoves=math.max(returnMoves,nav.estimateDistance(station))
     local workMoves = request.moves or 0
     -- Without a supplied endpoint, worst-case each work move also lengthens
     -- the known return route by one block.
@@ -65,7 +67,7 @@ function supplies.check(request)
     if request.endpoint then
         if not config.isPoint(request.endpoint) then return false, "invalid_endpoint" end
         local knownDistance = nav.knownDistance(station, request.endpoint)
-        if knownDistance then afterReturn = knownDistance end
+        if knownDistance then afterReturn = math.max(knownDistance,nav.estimateDistance(station,request.endpoint)) end
     end
     local required = fuel.required(workMoves, afterReturn, c.navigation.reserve)
     if not fuel.has(required) then return false, "fuel", { requiredFuel = required } end
@@ -99,6 +101,7 @@ function supplies.ensure(request)
         for key, value in pairs(options) do o[key] = value end
         -- Cap at the station after the actual return distance is known.
         o.capToLimit, o.allowPartial = true, jobFuelGoal ~= nil
+        if jobFuelGoal then o.minimumFuel=minimum+32 end
         local limit = turtle.getFuelLimit()
         local distance = nav.knownDistance(station) or 0
         require("telemetry").log("Tankovanie: ciel po navrate " .. math.min(target, math.max(0, limit - distance))
@@ -106,8 +109,16 @@ function supplies.ensure(request)
         return stations.refuel(target, o)
     end
     -- Bounded service passes. Each individual visit returns to the work point.
+    local toppedUp=false
     for _ = 1, 4 do
         local ok, need, info = supplies.check(request)
+        -- Leave for fuel before consuming the last return budget. Evaluate the
+        -- full job estimate only near this threshold, never on every step.
+        if ok and not toppedUp and jobFuelGoal and not fuel.has(2*info.requiredFuel) then
+            local goal=jobFuelGoal()
+            if type(goal)~="number" or goal~=goal or goal==math.huge or goal<0 then return false,"invalid_job_fuel_goal" end
+            if not fuel.has(goal) then ok,need=false,"fuel" end
+        end
         if ok then
             info.navigationOptions={anchor=station,reserve=c.navigation.reserve}
             return true,nil,info
@@ -116,13 +127,14 @@ function supplies.ensure(request)
         if need == "fuel" then
             serviced, reason = refuel(info.requiredFuel)
             if serviced then
+                toppedUp=true
                 local ready, stillNeeded = supplies.check(request)
                 if not ready and stillNeeded == "fuel" then return false, "insufficient_fuel" end
             end
         elseif need == "space" or need == "materials" then
             local service = c.stations[need == "space" and "output" or "materials"]
             if not service then return false, "station_missing:" .. need end
-            local distance = nav.knownDistance(service) or (nav.estimateDistance(service) + 6 * c.navigation.maxDetour)
+            local distance = math.max(nav.knownDistance(service) or 0,nav.estimateDistance(service)) + 6*c.navigation.maxDetour
             -- Include the trip to the service station, not just future work.
             local target = info.requiredFuel + 2 * distance
             if fuel.level() ~= "unlimited" then target = math.min(target, turtle.getFuelLimit()) end

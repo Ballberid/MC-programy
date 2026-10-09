@@ -679,7 +679,56 @@ test("job accepts an available partial refill and does not loop on an empty ches
     W.fuel=30; local stations=require("stations"); local original=stations.refuel; local visits=0
     stations.refuel=function(...) visits=visits+1; return original(...) end
     local ok,err=supplies.withFuelGoal(function() return 1000 end,function() return supplies.ensure({moves=20}) end)
-    eq(ok,false); eq(err,"insufficient_fuel"); eq(visits,1)
+    eq(ok,false); eq(err,"fuel_chest_empty"); eq(visits,1)
+end)
+
+test("low job fuel refills the whole remaining goal before the reserve is exhausted",function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=64}}}
+    W.fuel=110; navReady(); local lib=require("supplies"); assert(lib.prepare())
+    assert(lib.check({moves=20}))
+    assert(lib.withFuelGoal(function() return 1000 end,function() return lib.ensure({moves=20}) end))
+    assert(W.fuel>=1000 and W.fuel<1080)
+end)
+
+test("blocked fuel slots cannot masquerade as a successful partial refill",function()
+    local c=configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    c.fuelSlots={16}; assert(require("config").save(c))
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=64}}}
+    W.slots[16]={name="minecraft:cobblestone",count=64}
+    W.fuel=80; navReady()
+    local ok,err=require("stations").refuel(1000,{allowPartial=true})
+    eq(ok,false); eq(err,"no_slot_for_fuel"); eq(W.fuel,80)
+    eq(W.chests["1,0,0"].items[1].count,64)
+end)
+
+test("fuel safety budget includes a compulsory tunnel detour beyond the known shortcut",function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={}}
+    W.fuel=80; navReady(); local lib=require("supplies"); assert(lib.prepare())
+    require("navigation").setRuntime(nil,nil,function(from,target)
+        return math.abs(from.x-target.x)+math.abs(from.y-target.y)+math.abs(from.z-target.z)+100
+    end)
+    local ok,err,info=lib.check({moves=1})
+    eq(ok,false); eq(err,"fuel"); assert(info.requiredFuel>=122)
+end)
+
+test("refuelling continues beyond sixteen stacks for low yield fuel",function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:coal",count=2000}}}
+    W.fuel=30; navReady()
+    turtle.refuel=function(count)
+        local item=W.slots[W.selected]
+        if not item then return false end
+        if count==0 then return true end
+        local amount=math.min(count or item.count,item.count,W.limit-W.fuel)
+        if amount<1 then return false end
+        W.fuel=W.fuel+amount; item.count=item.count-amount
+        if item.count==0 then W.slots[W.selected]=nil end
+        return true
+    end
+    assert(require("stations").refuel(1500))
+    eq(W.fuel,1500); assert(W.chests["1,0,0"].items[1].count<2000-16*64)
 end)
 
 local function runSetup(answers)

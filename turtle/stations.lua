@@ -107,25 +107,29 @@ function stations.refuel(target, options)
     return withVisit("fuel", function(station, start)
         local distance, err = nav.knownDistance(start)
         if not distance then return false, err end
+        distance=math.max(distance,nav.estimateDistance(start))
         -- nil means fill the tank AT the station; a full tank cannot include
         -- extra capacity for the subsequent trip back to the work point.
         local required = target == nil and turtle.getFuelLimit() or target + distance
         if options and options.capToLimit and fuel.level() ~= "unlimited" then required = math.min(required, turtle.getFuelLimit()) end
-        local minimum = distance + (options and options.reserve or c.navigation.reserve) + 2
+        local minimum = math.max(distance + (options and options.reserve or c.navigation.reserve) + 2,
+            options and options.minimumFuel and options.minimumFuel+distance or 0)
+        if options and options.capToLimit then minimum=math.min(minimum,turtle.getFuelLimit()) end
         local function partialOrError(reason)
             if options and options.allowPartial and fuel.has(minimum) then return true end
             return false, reason
         end
         if fuel.level() ~= "unlimited" and required > turtle.getFuelLimit() then return false, "fuel_target_exceeds_limit" end
         fuel.refuel(required, fuel.slots(c))
-        -- At most 16 newly collected stacks. Empty/full/mixed chests terminate.
-        for _ = 1, 16 do
-            if fuel.has(required) then return true end
+        -- Each successful stack must increase the tank. Stop at the goal or
+        -- an exhausted/invalid source, even when low-yield fuel needs >16 stacks.
+        while not fuel.has(required) do
+            local before=fuel.level()
             local slot
             for _, candidate in ipairs(fuel.slots(c)) do
                 if turtle.getItemCount(candidate) == 0 then slot = candidate; break end
             end
-            if not slot then return partialOrError("no_slot_for_fuel") end
+            if not slot then return false,"no_slot_for_fuel" end
             turtle.select(slot)
             if not transfer(station.side, true, 64) then return partialOrError("fuel_chest_empty") end
             if not turtle.refuel(0) then
@@ -140,9 +144,9 @@ function stations.refuel(target, options)
                 transfer(station.side, false, leftover)
                 if turtle.getItemCount(slot) > 0 then return false, "unused_fuel_cannot_return" end
             end
+            if fuel.level()<=before then return false,"fuel_did_not_increase" end
         end
-        if fuel.has(required) then return true end
-        return partialOrError("fuel_transfer_limit")
+        return true
     end, o)
 end
 

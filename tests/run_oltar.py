@@ -32,8 +32,11 @@ local function harness(program, front, back, config)
     local teleporter = { setFrequency = function(name)
         if h.failFrequency then error("Frequency unavailable") end
         h.frequencies[#h.frequencies + 1] = name
+        if not h.ignoreFrequency then h.actualFrequency = name end
         if h.dropFrontOnFrequency then h.inputs.front = false end
-    end }
+    end,
+        getFrequency = function() return { key = h.actualFrequency } end,
+    }
     env.peripheral = {
         getNames = function() return h.noModem and {} or { "top" } end,
         hasType = function(_, kind) return kind == "modem" end,
@@ -157,6 +160,16 @@ eq(coroutine.status(h.co), "suspended"); eq(h.outputs.right, false)
 h.inputs.front = true; h.step("redstone"); eq(h.outputs.right, false)
 h.failFrequency = false; h.step("timer", h.inputTimer); eq(h.outputs.right, true)
 h.dropFrontOnFrequency = true; h.state(1, true); eq(h.outputs.right, false)
+h.step("terminate")
+
+h = harness("main", true); h.step()
+h.ignoreFrequency = true; h.state(1, true)
+eq(h.actualFrequency, "oltar_1"); eq(h.outputs.right, false); eq(#h.errors, 1)
+h.ignoreFrequency = false; h.step("timer", h.inputTimer)
+eq(h.actualFrequency, "oltar_2"); eq(h.outputs.right, true)
+-- Manual changes to the teleporter must not leave the cached target incorrect.
+h.actualFrequency = "oltar_4"; h.step("timer", h.inputTimer)
+eq(h.actualFrequency, "oltar_2")
 h.step("terminate")
 
 h = harness("client", false, true, "oltar_3,99"); h.step()

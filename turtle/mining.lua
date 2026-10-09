@@ -59,7 +59,7 @@ local function stepTo(target, box, progress)
         local permitted, denied = nav.checkpoint()
         if not permitted then return false, denied end
         timing.phase("supplies")
-        local ready, reason, info = supplies.ensure({ moves = 1, freeSlots = 2, endpoint = target, unloadFuel = true })
+        local ready, reason, info = supplies.ensure({ moves = 1, freeSlots = 2, endpoint = target, unloadFuel = true,unloadNonfuelSlots=true })
         timing.phase("checks")
         if not ready then return false, reason end
         if not adjacentPoint(target) then return false, "work_position_changed" end
@@ -218,6 +218,7 @@ local function run(a, b, heading, previous)
         if not reached then return fail(reachErr) end
         local options = supplies.navigationOptions()
         options.keepFuel = false
+        options.unloadNonfuelSlots=true
         local unloaded, unloadErr = stations.unload({}, options)
         if not unloaded then return fail(unloadErr) end
 
@@ -279,7 +280,7 @@ local function run(a, b, heading, previous)
     progress.phase = "unloading"
     local finishTravel, finishErr = travel(output)
     if not finishTravel then return fail(finishErr) end
-    local options = supplies.navigationOptions(); options.keepFuel = false
+    local options = supplies.navigationOptions(); options.keepFuel = false; options.unloadNonfuelSlots=true
     local unloaded, unloadErr = stations.unload({}, options)
     if not unloaded then return fail(unloadErr) end
     local homeTravel, homeTravelErr = travel(c.home)
