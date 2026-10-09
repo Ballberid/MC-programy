@@ -1,11 +1,40 @@
 -- Hlavny PC: front = povolenie, right = spawner, back = Mekanism teleporter.
-local PROTOCOL = "oltar.v1"
+local PROTOCOL = "oltar.v2"
 local INTERVAL = 2
 local SPAWNER_SIDE = "right"
-local states, owners = {}, {}
+local states, owners, capacities = {}, {}, {}
+local args = { ... }
+local configPath = fs.combine(fs.getDir(shell.getRunningProgram()), "main-config.txt")
+local targetCount
 local frequency
 local previousInput, previousOutput, teleportError
 local previousTarget = false
+local previousWaiting
+
+local function configure()
+    local config
+    if args[1] ~= "setup" and fs.exists(configPath) then
+        local file = assert(fs.open(configPath, "r"))
+        config = textutils.unserialize(file.readAll()); file.close()
+    end
+    if args[1] == "setup" then
+        repeat
+            write("Cielovy pocet mobov v kazdej vezi (1-15, Enter = 15): ")
+            local value = read()
+            config = { targetCount = value == "" and 15 or tonumber(value) }
+        until type(config.targetCount) == "number" and config.targetCount >= 1
+            and config.targetCount <= 15 and config.targetCount == math.floor(config.targetCount)
+    end
+    if type(config) ~= "table" or type(config.targetCount) ~= "number"
+        or config.targetCount < 1 or config.targetCount > 15
+        or config.targetCount ~= math.floor(config.targetCount) then
+        config = { targetCount = 15 }
+    end
+    local file = assert(fs.open(configPath, "w"))
+    file.write(textutils.serialize(config)); file.close()
+    targetCount = config.targetCount
+    print("Ciel: " .. targetCount .. " mobov v kazdej vezi; zmena: main.lua setup")
+end
 
 local function setSpawner(active)
     redstone.setOutput(SPAWNER_SIDE, active)
@@ -77,14 +106,34 @@ local function update()
         setSpawner(false)
         return
     end
-    local target
+    -- Nezacneme dalsie kolo, kym nepozname aktualny pocet vo vsetkych veziach.
+    local missing = {}
+    local limit = targetCount
     for i = 1, 4 do
         local name = "oltar_" .. i
-        if states[name] ~= true then target = name; break end
+        if states[name] == nil then missing[#missing + 1] = name
+        else limit = math.min(limit, capacities[name]) end
     end
-    if previousTarget ~= target then
-        print(target and ("Doplnam: " .. target) or "Vsetky 4 oltare maju True: spawner vypnuty.")
-        previousTarget = target
+    local waiting = table.concat(missing, ", ")
+    if #missing > 0 then
+        setSpawner(false)
+        if previousWaiting ~= waiting then print("Cakam na analogove stavy: " .. waiting) end
+        previousWaiting = waiting
+        return
+    end
+    previousWaiting = nil
+    local target, lowest
+    for i = 1, 4 do
+        local name = "oltar_" .. i
+        if states[name] < limit and (lowest == nil or states[name] < lowest) then
+            target, lowest = name, states[name]
+        end
+    end
+    local status = target and (target .. ":" .. lowest .. ":" .. limit) or ("full:" .. limit)
+    if previousTarget ~= status then
+        print(target and ("Doplnam: " .. target .. " / mobovia: " .. lowest .. "/" .. limit)
+            or ("Vsetky 4 veze maju aspon " .. limit .. " mobov: spawner vypnuty."))
+        previousTarget = status
     end
     if not target then
         setSpawner(false)
@@ -97,7 +146,9 @@ local function update()
 end
 
 local function run()
-    setSpawner(redstone.getInput("front"))
+    -- Pocas nacitania stavov ani nastavenia nepustame spawner.
+    setSpawner(false)
+    configure()
     tryFrequency("oltar_1")
     openNetwork()
     print("Hlavny PC ID: " .. os.getComputerID())
@@ -113,17 +164,22 @@ local function run()
             and type(message) == "table" and message.kind == "state"
             and type(message.name) == "string"
             and message.name:match("^oltar_[1-4]$")
-            and type(message.active) == "boolean" then
+            and type(message.count) == "number" and message.count >= 0
+            and message.count == math.floor(message.count)
+            and type(message.capacity) == "number" and message.capacity >= 1
+            and message.capacity <= 15 and message.capacity == math.floor(message.capacity)
+            and message.count <= message.capacity then
             local name = message.name
             if owners[name] == nil or owners[name] == sender then
                 owners[name] = sender
-                if states[name] ~= message.active then
-                    print(name .. " (PC " .. sender .. "): " .. tostring(message.active))
+                if states[name] ~= message.count then
+                    print(name .. " (PC " .. sender .. "): " .. message.count .. " mobov")
                     if not redstone.getInput("front") then
                         print("Predny vstup je False: teleport neprepinam, spawner je vypnuty.")
                     end
                 end
-                states[name] = message.active
+                states[name] = message.count
+                capacities[name] = message.capacity
                 update()
             else
                 print("Duplicitny nazov " .. name .. ": ignorujem PC " .. sender)

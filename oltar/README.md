@@ -20,12 +20,19 @@ Teleporter za hlavným PC musí mať bezpečnosť **Public** a byť prístupný 
 periféria s metódou `setFrequency(name)`.
 Požiadavky vychádzajú z [oficiálnej dokumentácie Mekanismu](https://mekanism.github.io/computer_data/10.7.0.html).
 
-Pri štarte hlavný PC nastaví výstup `right` podľa predného vstupu a následne
-frekvenciu `oltar_1`, aj keď je predný vstup False. Potom vyberá prvý oltár,
-ktorý nemá True, v poradí 1, 2, 3, 4. Zatiaľ neohlásený stav považuje za
-neobsadený. Pri štyroch True spawner vypne. Keď niektorý stav klesne na
-False, prepne na prvý chýbajúci oltár a opäť zapne spawner, ak je predný
-vstup True. Ak vypadne iba tretí, vyberie priamo `oltar_3`.
+Pri štarte hlavný PC vypne spawner, nastaví frekvenciu `oltar_1` (aj keď je
+predný vstup False) a počká na počty mobov zo všetkých štyroch pomocných PC.
+Potom vyberá vežu s najnižším počtom mobov. Pri rovnakých počtoch dodrží
+poradie 1, 2, 3, 4. Najprv teda doplní jedného moba do každej veže,
+až potom druhého do každej, potom tretieho atď. Počty sa riadia skutočnými
+hláseniami senzorov, nie počítadlom odoslaných mobov.
+
+Predvolený cieľ je **15 mobov na každú vežu**. Po dosiahnutí cieľa vo
+všetkých vežiach spawner vypne. Ak niekde mob ubudne, túto vežu opäť
+doplní. Limit môžeš zmeniť cez `main.lua setup`; uloží sa do
+`main-config.txt`. Ak senzor umožňuje merať menej mobov než zadaný limit,
+program použije kapacitu najmenšieho senzora. Už vytvorení alebo letiaci
+mobovia môžu doraziť aj po vypnutí spawneru; program ich spätne neodstraňuje.
 
 Predný vstup False okamžite vypne spawner; stavové správy sa stále prijímajú.
 Po opätovnom zapnutí sa pokračuje podľa aktuálnych stavov.
@@ -47,13 +54,37 @@ vedľa programu. Zmenu nastavenia spusti cez `client.lua setup`.
 
 | Strana pomocného PC | Zapojenie |
 | --- | --- |
-| `back` (zadná) | Vstup z dosky: True = mob je prítomný |
-| `bottom` (spodná) | Výstup kopírujúci stav vstupu |
+| `back` (zadná) | Analógový vstup z počítacieho senzora |
+| `right` | Sila 15 pri zadnom signále aspoň 1, inak 0 |
+| `bottom` (spodná) | True, keď je počet mobov väčší než 0 |
 
-Pri True PC najprv odošle hlásenie s názvom oltára a potom zapne spodný
-výstup. Pri False vypne spodný výstup a oznámi False hlavnému PC.
-Odošle tiež počiatočný stav a každé dve sekundy zopakuje aktuálny stav,
-aby sa napravila stratená správa a hlavný PC mohol reštartovať.
+PC číta `redstone.getAnalogInput("back")`, rozsah **0–15** podľa
+[dokumentácie CC: Tweaked](https://tweaked.cc/module/redstone.html#v:getAnalogInput).
+Predvolené mapovanie je **0 = 0 mobov, 1 = 1 mob, …, 15 = 15 mobov**.
+Prázdny signál môžeš upraviť cez `client.lua setup` (Enter nastaví 0);
+každý ďalší mob musí zvýšiť silu o 1. Nastavenie klienta bez prázdneho
+signálu sa automaticky doplní o hodnotu 0, číslo oltára a ID hlavného PC
+sa zachovajú. Už uložená hodnota 1 sa pri aktualizácii nemení: po zmene
+zapojenia na priame počty spusti na každom klientovi `client.lua setup`,
+zadaj jeho pôvodné číslo a ID hlavného PC a prázdny signál **0**.
+Uložený cieľ hlavného PC sa tiež nemení; pre 15 mobov spusti `main.lua setup`.
+
+Senzor musí na vstup PC privádzať presnú silu. Nepoužívaj medzi ním a PC
+repeater, ktorý z nenulového signálu spraví 15, a vyhni sa zoslabovaniu
+signálu dlhým redstone vedením. Over silu **priamo na PC** pri 0 a 1 mobovi.
+Ak si chceš hodnotu overiť ručne, ukonči program, spusti `lua` a zadaj
+`redstone.getAnalogInput("back")`.
+
+PC posiela názov oltára, počet mobov, silu signálu a kapacitu senzora.
+Pravý výstup zapne na plnú silu 15 hneď pri zadnom signále aspoň 1;
+pri signále 0 ho vypne. Tento výstup sa riadi priamo silou vstupu,
+nezávisle od nastavenia prázdneho signálu. Ctrl+T alebo chyba ho tiež vypne.
+Pri počte väčšom než 0 najprv odošle hlásenie a potom zapne spodný výstup;
+pri poklese na 0 najprv spodný výstup vypne. Hlási každú zmenu analógovej
+hodnoty, aj keď sa obyčajná hodnota True/False nezmení. Vstup kontroluje
+aj každých 0,25 sekundy. Odošle tiež počiatočný stav a každé dve sekundy
+zopakuje aktuálne hlásenie, aby sa napravila stratená správa a obnovili sa
+počty po reštarte hlavného PC.
 Ctrl+T alebo chyba programu vypne spodný výstup.
 Hlásenie stavu znamená odoslanie do siete, nečaká na potvrdenie doručenia.
 Pri výpadku spojenia hlavný PC drží posledný prijatý stav až do ďalšej správy.
@@ -85,10 +116,16 @@ a uloží úlohu PC do `oltar-role.txt`. Potom spusti `startup` alebo `reboot`.
 Klient pri prvom spustení ešte potrebuje číslo oltára a ID hlavného PC.
 
 Pri ďalšej aktualizácii stačí ukončiť program cez Ctrl+T a spustiť `update`.
-Úloha PC sa načíta z uloženého nastavenia; `client-config.txt` ostáva zachovaný.
+Úloha PC sa načíta z uloženého nastavenia; `client-config.txt` a
+`main-config.txt` ostávajú zachované.
 Zmenu úlohy pri aktualizácii vykonáš cez `update main`, `update client`
 alebo `update router`. Zmenu čísla oltára alebo ID hlavného PC cez
 `client.lua setup`.
+
+**Prechod na analógový senzor:** aktualizuj hlavný PC aj všetky štyri pomocné
+PC a spusti ich znova. Nová komunikácia používa `oltar.v2`; staré True/False
+hlásenia sa ignorujú. Kým sa neozvú všetky štyri nové klienty, spawner ostane
+vypnutý. Router môže zostať rovnaký. Limit zmeníš cez `main.lua setup`.
 
 Updater používa rovnaký postup ako turtle: všetky súbory stiahne z jedného
 commitu, overí syntax a až potom ich nahradí. Pri zlyhaní inštalácie obnoví

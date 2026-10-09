@@ -10,12 +10,12 @@ from lupa.lua52 import LuaRuntime
 lua = LuaRuntime(unpack_returned_tuples=True)
 lua.globals().ROOT = root.as_posix()
 lua.execute(r'''
-local protocol = "oltar.v1"
+local protocol = "oltar.v2"
 local function eq(actual, expected)
     assert(actual == expected, "expected " .. tostring(expected) .. ", got " .. tostring(actual))
 end
 local function harness(program, front, back, config)
-    local h = { inputs = { front = front or false, back = back or false },
+    local h = { inputs = { front = front or false, back = back or 1 },
         outputs = {}, frequencies = {}, sent = {}, actions = {}, errors = {}, queries = 0 }
     local env = setmetatable({}, { __index = _G })
     env.print = function() end
@@ -24,9 +24,14 @@ local function harness(program, front, back, config)
     env.read = function() return table.remove(h.answers, 1) end
     env.redstone = {
         getInput = function(side) return h.inputs[side] or false end,
+        getAnalogInput = function(side) return h.inputs[side] or 0 end,
         setOutput = function(side, state)
             h.outputs[side] = state
             h.actions[#h.actions + 1] = { side, state }
+        end,
+        setAnalogOutput = function(side, strength)
+            h.outputs[side] = strength
+            h.actions[#h.actions + 1] = { side, strength }
         end,
     }
     local teleporter = { setFrequency = function(name)
@@ -51,8 +56,8 @@ local function harness(program, front, back, config)
         broadcast = function(message, p) eq(p, protocol); eq(message.kind, "query"); h.queries = h.queries + 1 end,
         send = function(id, message, p)
             eq(p, protocol)
-            h.sent[#h.sent + 1] = { id = id, name = message.name, active = message.active }
-            h.actions[#h.actions + 1] = { "send", message.active }
+            h.sent[#h.sent + 1] = { id = id, name = message.name, count = message.count, signal = message.signal, capacity = message.capacity }
+            h.actions[#h.actions + 1] = { "send", message.count }
         end,
     }
     env.os = {
@@ -72,23 +77,30 @@ local function harness(program, front, back, config)
     env.shell = { getRunningProgram = function() return "oltar/client.lua" end,
         run = function(name) h.routerProgram = name end }
     h.config = config
+    h.mainConfig = "target:15"
     env.fs = {
         getDir = function() return "oltar" end,
         combine = function(a, b) return a .. "/" .. b end,
-        exists = function() return h.config ~= nil end,
-        open = function(_, mode)
+        exists = function(path) return (path:find("main-config", 1, true) and h.mainConfig or h.config) ~= nil end,
+        open = function(path, mode)
             return {
-                readAll = function() return h.config end,
-                write = function(value) h.config = value end,
+                readAll = function() return path:find("main-config", 1, true) and h.mainConfig or h.config end,
+                write = function(value)
+                    if path:find("main-config", 1, true) then h.mainConfig = value else h.config = value end
+                end,
                 close = function() end,
             }
         end,
     }
     env.textutils = {
-        serialize = function(c) return c.name .. "," .. c.mainId end,
+        serialize = function(c)
+            if c.targetCount then return "target:" .. c.targetCount end
+            return c.name .. "," .. c.mainId .. "," .. c.emptySignal
+        end,
         unserialize = function(value)
-            local name, id = value:match("^(oltar_%d),(%d+)$")
-            return { name = name, mainId = tonumber(id) }
+            if value:match("^target:") then return { targetCount = tonumber(value:match("%d+")) } end
+            local name, id, empty = value:match("^(oltar_%d),(%d+),?(%d*)$")
+            return { name = name, mainId = tonumber(id), emptySignal = tonumber(empty) }
         end,
     }
     local source = assert(io.open(ROOT .. "/oltar/" .. program .. ".lua", "r"))
@@ -98,58 +110,65 @@ local function harness(program, front, back, config)
         local ok, err = coroutine.resume(h.co, ...)
         assert(ok, err)
     end
-    function h.state(index, active, sender)
+    function h.state(index, count, sender, capacity)
         h.step("rednet_message", sender or (10 + index),
-            { kind = "state", name = "oltar_" .. index, active = active }, protocol)
+            { kind = "state", name = "oltar_" .. index, count = count, capacity = capacity or 15 }, protocol)
     end
     return h
 end
 
+local function ready(h, counts)
+    for i = 1, 4 do h.state(i, counts and counts[i] or 0) end
+end
 local h = harness("main", true)
 h.step()
-eq(h.frequencies[1], "oltar_1"); eq(h.outputs.right, true)
-h.state(2, true) -- Out-of-order messages must not skip the first empty altar.
-eq(#h.frequencies, 1)
-h.state(1, true); eq(h.frequencies[#h.frequencies], "oltar_3")
-h.state(3, true); eq(h.frequencies[#h.frequencies], "oltar_4")
-h.state(4, true); eq(h.outputs.right, false)
-h.state(3, false); eq(h.frequencies[#h.frequencies], "oltar_3"); eq(h.outputs.right, true)
-h.state(1, false); eq(h.frequencies[#h.frequencies], "oltar_1")
-h.state(1, true); eq(h.frequencies[#h.frequencies], "oltar_3")
+eq(h.frequencies[1], "oltar_1"); eq(h.outputs.right, false)
+h.state(2, 0); h.state(1, 0); h.state(3, 0)
+eq(h.outputs.right, false) -- Wait for the fourth counting sensor.
+h.state(4, 0); eq(h.outputs.right, true)
+for round = 1, 15 do
+    for i = 1, 4 do
+        eq(h.actualFrequency, "oltar_" .. i)
+        h.state(i, round)
+    end
+end
+eq(h.outputs.right, false)
+-- At the limit, a missing mob is replaced in exactly the affected tower.
+h.state(3, 14); eq(h.actualFrequency, "oltar_3"); eq(h.outputs.right, true)
+h.state(3, 15); eq(h.outputs.right, false)
+-- Lower counts have priority; ties go in order 1,2,3,4.
+h.state(2, 12); h.state(1, 13); eq(h.actualFrequency, "oltar_2")
+h.state(2, 13); eq(h.actualFrequency, "oltar_1")
 h.inputs.front = false; h.step("redstone"); eq(h.outputs.right, false)
-local count = #h.frequencies
-h.state(2, false); eq(#h.frequencies, count); eq(h.outputs.right, false)
-h.inputs.front = true; h.step("redstone")
-eq(h.frequencies[#h.frequencies], "oltar_2"); eq(h.outputs.right, true)
-h.state(2, true, 77) -- Duplicate name on a different PC is rejected.
-eq(h.frequencies[#h.frequencies], "oltar_2")
-h.step("rednet_message", 12, { kind = "state", name = "oltar_2", active = "true" }, protocol)
-eq(h.frequencies[#h.frequencies], "oltar_2")
-h.step("rednet_message", 12, { kind = "state", name = "oltar_2", active = true }, "other")
-eq(h.frequencies[#h.frequencies], "oltar_2")
-h.state(2, true); h.state(3, true); eq(h.outputs.right, false)
-h.step("timer", h.networkTimer); eq(h.queries, 2); eq(h.outputs.right, false)
+local n = #h.frequencies
+h.state(4, 1); eq(#h.frequencies, n)
+h.inputs.front = true; h.step("redstone"); eq(h.actualFrequency, "oltar_4")
+h.state(4, 14, 77); eq(h.actualFrequency, "oltar_4")
+for _, message in ipairs({
+    { kind = "state", name = "oltar_4", count = "14", capacity = 14 },
+    { kind = "state", name = "oltar_4", count = 1.5, capacity = 14 },
+    { kind = "state", name = "oltar_4", count = 15, capacity = 14 },
+    { kind = "state", name = "oltar_4", active = true },
+}) do h.step("rednet_message", 14, message, protocol) end
+eq(h.actualFrequency, "oltar_4")
+h.step("rednet_message", 14, { kind = "state", name = "oltar_4", count = 14, capacity = 14 }, "oltar.v1")
+eq(h.actualFrequency, "oltar_4")
+h.step("timer", h.networkTimer); eq(h.queries, 2)
 h.step("terminate"); eq(h.outputs.right, false)
 
--- Normal startup order 1 -> 2 -> 3 -> 4, then refill only the third.
-h = harness("main", true); h.step()
-for i = 1, 4 do h.state(i, true) end
-eq(table.concat(h.frequencies, ","), "oltar_1,oltar_2,oltar_3,oltar_4")
+h = harness("main", true); h.answers = { "0", "2" }; h.step("setup")
+eq(h.mainConfig, "target:2"); ready(h)
+for round = 1, 2 do for i = 1, 4 do h.state(i, round) end end
 eq(h.outputs.right, false)
-h.state(3, false); eq(h.frequencies[5], "oltar_3"); eq(h.outputs.right, true)
-h.failFrequency = true; h.state(1, false)
-eq(h.outputs.right, false); eq(#h.errors, 1)
-h.inputs.front = false; h.step("redstone"); eq(h.outputs.right, false)
-h.failFrequency = false; h.inputs.front = true
-h.step("timer", h.inputTimer)
-eq(h.outputs.right, true); eq(h.frequencies[#h.frequencies], "oltar_1")
-h.step("terminate")
-
-h = harness("main", false); h.step()
-eq(h.frequencies[1], "oltar_1"); eq(h.outputs.right, false)
-h.state(1, true); eq(#h.frequencies, 1)
-h.inputs.front = true; h.step("redstone"); eq(h.frequencies[2], "oltar_2")
-h.step("peripheral_detach", "back"); eq(h.outputs.right, false); eq(#h.errors, 1)
+h.state(3, 1); eq(h.actualFrequency, "oltar_3"); eq(h.outputs.right, true)
+h.failFrequency = true; h.state(1, 0); eq(h.outputs.right, false); eq(#h.errors, 1)
+h.failFrequency = false; h.step("timer", h.inputTimer); eq(h.actualFrequency, "oltar_1")
+h.ignoreFrequency = true; h.state(1, 2)
+eq(h.outputs.right, false); eq(h.actualFrequency, "oltar_1")
+h.ignoreFrequency = false; h.step("timer", h.inputTimer)
+eq(h.actualFrequency, "oltar_3"); eq(h.outputs.right, true)
+h.actualFrequency = "oltar_4"; h.step("timer", h.inputTimer); eq(h.actualFrequency, "oltar_3")
+h.step("peripheral_detach", "back"); eq(h.outputs.right, false)
 h.step("peripheral", "back"); eq(h.outputs.right, true)
 h.inputs.front = false; h.step("timer", h.inputTimer); eq(h.outputs.right, false)
 h.inputs.front = true; h.step("timer", h.inputTimer); eq(h.outputs.right, true)
@@ -157,46 +176,66 @@ h.step("terminate")
 
 h = harness("main", false); h.failFrequency = true; h.step()
 eq(coroutine.status(h.co), "suspended"); eq(h.outputs.right, false)
-h.inputs.front = true; h.step("redstone"); eq(h.outputs.right, false)
+ready(h); h.inputs.front = true; h.step("redstone"); eq(h.outputs.right, false)
 h.failFrequency = false; h.step("timer", h.inputTimer); eq(h.outputs.right, true)
-h.dropFrontOnFrequency = true; h.state(1, true); eq(h.outputs.right, false)
+h.dropFrontOnFrequency = true; h.state(1, 1); eq(h.outputs.right, false)
 h.step("terminate")
-
+-- The sensor's representable capacity limits any larger configured goal.
 h = harness("main", true); h.step()
-h.ignoreFrequency = true; h.state(1, true)
-eq(h.actualFrequency, "oltar_1"); eq(h.outputs.right, false); eq(#h.errors, 1)
-h.ignoreFrequency = false; h.step("timer", h.inputTimer)
-eq(h.actualFrequency, "oltar_2"); eq(h.outputs.right, true)
--- Manual changes to the teleporter must not leave the cached target incorrect.
-h.actualFrequency = "oltar_4"; h.step("timer", h.inputTimer)
-eq(h.actualFrequency, "oltar_2")
-h.step("terminate")
+for i = 1, 4 do h.state(i, 3, nil, 3) end
+eq(h.outputs.right, false); h.step("terminate")
 
-h = harness("client", false, true, "oltar_3,99"); h.step()
-eq(h.sent[1].name, "oltar_3"); eq(h.sent[1].id, 99); eq(h.sent[1].active, true)
-eq(h.actions[2][1], "send"); eq(h.actions[3][1], "bottom"); eq(h.actions[3][2], true)
-h.inputs.back = false; h.step("redstone")
-eq(h.actions[4][1], "bottom"); eq(h.actions[4][2], false)
-eq(h.actions[5][1], "send"); eq(h.sent[2].active, false); eq(h.outputs.bottom, false)
-h.step("redstone"); eq(#h.sent, 2)
-h.step("timer", h.timer); eq(#h.sent, 3)
-h.step("rednet_message", 99, { kind = "query" }, protocol); eq(#h.sent, 4)
-h.step("rednet_message", 42, { kind = "query" }, protocol); eq(#h.sent, 4)
-h.inputs.back = true; h.step("redstone"); eq(h.outputs.bottom, true)
-h.step("terminate"); eq(h.outputs.bottom, false)
+-- Migrate the old client config without changing identity or main ID.
+h = harness("client", false, 0, "oltar_3,99"); h.step()
+eq(h.config, "oltar_3,99,0")
+eq(h.sent[1].name, "oltar_3"); eq(h.sent[1].id, 99)
+eq(h.sent[1].signal, 0); eq(h.sent[1].count, 0); eq(h.outputs.bottom, false)
+eq(h.outputs.right, 0)
+h.inputs.back = 1; h.step("redstone")
+eq(h.sent[2].count, 1); eq(h.outputs.bottom, true)
+eq(h.outputs.right, 15)
+eq(h.actions[#h.actions-1][1], "send") -- Send before enabling bottom.
+h.inputs.back = 2; h.step("redstone")
+eq(h.sent[3].count, 2); eq(h.outputs.bottom, true) -- Boolean input stayed true.
+eq(h.outputs.right, 15)
+h.inputs.back = 15; h.step("timer", h.inputTimer)
+eq(h.sent[4].count, 15); eq(h.sent[4].capacity, 15)
+eq(h.outputs.right, 15)
+h.inputs.back = 0; h.step("redstone")
+eq(h.sent[5].count, 0); eq(h.outputs.bottom, false)
+eq(h.outputs.right, 0)
+eq(h.actions[#h.actions-2][1], "bottom") -- Disable bottom before sending zero.
+h.step("redstone"); eq(#h.sent, 5)
+h.step("timer", h.networkTimer); eq(#h.sent, 6)
+h.step("rednet_message", 99, { kind = "query" }, protocol); eq(#h.sent, 7)
+h.step("rednet_message", 42, { kind = "query" }, protocol); eq(#h.sent, 7)
+h.inputs.back = 1; h.step("redstone"); eq(h.sent[8].count, 1)
+h.step("terminate"); eq(h.outputs.bottom, false); eq(h.outputs.right, 0)
 
-h = harness("client", false, false)
+h = harness("client", false, 0)
 h.answers = { "5", "99", "1", "99" }; h.step()
-eq(h.config, "oltar_1,99"); eq(h.sent[1].active, false); eq(h.outputs.bottom, false)
+eq(h.config, "oltar_1,99,0"); eq(h.sent[1].count, 0)
 h.step("terminate")
-h = harness("client", false, false, "oltar_1,99")
-h.answers = { "4", "99" }; h.step("setup")
-eq(h.config, "oltar_4,99"); eq(h.sent[1].name, "oltar_4")
+h = harness("client", false, 2, "oltar_1,99")
+h.answers = { "4", "99", "0" }; h.step("setup")
+eq(h.config, "oltar_4,99,0"); eq(h.sent[1].count, 2); eq(h.sent[1].capacity, 15)
 h.step("terminate")
-h = harness("client", false, true, "oltar_1,99"); h.noModem = true; h.step()
+-- Preserve a previously calibrated baseline until explicitly reconfigured.
+h = harness("client", false, 2, "oltar_1,99,1"); h.step()
+eq(h.config, "oltar_1,99,1"); eq(h.sent[1].count, 1)
+h.inputs.back = 1; h.step("redstone")
+eq(h.sent[#h.sent].count, 0); eq(h.outputs.bottom, false); eq(h.outputs.right, 15)
+h.step("terminate")
+eq(h.outputs.right, 0)
+h = harness("main", true); h.mainConfig = nil; h.step()
+eq(h.mainConfig, "target:15"); h.step("terminate")
+h = harness("main", true); h.mainConfig = "target:14"; h.step()
+eq(h.mainConfig, "target:14"); h.step("terminate")
+h = harness("client", false, 2, "oltar_1,99"); h.noModem = true; h.step()
 eq(h.outputs.bottom, false); eq(#h.errors, 1)
+eq(h.outputs.right, 0)
 h = harness("router"); h.step(); eq(h.routerProgram, "repeat")
-print("Oltar OK: main sequencing, refill, stop/resume, validation, cleanup, client setup/reporting, router.")
+print("Oltar OK: analog counts, 15 rounds, refill, configured limits, stop/resume, validation, teleporter recovery, config migration.")
 ''')
 
 manifest = json.loads((root / "oltar/manifest.json").read_text(encoding="utf-8"))
