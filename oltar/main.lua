@@ -3,6 +3,16 @@ local PROTOCOL = "oltar.v1"
 local INTERVAL = 2
 local states, owners = {}, {}
 local frequency
+local previousInput, previousOutput, teleportError
+local previousTarget = false
+
+local function setSpawner(active)
+    redstone.setOutput("left", active)
+    if previousOutput ~= active then
+        print("Spawner (left): " .. tostring(active))
+        previousOutput = active
+    end
+end
 
 local function openNetwork()
     local found = false
@@ -25,11 +35,31 @@ local function setFrequency(name)
     print("Teleport -> " .. name)
 end
 
+local function tryFrequency(name)
+    local ok, err = pcall(setFrequency, name)
+    if not ok then
+        setSpawner(false)
+        local message = tostring(err)
+        if teleportError ~= message then
+            printError("Teleport: " .. message)
+            print("Spawner vypnuty. Po oprave teleportera automaticky skusim znova.")
+        end
+        teleportError = message
+        return false
+    end
+    teleportError = nil
+    return true
+end
+
 local function update()
     -- Vypnutie vstupu musi zastavit spawner aj pred pripadnou chybou teleportu.
     local enabled = redstone.getInput("front")
+    if previousInput ~= enabled then
+        print("Vstup (front): " .. tostring(enabled))
+        previousInput = enabled
+    end
     if not enabled then
-        redstone.setOutput("left", false)
+        setSpawner(false)
         return
     end
     local target
@@ -37,23 +67,30 @@ local function update()
         local name = "oltar_" .. i
         if states[name] ~= true then target = name; break end
     end
+    if previousTarget ~= target then
+        print(target and ("Doplnam: " .. target) or "Vsetky 4 oltare maju True: spawner vypnuty.")
+        previousTarget = target
+    end
     if not target then
-        redstone.setOutput("left", false)
+        setSpawner(false)
         return
     end
-    setFrequency(target)
-    redstone.setOutput("left", true)
+    if tryFrequency(target) then
+        -- Nastavovanie periferie moze cakat; znova precitaj vstup pred zapnutim.
+        setSpawner(redstone.getInput("front"))
+    end
 end
 
 local function run()
-    redstone.setOutput("left", redstone.getInput("front"))
-    setFrequency("oltar_1")
+    setSpawner(redstone.getInput("front"))
+    tryFrequency("oltar_1")
     openNetwork()
     print("Hlavny PC ID: " .. os.getComputerID())
     print("Ukoncit: Ctrl+T")
     -- Po restarte nikdy nepouzivame stare obsadenie ulozene na disku.
     rednet.broadcast({ kind = "query" }, PROTOCOL)
     local timer = os.startTimer(INTERVAL)
+    local inputTimer = os.startTimer(0.25)
     update()
     while true do
         local event, sender, message, protocol = os.pullEvent()
@@ -79,8 +116,16 @@ local function run()
             rednet.broadcast({ kind = "query" }, PROTOCOL)
             update()
             timer = os.startTimer(INTERVAL)
+        elseif event == "timer" and sender == inputTimer then
+            update()
+            inputTimer = os.startTimer(0.25)
         elseif event == "peripheral_detach" and sender == "back" then
-            error("Teleporter bol odpojeny.", 0)
+            frequency = nil
+            setSpawner(false)
+            printError("Teleporter bol odpojeny. Cakam na opatovne pripojenie.")
+        elseif event == "peripheral" and sender == "back" then
+            frequency = nil
+            update()
         end
     end
 end

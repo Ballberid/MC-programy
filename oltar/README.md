@@ -29,7 +29,10 @@ vstup True. Ak vypadne iba tretí, vyberie priamo `oltar_3`.
 
 Predný vstup False okamžite vypne spawner; stavové správy sa stále prijímajú.
 Po opätovnom zapnutí sa pokračuje podľa aktuálnych stavov.
-Pri chybe teleportera alebo ukončení cez Ctrl+T sa spawner vypne.
+Pri chybe teleportera sa spawner vypne, program vypíše dôvod a po oprave
+automaticky zopakuje nastavenie. Ukončenie cez Ctrl+T tiež vypne spawner.
+Program vypisuje zmeny vstupu `front` a výstupu `left`. Okrem redstone
+udalostí kontroluje vstup každých 0,25 sekundy.
 Stavy sa uchovávajú v pamäti a po reštarte sa načítajú z pomocných PC.
 Posledná frekvencia ostáva zvolená pri plnom oltári aj vypnutom vstupe.
 

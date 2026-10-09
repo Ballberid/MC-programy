@@ -32,11 +32,16 @@ local function harness(program, front, back, config)
     local teleporter = { setFrequency = function(name)
         if h.failFrequency then error("Frequency unavailable") end
         h.frequencies[#h.frequencies + 1] = name
+        if h.dropFrontOnFrequency then h.inputs.front = false end
     end }
     env.peripheral = {
         getNames = function() return h.noModem and {} or { "top" } end,
         hasType = function(_, kind) return kind == "modem" end,
-        wrap = function(side) eq(side, "back"); return teleporter end,
+        wrap = function(side)
+            eq(side, "back")
+            if h.detached then return nil end
+            return teleporter
+        end,
     }
     env.rednet = {
         open = function(side) eq(side, "top") end,
@@ -49,7 +54,12 @@ local function harness(program, front, back, config)
     }
     env.os = {
         getComputerID = function() return program == "main" and 99 or 13 end,
-        startTimer = function(seconds) eq(seconds, 2); h.timer = (h.timer or 0) + 1; return h.timer end,
+        startTimer = function(seconds)
+            assert(seconds == 2 or seconds == 0.25)
+            h.timer = (h.timer or 0) + 1
+            if seconds == 2 then h.networkTimer = h.timer else h.inputTimer = h.timer end
+            return h.timer
+        end,
         pullEvent = function()
             local event = { coroutine.yield() }
             if event[1] == "terminate" then error("Terminated", 0) end
@@ -115,7 +125,7 @@ eq(h.frequencies[#h.frequencies], "oltar_2")
 h.step("rednet_message", 12, { kind = "state", name = "oltar_2", active = true }, "other")
 eq(h.frequencies[#h.frequencies], "oltar_2")
 h.state(2, true); h.state(3, true); eq(h.outputs.left, false)
-h.step("timer", h.timer); eq(h.queries, 2); eq(h.outputs.left, false)
+h.step("timer", h.networkTimer); eq(h.queries, 2); eq(h.outputs.left, false)
 h.step("terminate"); eq(h.outputs.left, false)
 
 -- Normal startup order 1 -> 2 -> 3 -> 4, then refill only the third.
@@ -126,12 +136,28 @@ eq(h.outputs.left, false)
 h.state(3, false); eq(h.frequencies[5], "oltar_3"); eq(h.outputs.left, true)
 h.failFrequency = true; h.state(1, false)
 eq(h.outputs.left, false); eq(#h.errors, 1)
+h.inputs.front = false; h.step("redstone"); eq(h.outputs.left, false)
+h.failFrequency = false; h.inputs.front = true
+h.step("timer", h.inputTimer)
+eq(h.outputs.left, true); eq(h.frequencies[#h.frequencies], "oltar_1")
+h.step("terminate")
 
 h = harness("main", false); h.step()
 eq(h.frequencies[1], "oltar_1"); eq(h.outputs.left, false)
 h.state(1, true); eq(#h.frequencies, 1)
 h.inputs.front = true; h.step("redstone"); eq(h.frequencies[2], "oltar_2")
 h.step("peripheral_detach", "back"); eq(h.outputs.left, false); eq(#h.errors, 1)
+h.step("peripheral", "back"); eq(h.outputs.left, true)
+h.inputs.front = false; h.step("timer", h.inputTimer); eq(h.outputs.left, false)
+h.inputs.front = true; h.step("timer", h.inputTimer); eq(h.outputs.left, true)
+h.step("terminate")
+
+h = harness("main", false); h.failFrequency = true; h.step()
+eq(coroutine.status(h.co), "suspended"); eq(h.outputs.left, false)
+h.inputs.front = true; h.step("redstone"); eq(h.outputs.left, false)
+h.failFrequency = false; h.step("timer", h.inputTimer); eq(h.outputs.left, true)
+h.dropFrontOnFrequency = true; h.state(1, true); eq(h.outputs.left, false)
+h.step("terminate")
 
 h = harness("client", false, true, "oltar_3,99"); h.step()
 eq(h.sent[1].name, "oltar_3"); eq(h.sent[1].id, 99); eq(h.sent[1].active, true)
