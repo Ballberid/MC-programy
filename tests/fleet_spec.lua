@@ -932,6 +932,25 @@ test("shaft travel holds lane reservations without locking the service floor", f
         p={x=x,y=y,z=z}; return true
     end)); eq(next(locks), nil)
 end)
+
+test("returning workers reserve the chest only after releasing the shaft",function()
+    local transit=require("transit"); assert(transit.configure(tunnel(),nil,"upper"))
+    local p={x=4,y=4,z=0}; local held={}; local reserved=false
+    local client={acquire=function(resource)
+        if resource:match("^station:") then
+            eq(p.y,0)
+            for r in pairs(held) do
+                assert(not r:match("^tunnel:") and not r:match("^door:"),"Chest claimed while holding shaft traffic")
+            end
+            reserved=true
+        else assert(not reserved,"Waiting for tunnel while reserving a destination chest") end
+        held[resource]=true; return true
+    end,release=function(resource) held[resource]=nil end}
+    local move=require("fleet_motion").new(client,stations(),function() return p end,dock())
+    local function raw(x,y,z) p={x=x,y=y,z=z}; return true end
+    assert(move(stations().output,{},raw)); eq(reserved,true)
+    eq(held["station:-2,0,2"],true)
+end)
 test("failed outbound shaft retains tunnel reservation after service handoff", function()
     local transit = require("transit"); assert(transit.configure(tunnel(), nil, "upper"))
     local depth, p = {}, dock()

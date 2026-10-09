@@ -72,6 +72,10 @@ uloží do `data/fleet-last-start-error.txt`; na PC ho otvoríš cez
 Rezervuje sa iba konkrétne obslužné miesto pri truhle. Pri rôznych truhlách môžu
 pracovať súčasne; pri tej istej sa vystriedajú. Pred rezerváciou ďalšej truhly
 turtle opustí predchádzajúce miesto, aby si navzájom neblokovali odchod.
+Pri návrate z iného poschodia sa cieľová truhla rezervuje až po výstupe z tunela
+a uvoľnení jeho pruhu aj výstupu. Turtle čakajúca na tunel tak neblokuje truhlu
+ostatným, ktorí sa k nej už vracajú. Úvodná rezervácia prvej truhly ešte v doku
+zostáva zachovaná.
 
 Truhly môžu byť pri hlavnom PC. Pre palivo, vykladanie a materiál vyberáš
 samostatné stanice. Pri novej úlohe môžeš jednotlivé stanice nahradiť dočasnými

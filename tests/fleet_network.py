@@ -93,6 +93,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().MIXED_JOBS = mixed
         lua.globals().USE_SHAFT = shaft
         lua.globals().SHAFT_WORK_Y = -31 if shaft_down else 40
+        lua.globals().QUARRY_MAX_X = 7 + max(4, worker_count)
         lua.globals().WALL_CORNERS = corners
         lua.globals().WALL_RECOVERY = recovery
         lua.globals().WALL_RESTOCK = restock
@@ -131,7 +132,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             if JOB_KIND=="quarry" or MIXED_JOBS then
                 local top=USE_SHAFT and SHAFT_WORK_Y or 0
                 local bottom=top-19
-                for x=8,11 do for y=bottom,top do for z=0,3 do W.blocks[x..","..y..","..z]=true end end end
+                for x=8,QUARRY_MAX_X do for y=bottom,top do for z=0,3 do W.blocks[x..","..y..","..z]=true end end end
                 if USE_SHAFT then
                     for x=-20,30 do for z=-20,20 do
                         if math.abs(x)>1 or math.abs(z)>1 then W.blocks[x..","..math.floor(SHAFT_WORK_Y/2)..","..z]=true end
@@ -289,10 +290,10 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             startup_overlap = startup_overlap or (travelling and len(list(first_world["digs"].values())) == 0)
         if not started and len(list(control.available().values())) == worker_count:
             main.globals().WORKER_IDS=main.table_from((41,) if mixed else workers)
-            ok = main.execute('''local a,b={x=8,y=0,z=0},{x=11,y=-19,z=3}
+            ok = main.execute('''local a,b={x=8,y=0,z=0},{x=QUARRY_MAX_X,y=-19,z=3}
                 local tunnel,floor
                 if USE_SHAFT then
-                    a,b={x=8,y=SHAFT_WORK_Y,z=0},{x=11,y=SHAFT_WORK_Y-19,z=3}
+                    a,b={x=8,y=SHAFT_WORK_Y,z=0},{x=QUARRY_MAX_X,y=SHAFT_WORK_Y-19,z=3}
                     tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}},upper={exit={x=2,y=SHAFT_WORK_Y,z=0}}}}
                     if SHAFT_WORK_Y<0 then tunnel.floors.middle={exit={x=2,y=-5,z=0}} end
                     floor="upper"
@@ -349,7 +350,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
             assert shaft_overlap, "Two workers should travel in separate shaft columns concurrently"
         assert control.snapshot()["tunnelOwner"] is None
     summary = control.snapshot()["summary"]
-    expected = (144 if corners else 128) if kind=="walls" else (640 if mixed else 320)
+    expected = (144 if corners else 128) if kind=="walls" else (640 if mixed else (80*max(4,worker_count) if kind=="quarry" else 320))
     assert summary["completed"] == expected and summary["remaining"] == 0
     mined = set()
     for identity in workers:

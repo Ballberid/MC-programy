@@ -51,15 +51,19 @@ function motion.new(client, stations, position, dock, onStartupComplete)
         if parked and not same(parking,target) then
             local ok,err=leaveParking(target,options,rawMove); if not ok then return false,err end
         end
-        if resource and parked~=resource then
-            -- A worker may already reserve its first chest while still docked.
-            -- Adopt that claim rather than nesting it and keeping it after departure.
-            if not (client.held and client.held[resource]) then
-                local ok,err=client.acquire(resource); if not ok then return false,err end
+        local function arrive(x,y,z,o)
+            if resource and parked~=resource then
+                -- Adopt the first chest's dock claim without nesting it.
+                if not (client.held and client.held[resource]) then
+                    local ok,err=client.acquire(resource); if not ok then return false,err end
+                end
+                parked,parking=resource,{x=target.x,y=target.y,z=target.z}
             end
-            parked,parking=resource,{x=target.x,y=target.y,z=target.z}
+            return rawMove(x,y,z,o)
         end
-        local ok,err,details=transit.move(target,options,rawMove,client.acquire,client.release,position)
+        -- Do not reserve a remote chest before waiting for a shaft lane.
+        -- Other returning workers may hold that lane and need the same chest.
+        local ok,err,details=transit.move(target,options,rawMove,client.acquire,client.release,position,nil,arrive)
         if not ok and not same(position(),parking) then releaseParking() end
         return ok,err,details
     end

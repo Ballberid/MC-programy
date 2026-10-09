@@ -63,9 +63,9 @@ function transit.estimate(from, target)
     end
     return cost + distance(previous, target) + (#transit.plan(from,target)>0 and 8 or 0)
 end
-function transit.move(target, options, rawMove, acquire, release, position, onEntered)
+function transit.move(target, options, rawMove, acquire, release, position, onEntered, destinationMove)
     local legs = options.maxMoves == 1 and {} or transit.plan(position(), target)
-    if #legs == 0 then return rawMove(target.x, target.y, target.z, options) end
-    return require("tunnel_traffic").move(legs,target,options,rawMove,acquire,release,position,onEntered,preferredLane)
+    if #legs == 0 then return (destinationMove or rawMove)(target.x, target.y, target.z, options) end
+    return require("tunnel_traffic").move(legs,target,options,rawMove,acquire,release,position,onEntered,preferredLane,destinationMove)
 end
 return transit

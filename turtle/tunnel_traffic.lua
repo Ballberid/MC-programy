@@ -9,7 +9,7 @@ function traffic.lane(up,preferred)
     return "tunnel:down", 1, 0
 end
 local function gate(p) return "door:"..p.x..","..p.y..","..p.z end
-function traffic.move(legs,target,options,rawMove,acquire,release,position,onEntered,preferred)
+function traffic.move(legs,target,options,rawMove,acquire,release,position,onEntered,preferred,destinationMove)
     local first,last=legs[2].point,legs[3].point
     local up=last.y>first.y
     local lane,dx,dz=traffic.lane(up,preferred)
@@ -52,6 +52,6 @@ function traffic.move(legs,target,options,rawMove,acquire,release,position,onEnt
         ok,reason=move(p,true); if not ok then return false,reason end
     end
     release(destinationGate); release(lane)
-    return rawMove(target.x,target.y,target.z,options)
+    return (destinationMove or rawMove)(target.x,target.y,target.z,options)
 end
 return traffic
