@@ -27,9 +27,11 @@ poradie 1, 2, 3, 4. Najprv teda doplní jedného moba do každej veže,
 až potom druhého do každej, potom tretieho atď. Počty sa riadia skutočnými
 hláseniami senzorov, nie počítadlom odoslaných mobov.
 
-Predvolený cieľ je **15 mobov na každú vežu**. Po dosiahnutí cieľa vo
+Predvolený a maximálny cieľ je **5 mobov na každú vežu**. Keď všetky štyri
+veže hlásia aspoň 5 (alebo nastavený nižší limit), spawner sa vypne.
+Po dosiahnutí cieľa vo
 všetkých vežiach spawner vypne. Ak niekde mob ubudne, túto vežu opäť
-doplní. Limit môžeš zmeniť cez `main.lua setup`; uloží sa do
+doplní. Nižší limit 1–5 môžeš zmeniť cez `main.lua setup`; uloží sa do
 `main-config.txt`. Ak senzor umožňuje merať menej mobov než zadaný limit,
 program použije kapacitu najmenšieho senzora. Už vytvorení alebo letiaci
 mobovia môžu doraziť aj po vypnutí spawneru; program ich spätne neodstraňuje.
@@ -67,7 +69,8 @@ signálu sa automaticky doplní o hodnotu 0, číslo oltára a ID hlavného PC
 sa zachovajú. Už uložená hodnota 1 sa pri aktualizácii nemení: po zmene
 zapojenia na priame počty spusti na každom klientovi `client.lua setup`,
 zadaj jeho pôvodné číslo a ID hlavného PC a prázdny signál **0**.
-Uložený cieľ hlavného PC sa tiež nemení; pre 15 mobov spusti `main.lua setup`.
+Uložený cieľ vyšší než 5 sa pri spustení novej verzie automaticky zníži na 5;
+nižšie nastavené limity sa zachovajú.
 
 Senzor musí na vstup PC privádzať presnú silu. Nepoužívaj medzi ním a PC
 repeater, ktorý z nenulového signálu spraví 15, a vyhni sa zoslabovaniu

@@ -107,6 +107,7 @@ local function execute()
             else client.finish(ok, result, progress) end
             print(ok and "Uloha hotova. Cakam." or ("Uloha zastavena: " .. tostring(result)))
         end
+        if client.updater then client.updater.tick() end
         sleep(0.2)
     end
 end

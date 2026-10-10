@@ -126,7 +126,7 @@ eq(h.frequencies[1], "oltar_1"); eq(h.outputs.right, false)
 h.state(2, 0); h.state(1, 0); h.state(3, 0)
 eq(h.outputs.right, false) -- Wait for the fourth counting sensor.
 h.state(4, 0); eq(h.outputs.right, true)
-for round = 1, 15 do
+for round = 1, 5 do
     for i = 1, 4 do
         eq(h.actualFrequency, "oltar_" .. i)
         h.state(i, round)
@@ -134,11 +134,11 @@ for round = 1, 15 do
 end
 eq(h.outputs.right, false)
 -- At the limit, a missing mob is replaced in exactly the affected tower.
-h.state(3, 14); eq(h.actualFrequency, "oltar_3"); eq(h.outputs.right, true)
-h.state(3, 15); eq(h.outputs.right, false)
+h.state(3, 4); eq(h.actualFrequency, "oltar_3"); eq(h.outputs.right, true)
+h.state(3, 5); eq(h.outputs.right, false)
 -- Lower counts have priority; ties go in order 1,2,3,4.
-h.state(2, 12); h.state(1, 13); eq(h.actualFrequency, "oltar_2")
-h.state(2, 13); eq(h.actualFrequency, "oltar_1")
+h.state(2, 2); h.state(1, 3); eq(h.actualFrequency, "oltar_2")
+h.state(2, 3); eq(h.actualFrequency, "oltar_1")
 h.inputs.front = false; h.step("redstone"); eq(h.outputs.right, false)
 local n = #h.frequencies
 h.state(4, 1); eq(#h.frequencies, n)
@@ -228,14 +228,21 @@ eq(h.sent[#h.sent].count, 0); eq(h.outputs.bottom, false); eq(h.outputs.right, 1
 h.step("terminate")
 eq(h.outputs.right, 0)
 h = harness("main", true); h.mainConfig = nil; h.step()
-eq(h.mainConfig, "target:15"); h.step("terminate")
+eq(h.mainConfig, "target:5"); h.step("terminate")
 h = harness("main", true); h.mainConfig = "target:14"; h.step()
-eq(h.mainConfig, "target:14"); h.step("terminate")
+eq(h.mainConfig, "target:5"); h.step("terminate")
 h = harness("client", false, 2, "oltar_1,99"); h.noModem = true; h.step()
 eq(h.outputs.bottom, false); eq(#h.errors, 1)
 eq(h.outputs.right, 0)
+h = harness("main", true); h.step(); eq(h.mainConfig, "target:5")
+ready(h, { 5, 6, 7, 8 }); eq(h.outputs.right, false)
+h.state(3, 4); eq(h.outputs.right, true); eq(h.actualFrequency, "oltar_3")
+h.state(3, 6); eq(h.outputs.right, false); h.step("terminate")
+h = harness("main", true); h.mainConfig = "target:3"; h.step()
+eq(h.mainConfig, "target:3"); ready(h, {3,3,3,3}); eq(h.outputs.right, false)
+h.step("terminate")
 h = harness("router"); h.step(); eq(h.routerProgram, "repeat")
-print("Oltar OK: analog counts, 15 rounds, refill, configured limits, stop/resume, validation, teleporter recovery, config migration.")
+print("Oltar OK: analog counts, 5 rounds, refill, configured limits, stop/resume, validation, teleporter recovery, config migration.")
 ''')
 
 manifest = json.loads((root / "oltar/manifest.json").read_text(encoding="utf-8"))

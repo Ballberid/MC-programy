@@ -3,6 +3,14 @@ local display = {}
 local frames=setmetatable({}, {__mode="k"})
 local names={floor="podlaha",ceiling="strop",walls="steny",quarry="vykop"}
 function display.activity(w)
+    if w.update then
+        local labels={requested="Update zadany",returning="Update: navrat",updating="Aktualizuje",rebooting="Restartuje"}
+        if labels[w.update.phase] then return labels[w.update.phase] end
+        if w.status=="idle" or w.status=="failed" or w.status=="complete" then
+            if w.update.phase=="complete" then return "Aktualizovane" end
+            if w.update.phase=="failed" then return "Update chyba: "..tostring(w.update.error) end
+        end
+    end
     local status=w.status
     if status=="offline" or status=="paused" or status=="failed" or status=="recovery"
         or status=="idle" or status=="complete" or status=="assigned" then return status end

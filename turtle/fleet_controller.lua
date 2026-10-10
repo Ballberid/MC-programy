@@ -31,6 +31,20 @@ function controller.new(settings)
         local p = extra or {}; p.version, p.kind, p.id = 1, kind, os.getComputerID()
         if id then rednet.send(id, p, model.protocol) else rednet.broadcast(p, model.protocol) end
     end
+    local function updateResult(id,result)
+        local w,pending=state.workers[id],state.pendingControls[id]
+        local phases={returning=true,updating=true,rebooting=true,complete=true,failed=true}
+        if not w or type(result)~="table" or type(result.request)~="string" or not phases[result.phase] then return end
+        if not (pending and pending.action=="update" and pending.request==result.request)
+            and not (w.update and w.update.request==result.request) then return end
+        if w.update and w.update.request==result.request and w.update.phase=="complete" and result.phase~="complete" then return end
+        local changed=not w.update or w.update.phase~=result.phase or w.update.error~=result.error
+        w.update={request=result.request,phase=result.phase,error=result.error}
+        if result.phase=="complete" or result.phase=="failed" then
+            if pending and pending.request==result.request then state.pendingControls[id]=nil; changed=true end
+        end
+        if changed then self.save() end
+    end
     function self.available()
         local ids = {}
         for id, w in pairs(state.workers) do
@@ -38,7 +52,9 @@ function controller.new(settings)
             for _,lock in pairs(state.locks) do if lock.owner==id then reserved=true; break end end
             local t=jobs.task(id)
             local free=not t or t.status=="complete" or t.status=="failed" or t.status=="cancelled"
-            if free and not reserved and not state.pendingControls[id] and os.clock()-w.received<6
+            local updating=w.update and (w.update.phase=="requested" or w.update.phase=="returning"
+                or w.update.phase=="updating" or w.update.phase=="rebooting")
+            if free and not updating and not reserved and not state.pendingControls[id] and os.clock()-w.received<6
                 and (w.status=="idle" or w.status=="complete" or w.status=="failed") then ids[#ids+1]=id end
         end
         table.sort(ids); return ids
@@ -127,6 +143,8 @@ function controller.new(settings)
             end
             w.status, w.received, w.dock, w.label, w.error, w.taskId = p.status, os.clock(), p.dock, p.label, p.error, p.taskId
             w.taskType=p.taskId and (p.taskType or (t and t.id==p.taskId and (t.assignment.kind or "quarry"))) or nil
+            w.remoteUpdate=p.remoteUpdate==true
+            updateResult(sender,p.update)
             w.packet = { activity = p.activity or p.status, level = p.error and "error" or "info", message = p.error or p.activity or p.status,
                 label = p.label, fuel = p.fuel, inventory = p.inventory, position = p.position, progress = p.progress }
             if t and p.taskId == t.id then
@@ -186,6 +204,8 @@ function controller.new(settings)
         elseif p.kind == "release" then
             if model.release(state.locks, p.resource, sender, p.token) then self.save() end
             self.send(sender, "release_reply", { resource = p.resource, token = p.token })
+        elseif p.kind=="update_result" then
+            updateResult(sender,p)
         elseif p.kind=="reset_result" then
             local pending=state.pendingControls[sender]
             if not pending or pending.action~="reset" or pending.request~=p.request then return end
@@ -201,7 +221,7 @@ function controller.new(settings)
             self.save()
         elseif p.kind == "control_ack" then
             local pending = state.pendingControls[sender]
-            if pending and pending.request == p.request and pending.action~="reset" then state.pendingControls[sender] = nil; self.save() end
+            if pending and pending.request == p.request and pending.action~="reset" and pending.action~="update" then state.pendingControls[sender] = nil; self.save() end
         end
     end
     function self.control(action, target, jobId)
@@ -214,12 +234,19 @@ function controller.new(settings)
                 w.controlError=nil
                 local packet = { action = action, taskId = w.taskId, request = "control:" .. state.serial, order = state.serial }
                 state.pendingControls[id] = packet; pending[id]=packet
+                if action=="update" then w.update={request=packet.request,phase="requested"} end
+                if action=="update" and not w.remoteUpdate then
+                    w.update.phase,w.update.error="failed","update_requires_manual_install"
+                    state.pendingControls[id],pending[id]=nil,nil
+                    self.dirty=true
+                end
             end
         end
         if next(pending) then
             self.save()
             for id,packet in pairs(pending) do self.send(id,"control",store.copy(packet)) end
         end
+        if self.dirty then self.save() end
         return true
     end
     function self.snapshot()
@@ -234,7 +261,8 @@ function controller.new(settings)
                 jobId=job and job.id, jobNumber=job and job.number,
                 taskType = t and t.id==w.taskId and (t.assignment.kind or "quarry") or w.taskType,
                 taskTotal = t and t.id==w.taskId and t.total or nil,
-                pendingControl = state.pendingControls[id] and state.pendingControls[id].action }
+                pendingControl = state.pendingControls[id] and state.pendingControls[id].action,
+                update=w.update }
         end
         return { version = 1, kind = "fleet_snapshot", id = os.getComputerID(), workers = workers,
             jobs=jobList, summary = summary, serviceOwner = serviceOwners[1],serviceOwners=serviceOwners,

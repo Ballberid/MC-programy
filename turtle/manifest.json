@@ -1,6 +1,7 @@
 {
   "version": 1,
   "files": [
+    { "source": "fleet_updater.lua", "target": "fleet_updater.lua", "roles": ["turtle"] },
     { "source": "turtle_update.lua", "target": "update.lua", "roles": ["turtle", "receiver", "router", "controller"] },
     { "source": "config.lua", "target": "config.lua", "roles": ["turtle", "controller", "receiver"] },
     { "source": "fuel.lua", "target": "fuel.lua", "roles": ["turtle", "controller"] },

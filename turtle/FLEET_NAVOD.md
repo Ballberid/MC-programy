@@ -171,7 +171,27 @@ Hlavné menu:
 | 9 | Reset zastavenej turtle v doku do `idle`; ID 0 = všetky |
 | 10 | Nastavenia základne; zmeny platia pre nasledujúce úlohy |
 | 11 | Ručné uvoľnenie rezervácií po fyzickej kontrole |
+| 12 | Aktualizovať jednu turtle, pracovníkov jednej úlohy alebo všetky |
 | 0 | Ukončenie hlavného programu |
+
+### Aktualizácia turtle z hlavného PC
+
+Túto funkciu najprv nainštaluj raz ručne: na PC `update controller`, na každej
+turtle `update turtle` a reštartuj programy. Starý worker bez tejto funkcie hlási
+`update_requires_manual_install`; nevie sám prijať nový príkaz.
+
+Potom vo `fleet` vyber **12 – update turtle**. Rozsah je rovnaký ako pri ostatných
+poveloch: **1** jedna turtle, **2** pracovníci vybranej úlohy, **3** všetky.
+Pracujúce alebo pozastavené turtle ukončia aktuálnu činnosť a vrátia sa do svojich
+dokov. Až po overení polohy spustia `update turtle` a reštartujú sa. Pri nedostatku
+paliva, neprístupnom doku alebo neúspešnom sťahovaní sa zobrazí chyba aktualizácie.
+PC ukazuje `Update: navrat`, `Aktualizuje`, `Restartuje` a po opätovnom pripojení
+`Aktualizovane`. Potvrdenie prijatia príkazu ešte neznamená úspešné dokončenie.
+
+Nastavenia a uložená úloha zostávajú zachované. Po návrate aktualizovaných
+pracovníkov do siete môžeš použiť **7 – Pokračovať**. Idle turtle zostane idle.
+Startup použije uložené ID hlavného PC; pri novej turtle zostáva predvolené ID 16.
+Aktualizácia PC samotného zostáva ručná (`update controller`).
 
 Monitor aj terminál zoskupujú turtle pod **Stavanie**, **Kopanie** a
 **Ostatné/pripravené**. Pri stavbe sa rozlišuje podlaha, strop a steny. Zaradenie

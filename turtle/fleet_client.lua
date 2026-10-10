@@ -38,6 +38,7 @@ function client.new(controller, dock)
             jobId = state.task and state.task.jobId, label = os.getComputerLabel(), dock = state.dock,
             position = nav.getPosition(), fuel = turtle.getFuelLevel(), inventory = inv.snapshot(),
             progress = state.progress, error = state.error, startupComplete=state.startupComplete==true,
+            update=state.update,remoteUpdate=true,
             activity = self.paused and "paused" or telemetry.getActivity() })
     end
     function self.checkpoint()
@@ -130,6 +131,9 @@ function client.new(controller, dock)
         elseif packet.kind == "assign" then
             local job = packet.task
             if type(job) ~= "table" or type(job.id) ~= "string" then return end
+            if state.update and (state.update.phase=="returning" or state.update.phase=="updating" or state.update.phase=="rebooting") then
+                self.send("reject",{taskId=job.id,error="worker_updating"}); return
+            end
             if state.seen[job.id] or (state.task and state.task.id == job.id) then self.status(); return end
             if state.status ~= "idle" and state.status ~= "complete" and state.status ~= "failed" then
                 self.send("reject", { taskId = job.id, error = "worker_busy" }); return
@@ -149,10 +153,13 @@ function client.new(controller, dock)
                 if packet.request and state.controlResults[packet.request] then
                     self.send("reset_result",store.copy(state.controlResults[packet.request]))
                 end
+                if packet.action=="update" then self.updater.report() end
                 self.send("control_ack", { request = packet.request }); return
             end
             if packet.taskId and (not state.task or state.task.id~=packet.taskId) then return end
-            if packet.action=="reset" then
+            if packet.action=="update" then
+                self.updater.request(packet)
+            elseif packet.action=="reset" then
                 local taskId=state.task and state.task.id
                 local ok,reason=self.reset()
                 local result={request=packet.request,taskId=taskId,ok=ok,error=reason}
@@ -182,6 +189,7 @@ function client.new(controller, dock)
         self.paused, self.cancel = false, false
         self.save(); self.status(true)
     end
+    self.updater=require("fleet_updater").new(self)
     return self
 end
 return client

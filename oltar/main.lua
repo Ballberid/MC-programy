@@ -2,6 +2,7 @@
 local PROTOCOL = "oltar.v2"
 local INTERVAL = 2
 local SPAWNER_SIDE = "right"
+local MAX_MOBS = 5
 local states, owners, capacities = {}, {}, {}
 local args = { ... }
 local configPath = fs.combine(fs.getDir(shell.getRunningProgram()), "main-config.txt")
@@ -19,17 +20,19 @@ local function configure()
     end
     if args[1] == "setup" then
         repeat
-            write("Cielovy pocet mobov v kazdej vezi (1-15, Enter = 15): ")
+            write("Cielovy pocet mobov v kazdej vezi (1-5, Enter = 5): ")
             local value = read()
-            config = { targetCount = value == "" and 15 or tonumber(value) }
+            config = { targetCount = value == "" and MAX_MOBS or tonumber(value) }
         until type(config.targetCount) == "number" and config.targetCount >= 1
-            and config.targetCount <= 15 and config.targetCount == math.floor(config.targetCount)
+            and config.targetCount <= MAX_MOBS and config.targetCount == math.floor(config.targetCount)
     end
     if type(config) ~= "table" or type(config.targetCount) ~= "number"
         or config.targetCount < 1 or config.targetCount > 15
         or config.targetCount ~= math.floor(config.targetCount) then
-        config = { targetCount = 15 }
+        config = { targetCount = MAX_MOBS }
     end
+    -- Aj povodne ulozene limity 14/15 po aktualizacii znizime na 5.
+    config.targetCount = math.min(config.targetCount, MAX_MOBS)
     local file = assert(fs.open(configPath, "w"))
     file.write(textutils.serialize(config)); file.close()
     targetCount = config.targetCount

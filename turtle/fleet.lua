@@ -112,9 +112,9 @@ local function input()
     while true do
         print("NOVE ULOHY: 1 vykop | 2 podlaha | 3 strop | 4 steny")
         print("OVLADANIE: 5 stav | 6 pauza | 7 pokracovat | 8 navrat/stop | 9 reset do idle")
-        print("NASTAVENIA: 10 zakladna | 11 uvolnit rezervacie")
+        print("NASTAVENIA: 10 zakladna | 11 uvolnit rezervacie | 12 update turtle")
         print("0 koniec")
-        local choice = dialog.number("Volba", 5, 0, 11)
+        local choice = dialog.number("Volba", 5, 0, 12)
         if choice == 1 then newJob()
         elseif choice == 2 then newJob("floor")
         elseif choice == 3 then newJob("ceiling")
@@ -135,6 +135,9 @@ local function input()
             end
         elseif choice >= 6 and choice <= 8 then
             controlTarget(({ "pause", "resume", "stop" })[choice-5])
+        elseif choice==12 then
+            print("Vybrane turtle sa vratia do dokov, aktualizuju a restartuju. Ulohy zostanu ulozene.")
+            controlTarget("update")
         elseif choice == 10 then
             shell.run("fleet_setup"); control.settings = settings.load()
         elseif choice == 11 then

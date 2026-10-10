@@ -29,6 +29,7 @@ local function reset()
     parallel = { waitForAny = function(first) return first() end }
     for _, name in ipairs(modules) do package.loaded[name] = nil end
     package.loaded.fleet_motion = nil
+    package.loaded.fleet_updater = nil
     package.loaded.building, package.loaded.floor_plan = nil, nil
     package.loaded.floor_access = nil
     package.loaded.horizontal_access, package.loaded.ceiling_access, package.loaded.ceiling_plan = nil,nil,nil

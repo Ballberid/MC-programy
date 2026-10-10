@@ -234,7 +234,7 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     require("fleet_controller").new=function() return control end
     peripheral.find=function() return nil end
     shell={run=function(name) runs[#runs+1]=name; return true end}
-    local choices={1,2,3,4,5,6,7,8,9,10,11,0}
+    local choices={1,2,3,4,5,6,7,8,9,10,11,12,0}
     local dialog=require("fleet_dialog")
     dialog.number=function(prompt,default)
         if prompt=="Volba" then assert(#choices>0); return table.remove(choices,1) end
@@ -252,7 +252,7 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     parallel.waitForAny=function(_,input) input() end
     assert(pcall(loadfile(ROOT.."/turtle/fleet.lua")))
     eq(table.concat(kinds,","),"quarry,floor,ceiling,walls")
-    eq(table.concat(actions,","),"pause,resume,stop,reset"); eq(runs[1],"fleet_setup"); eq(#choices,0)
+    eq(table.concat(actions,","),"pause,resume,stop,reset,update"); eq(runs[1],"fleet_setup"); eq(#choices,0)
     eq(failuresAcknowledged,1)
     local failure=require("fleet_store").load("data/fleet-last-start-error.txt",{})
     eq(failure.error,"floor_exit_inside_area"); eq(failure.kind,"quarry"); eq(failure.a.x,8)
@@ -1083,3 +1083,98 @@ local function runWorkerProgram(resuming)
 end
 test("worker program completes an assigned job with its real background RPC listener", function() runWorkerProgram(false) end)
 test("worker program retries a persisted segment through the existing resume command", function() runWorkerProgram(true) end)
+
+test("remote update runs once in dock and confirms completion only after reboot",function()
+    env.configured(stations()); env.navReady()
+    local lib=require("fleet_client"); local client=lib.new(99,dock())
+    local calls=0
+    shell={run=function(name,role) eq(name,"update"); eq(role,"turtle"); calls=calls+1; return true end}
+    os.reboot=function() error("test_reboot",0) end
+    local packet={version=1,kind="control",action="update",request="update:1",order=1}
+    client.handle(98,packet); eq(client.state.update,nil)
+    client.handle(99,packet); client.handle(99,packet); eq(calls,0)
+    local ok,err=pcall(client.updater.tick)
+    eq(ok,false); eq(err,"test_reboot"); eq(calls,1); eq(client.state.update.phase,"rebooting")
+    client=lib.new(99,dock()); eq(client.state.update.phase,"complete"); eq(client.state.status,"idle")
+    client.handle(99,packet); client.updater.tick(); eq(calls,1)
+end)
+
+test("remote update stops paused work and preserves its checkpoint on download failure",function()
+    env.configured(stations()); env.navReady()
+    local client=require("fleet_client").new(99,dock())
+    client.state.status,client.state.task="running",assignment()
+    client.state.progress={visited=8,completed=8,total=48,remaining=40}
+    client.paused=true
+    local calls=0
+    shell={run=function() calls=calls+1; return false end}
+    os.reboot=function() error("must not reboot after failure") end
+    client.handle(99,{version=1,kind="control",action="update",request="update:2",order=2,taskId=client.state.task.id})
+    eq(client.cancel,true); eq(client.paused,false)
+    client.updater.tick(); eq(calls,0)
+    client.finish(false,"job_cancelled",client.state.progress)
+    client.updater.tick(); eq(calls,1); eq(client.state.update.phase,"failed")
+    eq(client.state.update.error,"update_failed"); eq(client.state.progress.visited,8)
+    eq(client.state.task.id,"job:1"); eq(client.state.status,"failed")
+end)
+
+test("remote update never installs when recovery fails to return to dock",function()
+    env.configured(stations()); env.navReady()
+    local client=require("fleet_client").new(99,dock())
+    client.state.status,client.state.task="recovery",assignment()
+    assert(require("navigation").moveToCoord(4,0,0,{anchor=dock()}))
+    shell={run=function() error("must not update outside dock") end}
+    client.handle(99,{version=1,kind="control",action="update",request="update:3",order=3})
+    eq(client.queued,true); eq(client.recovery,true)
+    client.updater.tick(); eq(client.state.update.phase,"returning")
+    client.queued=false; client.updater.tick()
+    eq(client.state.update.phase,"failed"); eq(client.state.update.error,"update_return_failed")
+end)
+
+test("controller tracks update results across reboot and does not confuse acknowledgement with completion",function()
+    local c,m=controllerWithWorkers(); c.state.workers[41].remoteUpdate=true
+    assert(c.control("update",41))
+    local request=c.state.pendingControls[41].request
+    c.handle(41,{version=1,id=41,kind="control_ack",request=request},m.protocol)
+    assert(c.state.pendingControls[41]); eq(c.state.workers[41].update.phase,"requested")
+    c.handle(41,{version=1,id=41,kind="update_result",request=request,phase="rebooting"},m.protocol)
+    eq(c.state.workers[41].update.phase,"rebooting"); assert(c.state.pendingControls[41])
+    c=require("fleet_controller").new(require("fleet_settings").defaults())
+    c.handle(41,{version=1,id=41,kind="status",status="idle",dock=dock(),remoteUpdate=true,
+        update={request=request,phase="complete"}},m.protocol)
+    eq(c.state.pendingControls[41],nil); eq(c.state.workers[41].update.phase,"complete")
+    c.handle(41,{version=1,id=41,kind="update_result",request=request,phase="rebooting"},m.protocol)
+    eq(c.state.workers[41].update.phase,"complete")
+    eq(require("fleet_display").activity(c.snapshot().workers[41]),"Aktualizovane")
+    c.control("update",42)
+    eq(c.state.pendingControls[42],nil); eq(c.state.workers[42].update.error,"update_requires_manual_install")
+end)
+
+test("startup after update retains pairing with a controller other than sixteen",function()
+    require("fleet_store").save("data/worker-state.txt",{controller=99})
+    shell={run=function(name,id) eq(name,"worker"); eq(id,"99"); return true end}
+    assert(pcall(loadfile(ROOT.."/turtle/startup.lua")))
+end)
+
+test("worker executes a remote update received by its background listener",function()
+    env.configured(stations())
+    local calls=0
+    shell={run=function(name,role) eq(name,"update"); eq(role,"turtle"); calls=calls+1; return true end}
+    os.reboot=function() error("worker_update_reboot",0) end
+    local delivered=false
+    rednet.receive=function()
+        if not delivered then
+            delivered=true
+            return 99,{version=1,kind="control",action="update",request="remote:1",order=1}
+        end
+        coroutine.yield()
+    end
+    parallel.waitForAny=function(receive,execute)
+        local listener=coroutine.create(receive)
+        local ok,err=coroutine.resume(listener); assert(ok,err)
+        execute()
+    end
+    local ok,err=pcall(loadfile(ROOT.."/turtle/worker.lua"),"99","0")
+    eq(ok,false); eq(err,"worker_update_reboot"); eq(calls,1)
+    local state=require("fleet_store").load("data/worker-state.txt",{})
+    eq(state.update.phase,"rebooting"); eq(state.controller,99)
+end)
