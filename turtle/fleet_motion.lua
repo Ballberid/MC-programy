@@ -48,6 +48,8 @@ function motion.new(client, stations, position, dock, onStartupComplete)
     end
     local function move(target,options,rawMove)
         local resource=stationAt(target)
+        local station
+        for _,s in pairs(stations) do if same(s,target) then station=s; break end end
         if parked and not same(parking,target) then
             local ok,err=leaveParking(target,options,rawMove); if not ok then return false,err end
         end
@@ -61,6 +63,20 @@ function motion.new(client, stations, position, dock, onStartupComplete)
             end
             return rawMove(x,y,z,o)
         end
+        local preclaimed=client.held and client.held[resource]
+        if station and station.worksite==false and dock and not same(position(),dock)
+            and not preclaimed and not require("stations").isStartup() then
+            local ok,err=transit.move(dock,options,rawMove,client.acquire,client.release,position)
+            if not ok then return false,err end
+            -- Reserve the chest from our own dock, never while parked at an exit.
+            local worked,reason,details=arrive(target.x,target.y,target.z,options)
+            if not worked and not same(position(),parking) then releaseParking() end
+            return worked,reason,details
+        end
+        if station and station.worksite==true then
+            if #transit.plan(position(),target)>0 then return false,"work_station_requires_same_floor" end
+            return arrive(target.x,target.y,target.z,options)
+        end
         -- Do not reserve a remote chest before waiting for a shaft lane.
         -- Other returning workers may hold that lane and need the same chest.
         local ok,err,details=transit.move(target,options,rawMove,client.acquire,client.release,position,nil,arrive)
@@ -71,6 +87,16 @@ function motion.new(client, stations, position, dock, onStartupComplete)
         startupPending=true
         notifyStartup()
     end
-    return move,leaveParking,finishStartup
+    local function estimate(from,target)
+        if dock and not same(from,target) then
+            for _,s in pairs(stations) do
+                if same(s,target) and s.worksite==false then
+                    return transit.estimate(from,dock)+transit.estimate(dock,target)
+                end
+            end
+        end
+        return transit.estimate(from,target)
+    end
+    return move,leaveParking,finishStartup,estimate
 end
 return motion

@@ -1,6 +1,11 @@
 {
   "version": 1,
   "files": [
+    { "source": "work_area.lua", "target": "work_area.lua", "roles": ["turtle", "controller"] },
+    { "source": "fleet_zones.lua", "target": "fleet_zones.lua", "roles": ["controller"] },
+    { "source": "tunnel_pool.lua", "target": "tunnel_pool.lua", "roles": ["controller"] },
+    { "source": "tunnel_layout.lua", "target": "tunnel_layout.lua", "roles": ["turtle", "controller"] },
+    { "source": "wide_tunnel.lua", "target": "wide_tunnel.lua", "roles": ["turtle", "controller"] },
     { "source": "fleet_updater.lua", "target": "fleet_updater.lua", "roles": ["turtle"] },
     { "source": "turtle_update.lua", "target": "update.lua", "roles": ["turtle", "receiver", "router", "controller"] },
     { "source": "config.lua", "target": "config.lua", "roles": ["turtle", "controller", "receiver"] },

@@ -73,13 +73,16 @@ end
 -- Locks survive coordinator restarts. No timer may release an offline owner.
 function model.acquire(locks, resource, owner, token)
     local traffic=type(resource)=="string" and (resource=="tunnel:up:1" or resource=="tunnel:up:2"
-        or resource=="tunnel:down" or resource:match("^door:%-?%d+,%-?%d+,%-?%d+$"))
+        or resource=="tunnel:down" or resource:match("^tunnel:lane:[1-9]$") or resource:match("^door:%-?%d+,%-?%d+,%-?%d+$"))
     local station=type(resource)=="string" and resource:match("^station:%-?%d+,%-?%d+,%-?%d+$")
     local wallgate=type(resource)=="string" and resource:match("^wallgate:[%w_:%.%-]+$") and #resource<=150
     if resource ~= "service" and resource ~= "tunnel" and not traffic and not station and not wallgate then return false, "unknown_resource" end
     if station and locks.service and locks.service.owner~=owner then return false,"occupied" end
     -- An old exclusive reservation cannot be bypassed during migration.
     if traffic and locks.tunnel and locks.tunnel.owner~=owner then return false,"occupied" end
+    if resource=="tunnel:up:1" or resource=="tunnel:up:2" or resource=="tunnel:down" then
+        for key,entry in pairs(locks) do if key:match("^tunnel:lane:") and entry.owner~=owner then return false,"occupied" end end
+    end
     if resource=="tunnel" then
         for name,entry in pairs(locks) do
             if (name:match("^tunnel:") or name:match("^door:")) and entry.owner~=owner then return false,"occupied" end

@@ -234,7 +234,7 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     require("fleet_controller").new=function() return control end
     peripheral.find=function() return nil end
     shell={run=function(name) runs[#runs+1]=name; return true end}
-    local choices={1,2,3,4,5,6,7,8,9,10,11,12,0}
+    local choices={1,2,3,4,5,6,7,8,9,10,11,12,13,0}
     local dialog=require("fleet_dialog")
     dialog.number=function(prompt,default)
         if prompt=="Volba" then assert(#choices>0); return table.remove(choices,1) end
@@ -244,6 +244,12 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     local points=0
     dialog.point=function() points=points+1; return points%2==1 and {x=8,y=0,z=4} or {x=11,y=2,z=7} end
     dialog.flatPoint=function(_,y) return {x=9,y=y,z=5} end
+    require("fleet_zones").prompt=function(_,kind)
+        return {x=8,y=0,z=4},{x=11,y=(kind=="floor" or kind=="ceiling") and 0 or 2,z=7}
+    end
+    require("fleet_zones").edit=function(cfg)
+        cfg.zones.room={min={x=8,z=4},max={x=11,z=7}}
+    end
     dialog.text=function(prompt)
         if prompt=="Enter = navrat do menu" then failuresAcknowledged=failuresAcknowledged+1 end
         return prompt:find("VOLNE",1,true) and "VOLNE" or ""
@@ -256,6 +262,7 @@ test("fleet menu dispatches adjacent job choices and correctly maps control and 
     eq(failuresAcknowledged,1)
     local failure=require("fleet_store").load("data/fleet-last-start-error.txt",{})
     eq(failure.error,"floor_exit_inside_area"); eq(failure.kind,"quarry"); eq(failure.a.x,8)
+    eq(require("fleet_store").load("data/fleet-settings.txt").zones.room.min.x,8)
 end)
 
 test("fleet wall closure waits for completed peers and persists across controller restarts",function()
@@ -661,6 +668,50 @@ test("worker heartbeat saves a progress checkpoint for recovery after a reboot",
     local s = require("fleet_store").load("data/worker-state.txt")
     eq(s.progress.completed,12); eq(s.progress.dug,13)
 end)
+test("worker pool replies persist the actual lane and its recovery token",function()
+    env.configured(); local c=require("fleet_client").new(99,dock())
+    local requests,releases=0,{}
+    rednet.send=function(_,p)
+        if p.kind=="lock" then
+            requests=requests+1; eq(p.resource,"tunnel:pool")
+            c.handle(99,{version=1,kind="lock_reply",request=p.request,granted=true,
+                resource="tunnel:lane:7",token="before-reboot"})
+        elseif p.kind=="release" then releases[#releases+1]=p end
+    end
+    local ok,err,key=c.acquire("tunnel:pool")
+    eq(ok,true); eq(err,nil); eq(key,"tunnel:lane:7")
+    local saved=require("fleet_store").load("data/worker-state.txt")
+    eq(saved.lockTokens[key],"before-reboot"); eq(saved.lockTokens["tunnel:pool"],nil)
+    eq(select(3,c.acquire("tunnel:pool")),key); eq(requests,1)
+    c.release(key); eq(releases[1].resource,key); eq(releases[1].token,"before-reboot")
+    eq(c.state.pendingRelease[key],"before-reboot")
+end)
+
+test("controller assigns pool lanes and retains ownership after reboot or a lost reply",function()
+    local c,m=controllerWithWorkers(); local t=tunnel()
+    t.wide=true; t.floors.upper.exit.y=10
+    local a=assignment()
+    assert(c.start(a.a,a.b,{41,42},a.stations,t,"upper"))
+    local reply
+    rednet.send=function(_,p) if p.kind=="lock_reply" then reply=p end; return true end
+    local function claim(id,request)
+        c.handle(id,{version=1,id=id,kind="lock",resource="tunnel:pool",request=request,
+            taskId=c.state.workers[id].taskId},m.protocol)
+        return reply
+    end
+    local first=claim(41,"original")
+    eq(first.granted,true); eq(first.resource,"tunnel:lane:1"); eq(first.token,"original")
+    local second=claim(42,"second")
+    eq(second.granted,true); eq(second.resource,"tunnel:lane:2")
+    c=require("fleet_controller").new(require("fleet_settings").defaults())
+    local recovered=claim(41,"new-request")
+    eq(recovered.resource,first.resource); eq(recovered.token,"original")
+    c.handle(42,{version=1,id=42,kind="release",resource="tunnel:pool",token="original"},m.protocol)
+    eq(c.state.locks[first.resource].owner,41)
+    c.handle(41,{version=1,id=41,kind="release",resource="tunnel:pool",token="original"},m.protocol)
+    eq(c.state.locks[first.resource],nil); eq(c.state.locks[second.resource].owner,42)
+end)
+
 test("worker reservations nest and release using the granted token", function()
     env.configured(); local c = require("fleet_client").new(99, dock())
     local requests, releases = {}, {}
@@ -1152,7 +1203,11 @@ end)
 test("startup after update retains pairing with a controller other than sixteen",function()
     require("fleet_store").save("data/worker-state.txt",{controller=99})
     shell={run=function(name,id) eq(name,"worker"); eq(id,"99"); return true end}
-    assert(pcall(loadfile(ROOT.."/turtle/startup.lua")))
+    local delayed=0
+    sleep=function(seconds) eq(seconds,10); delayed=delayed+1 end
+    os.reboot=function() error("startup_reboot",0) end
+    local ok,err=pcall(loadfile(ROOT.."/turtle/startup.lua"))
+    eq(ok,false); eq(err,"startup_reboot"); eq(delayed,1)
 end)
 
 test("worker executes a remote update received by its background listener",function()
@@ -1177,4 +1232,136 @@ test("worker executes a remote update received by its background listener",funct
     eq(ok,false); eq(err,"worker_update_reboot"); eq(calls,1)
     local state=require("fleet_store").load("data/worker-state.txt",{})
     eq(state.update.phase,"rebooting"); eq(state.controller,99)
+end)
+
+test("wide tunnel pool leases all nine columns and keeps an offline owner's lane",function()
+    local pool=require("tunnel_pool"); local locks={}; local keys={}
+    for id=1,9 do
+        local ok,err,key=pool.acquire(locks,id,"token"..id); assert(ok,err)
+        eq(keys[key],nil); keys[key]=true
+    end
+    eq(pool.acquire(locks,10,"token10"),false)
+    local copy=require("fleet_store").copy(locks)
+    local ok,_,key,token=pool.acquire(copy,3,"newrequest")
+    eq(ok,true); eq(key,"tunnel:lane:3"); eq(token,"token3")
+    eq(require("fleet_model").release(copy,key,4,token),false)
+    assert(require("fleet_model").release(copy,key,3,token))
+    ok,_,key=pool.acquire(copy,10,"token10"); eq(ok,true); eq(key,"tunnel:lane:3")
+end)
+
+test("wide tunnel maps each column to a distinct doorway cell on either axis",function()
+    local layout=require("tunnel_layout")
+    for _,center in ipairs({{x=4,y=37,z=0},{x=0,y=37,z=-4}}) do
+        local seen={}
+        for index=1,9 do
+            local p=layout.portal(center,{x=0,z=0},index)
+            local key=p.x..","..p.y..","..p.z
+            eq(seen[key],nil); seen[key]=true
+            assert(math.abs(p.y-37)<=1)
+            if center.x==4 then eq(p.x,4); assert(math.abs(p.z)<=1)
+            else eq(p.z,-4); assert(math.abs(p.x)<=1) end
+        end
+    end
+end)
+
+test("base chest waits in dock while a worksite chest waits at the work position",function()
+    local transit=require("transit"); assert(transit.configure(tunnel(),nil,"upper"))
+    local p={x=4,y=4,z=0}; local base=stations(); base.output.worksite=false
+    local home={x=-10,y=0,z=0}; local claims=0
+    local client={acquire=function(key)
+        if key:match("^station:") then eq(p.x,home.x); eq(p.y,home.y); eq(p.z,home.z); claims=claims+1 end
+        return true
+    end,release=function() end}
+    local move=require("fleet_motion").new(client,base,function() return p end,home)
+    local function raw(x,y,z) p={x=x,y=y,z=z}; return true end
+    assert(move(base.output,{},raw)); eq(claims,1)
+    p={x=4,y=4,z=0}; local start=p
+    local localChest={x=8,y=4,z=2,direction=1,side="front",worksite=true}
+    client.acquire=function(key) assert(key:match("^station:")); eq(p,start); return true end
+    move=require("fleet_motion").new(client,{output=localChest},function() return p end,home)
+    assert(move(localChest,{},raw)); eq(p.x,8)
+end)
+
+test("startup reboots after ten seconds when worker fails to obtain GPS",function()
+    shell={run=function() error("gps_unavailable",0) end}
+    local seconds=0; sleep=function(value) seconds=seconds+value end
+    os.reboot=function() error("restart_after_gps",0) end
+    local ok,err=pcall(loadfile(ROOT.."/turtle/startup.lua"))
+    eq(ok,false); eq(err,"restart_after_gps"); eq(seconds,10)
+end)
+
+test("wide floor validation protects the doorway edges and enforces clear waiting levels",function()
+    local t=tunnel(); t.wide=true
+    eq(require("transit").validate(t),false)
+    t.floors.upper.exit.y=10; assert(require("transit").validate(t))
+    local job=assignment(); job.tunnel=t; job.floor="upper"
+    job.a,job.b={x=3,y=9,z=1},{x=4,y=9,z=2}
+    local c,err=require("fleet_task").settings(job,dock())
+    eq(c,nil); eq(err,"floor_corridor_inside_area")
+end)
+
+test("saved footprints migrate older settings and reject malformed or reversed zones",function()
+    local settings=require("fleet_settings")
+    local old={version=1,stations={},defaults={}}
+    require("fleet_store").save("data/fleet-settings.txt",old)
+    local c=settings.load(); assert(type(c.zones)=="table")
+    c.zones.room=require("work_area").footprint({x=7550,z=-2498},{x=7489,z=-2559})
+    assert(settings.save(c)); eq(settings.load().zones.room.min.z,-2559)
+    c.zones.room.max.x=7480; eq(settings.save(c),false)
+end)
+
+test("wall inputs expand the interior once without changing the saved footprint or Y",function()
+    local area=require("work_area")
+    local zone=assert(area.footprint({x=7489,z=-2498},{x=7550,z=-2559}))
+    local a,b=area.bounds(zone,49,40,"walls",false)
+    eq(a.x,7488); eq(a.z,-2560); eq(a.y,49)
+    eq(b.x,7551); eq(b.z,-2497); eq(b.y,40)
+    eq(zone.min.x,7489); eq(zone.max.x,7550)
+    local plan=require("wall_plan"); local box=assert(plan.new(a,b,{includeCorners=false}))
+    eq(box.volume,2480)
+    for i=1,box.volume do
+        local p=assert(plan.cell(box,i,a))
+        local outsideX=p.x<zone.min.x or p.x>zone.max.x
+        local outsideZ=p.z<zone.min.z or p.z>zone.max.z
+        assert(outsideX~=outsideZ,"wall must surround interior without corner columns")
+    end
+    local exactA,exactB=area.bounds(zone,49,40,"walls",true)
+    eq(exactA.x,7489); eq(exactB.x,7550)
+    local floorA,floorB=area.bounds(zone,37,49,"floor",true)
+    eq(floorA.y,37); eq(floorB.y,37); eq(floorB.z,-2498)
+end)
+
+test("zone setup adds edits renames and deletes footprints while preserving other settings",function()
+    setupAnswers({"6","1","room","10","20","14","26",
+        "2","room","","","15","",
+        "3","room","main",
+        "1","temp","0","0","1","1",
+        "4","temp","a","0","0"})
+    local c=require("fleet_settings").load()
+    eq(c.zones.main.min.x,10); eq(c.zones.main.max.x,15)
+    eq(c.zones.main.max.z,26); eq(c.zones.room,nil); eq(c.zones.temp,nil)
+end)
+
+test("each job selects a saved footprint and requests only the appropriate heights",function()
+    local c=require("fleet_settings").defaults()
+    c.zones.room=assert(require("work_area").footprint({x=10,z=20},{x=14,z=26}))
+    for _,kind in ipairs({"quarry","walls","floor","ceiling"}) do
+        local answers={"","room","37"}
+        if kind=="quarry" or kind=="walls" then answers[#answers+1]="30" end
+        read=function() assert(#answers>0,"Extra coordinate requested"); return table.remove(answers,1) end
+        write=function() end
+        local a,b=require("fleet_zones").prompt(c,kind)
+        eq(a.x,10); eq(a.z,20); eq(a.y,37); eq(b.x,14); eq(b.z,26)
+        eq(b.y,(kind=="quarry" or kind=="walls") and 30 or 37); eq(#answers,0)
+        eq(c.zones.room.min.y,nil)
+    end
+end)
+
+test("new ad hoc footprints need no saved zones and remain unsaved",function()
+    local c=require("fleet_settings").defaults()
+    local answers={"n","14","26","10","20","63"}
+    read=function() assert(#answers>0); return table.remove(answers,1) end; write=function() end
+    local a,b=require("fleet_zones").prompt(c,"ceiling")
+    eq(a.x,10); eq(a.z,20); eq(b.x,14); eq(b.z,26); eq(a.y,63); eq(b.y,63)
+    eq(next(c.zones),nil); eq(#answers,0)
 end)

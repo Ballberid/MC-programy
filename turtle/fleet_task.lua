@@ -57,6 +57,15 @@ function task.settings(job, dock, previous)
                 or kind~="walls" and cuboid.contains(protected,f.exit)
             if exitHits then return nil, "floor_exit_inside_area" end
             local p = f.exit
+            if job.tunnel.wide then
+                local corridor=require("tunnel_layout").corridor(job.tunnel,p)
+                local hits=true
+                if kind=="walls" then hits=require("wall_plan").intersects(protected,corridor)
+                else for _,axis in ipairs({"x","y","z"}) do
+                    if protected.max[axis]<corridor.min[axis] or protected.min[axis]>corridor.max[axis] then hits=false end
+                end end
+                if hits then return nil,"floor_corridor_inside_area" end
+            end
             if p.y >= protected.min.y and p.y <= protected.max.y then
                 local crossesX = p.z >= protected.min.z and p.z <= protected.max.z
                     and protected.min.x <= math.max(p.x, job.tunnel.x) and protected.max.x >= math.min(p.x, job.tunnel.x)
@@ -72,6 +81,7 @@ function task.settings(job, dock, previous)
             minimum = math.min(minimum or f.exit.y, f.exit.y)
             maximum = math.max(maximum or f.exit.y, f.exit.y)
         end
+        if job.tunnel.wide then minimum,maximum=minimum-1,maximum+1 end
         local shaftHits=protected.min.x <= job.tunnel.x + 1 and protected.max.x >= job.tunnel.x - 1
             and protected.min.z <= job.tunnel.z + 1 and protected.max.z >= job.tunnel.z - 1
             and protected.min.y <= maximum and protected.max.y >= minimum

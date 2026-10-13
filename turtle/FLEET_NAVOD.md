@@ -72,10 +72,17 @@ uloží do `data/fleet-last-start-error.txt`; na PC ho otvoríš cez
 Rezervuje sa iba konkrétne obslužné miesto pri truhle. Pri rôznych truhlách môžu
 pracovať súčasne; pri tej istej sa vystriedajú. Pred rezerváciou ďalšej truhly
 turtle opustí predchádzajúce miesto, aby si navzájom neblokovali odchod.
-Pri návrate z iného poschodia sa cieľová truhla rezervuje až po výstupe z tunela
-a uvoľnení jeho pruhu aj výstupu. Turtle čakajúca na tunel tak neblokuje truhlu
-ostatným, ktorí sa k nej už vracajú. Úvodná rezervácia prvej truhly ešte v doku
-zostáva zachovaná.
+Pri výbere staníc pre novú úlohu sa PC pýta **Truhla pri pracovisku?**:
+
+- **Nie**: základňová truhla. Turtle sa počas práce najprv vráti do vlastného
+  doku, uvoľní tunel a tam čaká na rezerváciu truhly. Až potom vyrazí k nej.
+- **Áno**: pracovná truhla na tom istom poschodí. Turtle čaká na rezerváciu
+  na svojej aktuálnej pozícii a potom ide k truhle. Nevracia sa kvôli tomu do doku.
+
+Pomenované truhly majú predvolené **Nie**, nové dočasné truhly **Áno**;
+voľbu môžeš zmeniť pri každom zadaní. Úvodná kontrola ide medzi truhlami priamo,
+bez návratu do doku medzi jednotlivými návštevami. Staré uložené úlohy bez
+tejto voľby zachovajú pôvodné správanie; nové čakanie platí pre nové zadania.
 
 Truhly môžu byť pri hlavnom PC. Pre palivo, vykladanie a materiál vyberáš
 samostatné stanice. Pri novej úlohe môžeš jednotlivé stanice nahradiť dočasnými
@@ -104,22 +111,65 @@ výstup základňa:   X=102, Y=64, Z=200
 výstup poschodie:  X=102, Y=70, Z=200
 ```
 
-Turtle ide: dok → výstup na základni → pridelený pruh nahor → výstup na pracovnom
-poschodí → pridelený výkop. Návrat používa samostatný pruh nadol a uložené výstupy.
+Turtle ide: dok → výstup na základni → pridelený pruh → výstup na pracovnom
+poschodí → pridelený výkop. Návrat používa rovnaký systém prideľovania pruhov.
 Poschodia majú jedinečné Y; pri zadaní práce zvolíš jej pracovné
 poschodie. Pozície miestnych truhiel patria k tomuto poschodiu. Pri ostatných
 pozíciách sa poschodie určuje podľa najbližšej uloženej výšky.
 
-Šachta používa **dva pruhy nahor a jeden nadol**. V rôznych pruhoch je možný
-súbežný prejazd. Na konkrétnom poschodí sa strieda iba krátky priechod cez spoločný
-výstup; každé obslužné miesto pri truhle má vlastnú rezerváciu. Žiadny pruh sa neuvoľní
-iba podľa časovača, ak v ňom mohla zostať neodpovedajúca turtle.
+Nový režim zapneš v `fleet_setup` voľbou **5 – pruhy a vystupy 3x3** a uložíš
+voľbou **0**. Pred zapnutím rozšír všetky priechody. Uložený bod výstupu je
+v tomto režime **stred otvoru 3×3**, nie jeho spodný riadok. Nechaj voľné tri
+výšky `Y−1`, `Y`, `Y+1` a šírku tri bloky po celej priamej chodbe od šachty.
+Aj priestor jeden blok za vonkajšou stranou otvoru musí byť voľný v rozmere 3×3.
+Pri strede výstupu Y=63 preto otvor zaberá výšky **62, 63, 64**. Stredy poschodí
+musia byť vzdialené aspoň päť výškových blokov; Y=68, 63 a 37 vyhovujú.
+
+PC prideľuje **všetkých deväť zvislých pruhov**, pre oba smery. Turtle požiada
+pred vstupom, dostane voľný pruh a po fyzickom opustení výstupu ho uvoľní.
+Ku každému pruhu patrí jedno z deviatich políčok otvoru. Pri výstupe v osi X
+určuje poloha pruhu v X riadok otvoru a poloha v Z jeho vodorovné políčko;
+pri výstupe v osi Z je vodorovné políčko podľa X a riadok podľa Z.
+Ak políčko blokuje iná turtle, počká na jej odchod.
+
+Zvislý presun môže prebiehať súčasne vo všetkých pruhoch. Krátke vodorovné
+prechody na jednom poschodí sa striedajú, pretože ich trasy križujú zvislé pruhy.
+Čakanie v šachte prebieha mimo troch výšok otvoru, aby turtle neblokovala výstup
+susedného pruhu. Žiadny pruh sa neuvoľní iba podľa časovača, ak v ňom mohla
+zostať neodpovedajúca turtle; po chybe zostáva rezervovaný pre bezpečnú obnovu.
+
+Bez zapnutia voľby 5 zostáva pôvodný režim **dva pruhy nahor a jeden nadol**
+s jednoblokovým výstupom. Zmena nastavení platí pre nové úlohy.
 
 Kopaná oblasť nesmie obsahovať žiadny dok, truhlu, obslužné miesto, uložený
 výstup, jeho rovný priechod ku stredu ani vnútro servisnej šachty.
 Zlé zadanie sa odmietne pred odoslaním úloh.
 
 ## Hlavný PC
+
+### Pomenované pracovné zóny
+
+V hlavnom menu `fleet` otvor **13 – pracovné zóny**. Môžeš pridať pôdorys,
+zmeniť jeho rohy, premenovať ho alebo odstrániť. Zadávaš iba **X/Z dvoch
+protiľahlých rohov**, vrátane krajných blokov. Po návrate do hlavného menu sa
+zmeny automaticky uložia do `data/fleet-settings.txt`. Rovnaká správa je aj
+v `fleet_setup` voľbou **6**; tam nastavenia uložíš voľbou **0**.
+
+Pri novej úlohe vyberieš preddefinovanú zónu alebo zadáš nový pôdorys iba pre
+túto úlohu. Nový pôdorys sa automaticky neukladá medzi pomenované zóny.
+Výšku vyberáš vždy nanovo:
+
+- **Výkop:** začiatok a koniec Y, vrátane oboch výšok; poradie môže byť opačné.
+- **Podlaha / strop:** iba Y vrstvy ukladaných blokov.
+- **Steny:** začiatok a koniec Y bočných stien. Pri voľbe **bez rohov** je zóna
+  vnútorný priestor; steny budú o jeden blok za každou hranicou X/Z. Pri voľbe
+  **s rohmi** pôdorys určuje priamo bloky stien a treba vonkajší prístup.
+
+Príklad: vnútorná zóna X=7489–7550, Z=−2559 až −2498 dá pri stenách bez rohov
+vonkajší kváder X=7488–7551, Z=−2560 až −2497. Výška Y sa nerozširuje.
+Zóna sa tým nemení a môžeš ju použiť na výkop alebo podlahu na inom poschodí.
+Odoslané úlohy obsahujú vlastnú kópiu súradníc; neskoršia úprava či odstránenie
+zóny nemení rozbehnutú prácu. Existujúce uložené úlohy stien sa nerozširujú znova.
 
 Všetky príkazy píš do terminálu CC počítača v hre.
 
@@ -138,7 +188,8 @@ Zapíš si ID počítača, napríklad **12**. V `fleet_setup`:
    `materials` = stavebný materiál. Materiál môžeš vynechať pomocou `-`.
 3. Voľbou **3** nastav stred tunela (X/Z).
 4. Voľbou **4 – poschodia** pridaj základňu aj pracovné poschodie.
-5. Voľbou **0** ulož nastavenia.
+5. Po príprave širokých otvorov voľbou **5** zapni deväť pruhov a výstupy 3×3.
+6. Voľbou **0** ulož nastavenia.
 
 Keď neskôr pridávaš alebo upravuješ poschodia, choď priamo do voľby **4**;
 súradnice tunela sa nepýtajú znova. Menu poschodí umožňuje **1 pridať**, **2
@@ -160,10 +211,10 @@ Hlavné menu:
 
 | Voľba | Význam |
 |---|---|
-| 1 | Nový výkop: počet/ID turtle, rohy, truhly a poschodie |
-| 2 | Nová podlaha: počet/ID turtle, X/Y/Z prvého rohu, X/Z druhého, materiál, truhly a poschodie |
+| 1 | Nový výkop: počet/ID turtle, uložená alebo nová zóna, rozsah Y, truhly a poschodie |
+| 2 | Nová podlaha: počet/ID turtle, zóna, Y vrstvy, materiál, truhly a poschodie |
 | 3 | Nový strop: rovnaké zadanie ako podlaha, turtle kladie nad seba |
-| 4 | Nové steny: rohy kvádra, počet/ID turtle, materiál, truhly, poschodie a voliteľné rohy |
+| 4 | Nové steny: zóna, rozsah Y, počet/ID turtle, materiál, truhly, poschodie a voliteľné rohy |
 | 5 | Celkový priebeh a turtle zoskupené podľa druhu práce |
 | 6 | Pozastavenie konkrétnej turtle alebo všetkých |
 | 7 | Pokračovanie pauzy alebo obnovenie segmentu po chybe (`failed`/`recovery`) |
@@ -172,6 +223,7 @@ Hlavné menu:
 | 10 | Nastavenia základne; zmeny platia pre nasledujúce úlohy |
 | 11 | Ručné uvoľnenie rezervácií po fyzickej kontrole |
 | 12 | Aktualizovať jednu turtle, pracovníkov jednej úlohy alebo všetky |
+| 13 | Pridať, upraviť, premenovať alebo odstrániť pracovné zóny |
 | 0 | Ukončenie hlavného programu |
 
 ### Aktualizácia turtle z hlavného PC
@@ -192,6 +244,18 @@ Nastavenia a uložená úloha zostávajú zachované. Po návrate aktualizovaný
 pracovníkov do siete môžeš použiť **7 – Pokračovať**. Idle turtle zostane idle.
 Startup použije uložené ID hlavného PC; pri novej turtle zostáva predvolené ID 16.
 Aktualizácia PC samotného zostáva ručná (`update controller`).
+
+Pre nový režim tunela aktualizuj **hlavný PC aj všetky turtle**. Najprv ich
+vráť do dokov, aktualizuj PC a cez voľbu 12 aktualizuj turtle. Po dokončení
+priprav otvory 3×3, zapni voľbu 5 v nastaveniach a zadaj novú úlohu.
+Nemaž uložené dáta ani párovanie.
+
+Ak worker pri štarte alebo počas behu spadne, `startup.lua` počká **10 sekúnd**
+a automaticky reštartuje turtle. Pri dočasne nedostupnom GPS sa pokus opakuje,
+kým worker dokáže naštartovať. Uložená úloha a rezervácie zostávajú zachované;
+rozpracovaná úloha môže po reštarte vyžadovať **7 – Pokračovať** alebo
+**8 – Návrat**. Bežná chyba úlohy v stave `failed` sa rieši týmito povelmi,
+nie opakovanými reštartmi.
 
 Monitor aj terminál zoskupujú turtle pod **Stavanie**, **Kopanie** a
 **Ostatné/pripravené**. Pri stavbe sa rozlišuje podlaha, strop a steny. Zaradenie

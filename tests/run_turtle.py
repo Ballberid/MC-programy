@@ -47,5 +47,7 @@ run_network(root, LuaRuntime, "quarry", shaft=True)
 run_network(root, LuaRuntime, "quarry", shaft=True, worker_count=3)
 run_network(root, LuaRuntime, "quarry", shaft_down=True, worker_count=3)
 run_network(root, LuaRuntime, "quarry", shaft_down=True, worker_count=6)
+run_network(root, LuaRuntime, "quarry", shaft_down=True, worker_count=6,wide=True)
 from traffic_network import run as run_traffic
 run_traffic(root, LuaRuntime)
+run_traffic(root, LuaRuntime,wide=True,count=9)

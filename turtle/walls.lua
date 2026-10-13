@@ -2,7 +2,7 @@
 local dialog=require("fleet_dialog")
 local building=require("building")
 print("STAVANIE STIEN MIESTNOSTI")
-print("Rohy su BLOKY kvadra. Stavia iba styri bocne steny.")
+print("Bez rohov zadaj vnutorny priestor; s rohmi zadaj priamo bloky stien.")
 print("Podlaha, strop a vnutro sa nemenia. Steny kladie pred seba zvnutra.")
 print("Rohy su volitelne. Docasny priechod uzavrie az po vyjdeni von.")
 print("Priprav truhly fuel, materials a output cez setup.")
@@ -10,6 +10,11 @@ local a=dialog.point("Prvy roh kvadra",true)
 local b=dialog.point("Protilahly roh kvadra",true)
 print("Pri volbe ano treba pristup zvonka k rohom.")
 local options={includeCorners=dialog.yes("Spravit aj rohy?",false)}
+if not options.includeCorners then
+    a,b=require("work_area").bounds(require("work_area").footprint(a,b),a.y,b.y,"walls",false)
+    if not a then error(b,0) end
+    print("Steny budu o 1 blok za hranicami zadaneho interieru.")
+end
 print(options.includeCorners and "Rohy dokonci zvonka." or "Bez rohov: steny stavia iba zvnutra, rohove stlpce nemeni.")
 local box,reason=building.validateArea(a,b,"walls",options)
 if not box then error(reason,0) end

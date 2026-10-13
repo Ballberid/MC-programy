@@ -3,9 +3,10 @@ local dialog = require("fleet_dialog")
 local c = settings.load()
 while true do
     print("TRUHLY: 1 sprava truhiel | 2 predvolene truhly")
-    print("PRESUNY: 3 tunel | 4 poschodia")
+    print("PRESUNY: 3 tunel | 4 poschodia | 5 pruhy a vystupy 3x3")
+    print("OBLASTI: 6 pracovne zony")
     print("0 ulozit a skoncit")
-    local choice = dialog.number("Volba", 0, 0, 4)
+    local choice = dialog.number("Volba", 0, 0, 6)
     if choice == 1 then
         dialog.names(c.stations)
         local name = dialog.text("Nazov novej alebo existujucej truhly")
@@ -28,6 +29,17 @@ while true do
             local valid, invalid = require("transit").validate(c.tunnel)
             if not valid then print("Pred ulozenim uprav poschodia: " .. tostring(invalid)) end
         else c.tunnel = nil end
+    elseif choice==5 then
+        if not c.tunnel then print("Najprv nastav tunel.")
+        else
+            print("Priprav celu sachtu 3x3 a vodorovne chodby/vystupy 3x3. Ulozene body budu stredy vystupov.")
+            local before=c.tunnel.wide
+            c.tunnel.wide=dialog.yes("Pouzit vsetkych 9 pruhov?",true)
+            local ok,err=require("transit").validate(c.tunnel)
+            if not ok then c.tunnel.wide=before; print(err) end
+        end
+    elseif choice==6 then
+        require("fleet_zones").edit(c)
     elseif choice == 4 then
         require("fleet_floors").edit(c)
     else

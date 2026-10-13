@@ -2,7 +2,7 @@
 from collections import deque
 
 
-def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False, interior=False, shaft_down=False):
+def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=False, corners=False, recovery=False, restock=False, interior=False, shaft_down=False, wide=False):
     if shaft_down:
         shaft = True
     prefix = (root / "tests" / "turtle_spec.lua").read_text(encoding="utf-8")
@@ -92,6 +92,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         lua.globals().JOB_KIND = kind
         lua.globals().MIXED_JOBS = mixed
         lua.globals().USE_SHAFT = shaft
+        lua.globals().TUNNEL_WIDE=wide
         lua.globals().SHAFT_WORK_Y = -31 if shaft_down else 40
         lua.globals().QUARRY_MAX_X = 7 + max(4, worker_count)
         lua.globals().WALL_CORNERS = corners
@@ -297,6 +298,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
                     tunnel={x=0,z=0,floors={base={exit={x=2,y=0,z=0}},upper={exit={x=2,y=SHAFT_WORK_Y,z=0}}}}
                     if SHAFT_WORK_Y<0 then tunnel.floors.middle={exit={x=2,y=-5,z=0}} end
                     floor="upper"
+                    tunnel.wide=TUNNEL_WIDE
                 end
                 if JOB_KIND=="floor" then a,b={x=8,y=-1,z=0},{x=27,y=-1,z=15} end
                 if JOB_KIND=="ceiling" then a,b={x=8,y=1,z=0},{x=27,y=1,z=15} end
@@ -346,7 +348,7 @@ def run(root, runtime_type, kind="quarry", shaft=False, worker_count=2, mixed=Fa
         assert worked_together, "Workers should process their segments concurrently"
     if shaft:
         assert startup_overlap, "Second worker should use service before the first reaches its excavation"
-        if not shaft_down:
+        if not shaft_down and not wide:
             assert shaft_overlap, "Two workers should travel in separate shaft columns concurrently"
         assert control.snapshot()["tunnelOwner"] is None
     summary = control.snapshot()["summary"]

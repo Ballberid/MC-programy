@@ -39,11 +39,11 @@ local function execute()
                 telemetry.configure(settings.telemetry, nav.getPosition)
                 telemetry.setProgress(client.state.progress)
                 telemetry.setContext({ taskId = job.id, jobId = job.jobId })
-                local motion,leaveParking,finishStartup=require("fleet_motion").new(client, settings.stations, nav.getPosition, client.state.dock,function()
+                local motion,leaveParking,finishStartup,estimate=require("fleet_motion").new(client, settings.stations, nav.getPosition, client.state.dock,function()
                     client.state.startupComplete=true; client.save(); client.status(true)
                 end)
                 if job.kind=="walls" then motion=require("wall_traffic").new(client,box,motion,leaveParking) end
-                nav.setRuntime(motion, client.checkpoint, transit.estimate)
+                nav.setRuntime(motion, client.checkpoint, estimate)
                 stations.setRuntime(client.acquire, client.release,true,finishStartup)
                 client.state.status = "running"; client.save(); client.status(true)
                 local waitingAtDock=false

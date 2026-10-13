@@ -4,10 +4,12 @@ Na turtle spusti `build` a vyber **2 – Steny miestnosti**. Priamy príkaz `wal
 funguje tiež. Pre **viac turtle** spusti na hlavnom PC `fleet` a vyber
 **4 – Steny**; na turtle nechaj bežať `worker ID_PC`.
 
-Vo fleet vyber počet alebo konkrétne ID, oba rohy kvádra, rohy áno/nie, materiál,
+Vo fleet vyber počet alebo konkrétne ID, uloženú alebo novú zónu X/Z, rozsah Y, rohy áno/nie, materiál,
 truhly **fuel / materials / output** a pracovné poschodie. Obvod sa rozdelí na
 samostatné úseky v celej výške; podlaha, strop a vnútro sa nemenia.
-Pre viac turtle potrebuje miestnosť interiér aspoň 2×2 bloky (kváder aspoň 4×4 v X/Z).
+Pre viac turtle potrebuje miestnosť interiér aspoň 2×2 bloky. Pri voľbe bez rohov
+zadáš priamo tento interiér; program pridá obvod o blok za každou jeho hranicou.
+Pri voľbe s rohmi zadávaš vonkajší kváder, ktorý musí mať aspoň 4×4 v X/Z.
 Stačí prístup k jednému spoločnému priechodu, ktorého súradnice PC vypíše.
 Pri jeho prechode sa turtle vystriedajú, na stenách pracujú súčasne. Posledná
 turtle počká v doku na úspešný návrat ostatných, potom priechod uzavrie zvonka.
@@ -38,14 +40,19 @@ má obsahovať jeden druh stavebného bloku. Blok vyber jeho ID alebo vzorkou vo
 vybranom slote; s prázdnym slotom a prázdnym ID sa použije vzorka z truhly.
 Turtle potrebuje dva prázdne sloty navyše na vykopané predmety.
 
-Zadaj dva protiľahlé rohy kvádra ako **súradnice blokov**, napríklad dolný roh
+Na samostatnej turtle zadaj dva protiľahlé rohy ako **súradnice blokov**, napríklad dolný roh
 `100,64,200` a protiľahlý horný roh `106,67,208`. Rozmery sú vrátane oboch rohov:
-v tomto príklade 7×4×9. Potom odpovedz na **Spraviť aj rohy? [a/N]**:
+v tomto príklade 7×4×9. Vo fleet rovnaké zadanie tvorí pôdorys X=100–106,
+Z=200–208 a rozsah Y=64–67. Potom odpovedz na **Spraviť aj rohy? [a/N]**:
 Enter alebo `n` znamená **bez rohov** (predvolené); `a` alebo `y` znamená s rohmi.
-Bez rohov vytvorí **96 blokov stien**, s rohmi **112**. Vynechávajú sa celé štyri
+**Bez rohov** zadanie znamená vnútorný objem: vonkajšie steny budú na X=99 a 107,
+Z=199 a 209, stále na Y=64–67. Vytvorí **128 blokov stien** mimo zadaného interiéru.
+**S rohmi** sú zadané rohy priamo blokmi stien a vytvorí **112 blokov**.
+Bez rohov sa vynechávajú celé štyri
 rohové stĺpce v zadanej výške: nekopú sa, nemenia sa a nepočítajú sa do materiálu,
 priebehu ani plánovanej práce pre palivo.
-Oba vodorovné rozmery musia mať aspoň tri bloky, aby zostalo miesto pre turtle.
+Pri stavbe s rohmi musia mať oba vonkajšie vodorovné rozmery aspoň tri bloky.
+Pri stavbe bez rohov pribudne tento priestor rozšírením pôdorysu.
 
 Program mení iba bunky na štyroch bočných stenách v zadanej výške. Nevytvára
 podlahu ani strop a nemení vnútorné bloky kvádra. Aj spodný a horný okraj bočných

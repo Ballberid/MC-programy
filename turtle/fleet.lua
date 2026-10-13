@@ -14,12 +14,16 @@ local function pickStations(c, kind)
     local stations = {}
     for _, role in ipairs({ "fuel", "output", "materials" }) do
         print("Stanica: " .. role .. " (fuel=palivo, output=vykladanie, materials=material)")
-        if dialog.yes("Docasna truhla iba pre tuto ulohu?", false) then stations[role] = dialog.station()
+        local temporary=dialog.yes("Docasna truhla iba pre tuto ulohu?", false)
+        if temporary then stations[role] = dialog.station()
         else
             local optional = role == "materials" and kind == "quarry"
             if not next(c.stations) and not optional then print("Pridaj truhly cez fleet_setup."); return nil end
             local name = dialog.choose("Vyber " .. role, c.stations, c.defaults[role], optional)
             if name then stations[role] = store.copy(c.stations[name]) end
+        end
+        if stations[role] then
+            stations[role].worksite=dialog.yes("Truhla pri pracovisku? (inak cakat v doku)",temporary or stations[role].worksite==true)
         end
     end
     return stations
@@ -42,14 +46,20 @@ local function newJob(kind)
     else for i = 1, count do selected[i] = ids[i] end end
     local horizontal=kind=="floor" or kind=="ceiling"
     if horizontal then print(kind=="floor" and "Podlaha: turtle chodi na Y+1 a kladie pod seba." or "Strop: turtle chodi na Y-1 a kladie nad seba.") end
-    local a = dialog.point("Prvy roh oblasti", true)
-    local b = horizontal and dialog.flatPoint("Protilahly roh oblasti",a.y) or dialog.point("Protilahly roh oblasti", true)
+    local c = settings.load(); control.settings = c
+    local a,b=require("fleet_zones").prompt(c,kind)
+    if not a then print(b); return end
     local block
     local corners=false
     if kind=="walls" then
         print("Steny: styri bocne plochy, bez podlahy a stropu.")
         print("Rohy potrebuju pristup zvonka; bez rohov stavia zvnutra.")
         corners=dialog.yes("Spravit aj rohy?",false)
+        if not corners then
+            a,b=require("work_area").bounds(require("work_area").footprint(a,b),a.y,b.y,kind,false)
+            if not a then print(b); return end
+            print("Zadany podorys je interier. Steny budu o 1 blok za kazdou hranicou.")
+        else print("S rohmi: zadany podorys urcuje priamo bloky stien; pristup zvonka musi byt volny.") end
     end
     if kind~="quarry" then
         local plan=kind=="walls" and require("wall_plan") or (kind=="ceiling" and require("ceiling_plan") or require("floor_plan"))
@@ -58,7 +68,6 @@ local function newJob(kind)
         block = dialog.text("ID bloku; Enter = vzorka z materialovej truhly", "")
         if block == "" then block = nil end
     end
-    local c = settings.load(); control.settings = c
     local stations = pickStations(c, kind); if not stations then return end
     local floor
     if c.tunnel then floor = dialog.choose("Pracovne poschodie", c.tunnel.floors) end
@@ -113,8 +122,9 @@ local function input()
         print("NOVE ULOHY: 1 vykop | 2 podlaha | 3 strop | 4 steny")
         print("OVLADANIE: 5 stav | 6 pauza | 7 pokracovat | 8 navrat/stop | 9 reset do idle")
         print("NASTAVENIA: 10 zakladna | 11 uvolnit rezervacie | 12 update turtle")
+        print("OBLASTI: 13 pracovne zony")
         print("0 koniec")
-        local choice = dialog.number("Volba", 5, 0, 12)
+        local choice = dialog.number("Volba", 5, 0, 13)
         if choice == 1 then newJob()
         elseif choice == 2 then newJob("floor")
         elseif choice == 3 then newJob("ceiling")
@@ -138,6 +148,11 @@ local function input()
         elseif choice==12 then
             print("Vybrane turtle sa vratia do dokov, aktualizuju a restartuju. Ulohy zostanu ulozene.")
             controlTarget("update")
+        elseif choice==13 then
+            local c=settings.load()
+            require("fleet_zones").edit(c)
+            local ok,reason=settings.save(c)
+            if ok then control.settings=c; print("Pracovne zony ulozene.") else print(reason) end
         elseif choice == 10 then
             shell.run("fleet_setup"); control.settings = settings.load()
         elseif choice == 11 then

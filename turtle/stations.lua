@@ -11,6 +11,7 @@ function stations.setRuntime(lockHandler, releaseHandler,movementManaged,finishS
     startupFinished=finishStartup
 end
 function stations.isManaged() return managed end
+function stations.isStartup() return tourHome~=nil end
 function stations.startup(action)
     if not managed then return action() end
     local previous=tourHome; tourHome=nav.getPosition()

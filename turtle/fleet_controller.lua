@@ -175,6 +175,7 @@ function controller.new(settings)
             local w = state.workers[sender]
             local granted = false
             local reason
+            local allocated,leaseToken
             if w and w.taskId == p.taskId and type(p.request) == "string" then
                 local held=state.locks[p.resource]
                 local current,job=jobs.task(sender)
@@ -195,14 +196,23 @@ function controller.new(settings)
                 if type(p.resource)=="string" and p.resource:match("^wallgate:")
                     and (not job or job.kind~="walls" or p.resource~="wallgate:"..job.id) then
                     reason="unknown_resource"
+                elseif p.resource=="tunnel:pool" then
+                    if not current or not current.assignment.tunnel or not current.assignment.tunnel.wide then reason="wide_tunnel_not_configured"
+                    else granted,reason,allocated,leaseToken=require("tunnel_pool").acquire(state.locks,sender,p.request) end
                 elseif not startupBlocked then granted,reason = model.acquire(state.locks, p.resource, sender, p.request) end
                 local newStartup=granted and p.startup and current and not current.startupClaimed
                 if newStartup then current.startupClaimed=true end
                 if granted and (not held or newStartup) then self.save() end
             end
-            self.send(sender, "lock_reply", { request = p.request, granted = granted, resource = p.resource, error=reason })
+            self.send(sender, "lock_reply", { request = p.request, granted = granted, resource = allocated or p.resource, token=leaseToken,error=reason })
         elseif p.kind == "release" then
-            if model.release(state.locks, p.resource, sender, p.token) then self.save() end
+            local key=p.resource
+            if key=="tunnel:pool" then
+                for name,lease in pairs(state.locks) do
+                    if name:match("^tunnel:lane:") and lease.owner==sender and lease.token==p.token then key=name; break end
+                end
+            end
+            if model.release(state.locks, key, sender, p.token) then self.save() end
             self.send(sender, "release_reply", { resource = p.resource, token = p.token })
         elseif p.kind=="update_result" then
             updateResult(sender,p)

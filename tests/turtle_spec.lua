@@ -36,6 +36,7 @@ local function reset()
     package.loaded.surface_program = nil
     package.loaded.wall_plan, package.loaded.wall_access = nil, nil
     package.loaded.fleet_floors = nil
+    package.loaded.fleet_zones, package.loaded.work_area = nil,nil
     package.loaded.work_fuel = nil
     package.loaded.obstacles = nil
     package.loaded.mining_timing = nil

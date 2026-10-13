@@ -32,8 +32,10 @@ local function infrastructureIn(box,job)
                 low=math.min(low or p.y,p.y); high=math.max(high or p.y,p.y)
                 local corridor={min={x=math.min(p.x,shaft.x),y=p.y,z=math.min(p.z,shaft.z)},
                     max={x=math.max(p.x,shaft.x),y=p.y,z=math.max(p.z,shaft.z)}}
+                if shaft.wide then corridor=require("tunnel_layout").corridor(shaft,p) end
                 if overlap(box,corridor) then return true end
             end
+            if shaft.wide then low,high=low-1,high+1 end
             if low and overlap(box,{min={x=shaft.x-1,y=low,z=shaft.z-1},max={x=shaft.x+1,y=high,z=shaft.z+1}}) then return true end
         end
     end

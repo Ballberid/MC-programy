@@ -47,6 +47,9 @@ function client.new(controller, dock)
         return true
     end
     function self.acquire(resource, startup)
+        if resource=="tunnel:pool" then
+            for key in pairs(self.held) do if key:match("^tunnel:lane:[1-9]$") then return true,nil,key end end
+        end
         if self.held[resource] then self.held[resource].depth = self.held[resource].depth + 1; return true end
         state.lockSerial = (state.lockSerial or 0) + 1
         local request = state.lockTokens[resource] or (tostring(os.getComputerID()) .. ":" .. state.lockSerial)
@@ -63,7 +66,14 @@ function client.new(controller, dock)
             if reply then
                 lastReply=os.clock()
                 self.replies[request] = nil
-                if reply.granted then self.held[resource] = { depth = 1, token = request }; return true end
+                if reply.granted then
+                    local key=resource=="tunnel:pool" and reply.resource or resource
+                    if resource=="tunnel:pool" and not tostring(key):match("^tunnel:lane:[1-9]$") then return false,"invalid_tunnel_lane_reply" end
+                    local token=reply.token or request
+                    state.lockTokens[resource]=nil; state.lockTokens[key]=token
+                    self.held[key]={depth=1,token=token}; self.save()
+                    return true,nil,key
+                end
                 if reply.error and reply.error~="occupied" then return false,reply.error end
             end
             sleep(0.1)

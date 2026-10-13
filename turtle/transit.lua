@@ -8,6 +8,7 @@ function transit.validate(tunnel)
     if type(tunnel) ~= "table" or type(tunnel.floors) ~= "table"
         or not config.isPoint({ x = tunnel.x, y = 0, z = tunnel.z }) then return false, "invalid_tunnel" end
     local heights = {}
+    if tunnel.wide~=nil and type(tunnel.wide)~="boolean" then return false,"invalid_tunnel_mode" end
     if not next(tunnel.floors) then return false, "tunnel_has_no_floors" end
     for name, floor in pairs(tunnel.floors) do
         if type(name) ~= "string" or name == "" or type(floor) ~= "table" or not config.isPoint(floor.exit) then return false, "invalid_floor" end
@@ -17,6 +18,10 @@ function transit.validate(tunnel)
         -- A straight horizontal doorway avoids guessing the bend in a building.
         if not ((p.x == tunnel.x and math.abs(p.z - tunnel.z) >= 2)
             or (p.z == tunnel.z and math.abs(p.x - tunnel.x) >= 2)) then return false, "exit_must_align_with_shaft" end
+    end
+    if tunnel.wide then
+        local levels={}; for y in pairs(heights) do levels[#levels+1]=y end; table.sort(levels)
+        for i=2,#levels do if levels[i]-levels[i-1]<5 then return false,"wide_floors_need_five_blocks" end end
     end
     return true
 end
@@ -66,6 +71,7 @@ end
 function transit.move(target, options, rawMove, acquire, release, position, onEntered, destinationMove)
     local legs = options.maxMoves == 1 and {} or transit.plan(position(), target)
     if #legs == 0 then return (destinationMove or rawMove)(target.x, target.y, target.z, options) end
+    if settings.wide then return require("wide_tunnel").move(legs,target,options,rawMove,acquire,release,position,onEntered,destinationMove) end
     return require("tunnel_traffic").move(legs,target,options,rawMove,acquire,release,position,onEntered,preferredLane,destinationMove)
 end
 return transit
