@@ -6,9 +6,11 @@ end
 function layout.portal(center,shaft,index)
     local dx,dz=layout.lane(index)
     if center.x~=shaft.x then
-        return {x=center.x,y=center.y+dx,z=center.z+dz},dx,dz
+        local facing=center.x>shaft.x and 1 or -1
+        return {x=center.x,y=center.y-facing*dx,z=center.z+dz},dx,dz
     end
-    return {x=center.x+dx,y=center.y+dz,z=center.z},dx,dz
+    local facing=center.z>shaft.z and 1 or -1
+    return {x=center.x+dx,y=center.y-facing*dz,z=center.z},dx,dz
 end
 function layout.corridor(tunnel,p)
     local alongX=p.x~=tunnel.x

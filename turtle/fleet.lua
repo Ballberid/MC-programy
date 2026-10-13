@@ -23,7 +23,7 @@ local function pickStations(c, kind)
             if name then stations[role] = store.copy(c.stations[name]) end
         end
         if stations[role] then
-            stations[role].worksite=dialog.yes("Truhla pri pracovisku? (inak cakat v doku)",temporary or stations[role].worksite==true)
+            stations[role].worksite=temporary
         end
     end
     return stations

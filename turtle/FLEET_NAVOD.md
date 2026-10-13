@@ -72,15 +72,15 @@ uloží do `data/fleet-last-start-error.txt`; na PC ho otvoríš cez
 Rezervuje sa iba konkrétne obslužné miesto pri truhle. Pri rôznych truhlách môžu
 pracovať súčasne; pri tej istej sa vystriedajú. Pred rezerváciou ďalšej truhly
 turtle opustí predchádzajúce miesto, aby si navzájom neblokovali odchod.
-Pri výbere staníc pre novú úlohu sa PC pýta **Truhla pri pracovisku?**:
+Miesto čakania sa určuje automaticky podľa výberu truhly:
 
-- **Nie**: základňová truhla. Turtle sa počas práce najprv vráti do vlastného
+- **Preddefinovaná truhla**: Turtle sa počas práce najprv vráti do vlastného
   doku, uvoľní tunel a tam čaká na rezerváciu truhly. Až potom vyrazí k nej.
-- **Áno**: pracovná truhla na tom istom poschodí. Turtle čaká na rezerváciu
+- **Dočasná truhla**: pracovná truhla na tom istom poschodí. Turtle čaká na rezerváciu
   na svojej aktuálnej pozícii a potom ide k truhle. Nevracia sa kvôli tomu do doku.
 
-Pomenované truhly majú predvolené **Nie**, nové dočasné truhly **Áno**;
-voľbu môžeš zmeniť pri každom zadaní. Úvodná kontrola ide medzi truhlami priamo,
+Stačí odpoveď na **Dočasná truhla iba pre túto úlohu?**; ďalšia otázka na
+miesto čakania sa nepýta. Úvodná kontrola ide medzi truhlami priamo,
 bez návratu do doku medzi jednotlivými návštevami. Staré uložené úlohy bez
 tejto voľby zachovajú pôvodné správanie; nové čakanie platí pre nové zadania.
 
@@ -127,9 +127,10 @@ musia byť vzdialené aspoň päť výškových blokov; Y=68, 63 a 37 vyhovujú.
 
 PC prideľuje **všetkých deväť zvislých pruhov**, pre oba smery. Turtle požiada
 pred vstupom, dostane voľný pruh a po fyzickom opustení výstupu ho uvoľní.
-Ku každému pruhu patrí jedno z deviatich políčok otvoru. Pri výstupe v osi X
-určuje poloha pruhu v X riadok otvoru a poloha v Z jeho vodorovné políčko;
-pri výstupe v osi Z je vodorovné políčko podľa X a riadok podľa Z.
+Ku každému pruhu patrí jedno z deviatich políčok otvoru. Spodný riadok patrí
+trom pruhom najbližším k danému otvoru, stredný stredným a horný najvzdialenejším.
+Pri výstupe v osi X určuje poloha v Z vodorovné políčko; pri výstupe v osi Z
+je vodorovné políčko podľa X. Mapovanie sa prispôsobuje strane šachty.
 Ak políčko blokuje iná turtle, počká na jej odchod.
 
 Zvislý presun môže prebiehať súčasne vo všetkých pruhoch. Krátke vodorovné
@@ -137,6 +138,11 @@ prechody na jednom poschodí sa striedajú, pretože ich trasy križujú zvislé
 Čakanie v šachte prebieha mimo troch výšok otvoru, aby turtle neblokovala výstup
 susedného pruhu. Žiadny pruh sa neuvoľní iba podľa časovača, ak v ňom mohla
 zostať neodpovedajúca turtle; po chybe zostáva rezervovaný pre bezpečnú obnovu.
+
+Opakovaný pokus používa tú istú rezerváciu vstupu aj pruhu; nenásobí jej
+počítadlo. Po chybe a pred obnovou turtle overí GPS a uvoľní svoje rezervácie
+priechodov, mimo ktorých už stojí. Ak zostala v šachte alebo vo výstupe, potrebné
+rezervácie zachová. Pri nedostupnom GPS ich neuvoľňuje naslepo.
 
 Bez zapnutia voľby 5 zostáva pôvodný režim **dva pruhy nahor a jeden nadol**
 s jednoblokovým výstupom. Zmena nastavení platí pre nové úlohy.

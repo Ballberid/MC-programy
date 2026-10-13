@@ -50,7 +50,13 @@ function client.new(controller, dock)
         if resource=="tunnel:pool" then
             for key in pairs(self.held) do if key:match("^tunnel:lane:[1-9]$") then return true,nil,key end end
         end
-        if self.held[resource] then self.held[resource].depth = self.held[resource].depth + 1; return true end
+        if self.held[resource] then
+            -- A retry reuses its traffic claim; it is not another nested trip.
+            if not resource:match("^door:") and not resource:match("^tunnel:") then
+                self.held[resource].depth = self.held[resource].depth + 1
+            else self.held[resource].depth=1 end
+            return true,nil,resource
+        end
         state.lockSerial = (state.lockSerial or 0) + 1
         local request = state.lockTokens[resource] or (tostring(os.getComputerID()) .. ":" .. state.lockSerial)
         state.lockTokens[resource] = request; self.save()
@@ -88,6 +94,22 @@ function client.new(controller, dock)
         state.lockTokens[resource] = nil
         state.pendingRelease[resource] = held.token; self.save()
         self.send("release", { resource = resource, token = held.token })
+    end
+    function self.releaseUnusedTraffic()
+        if not nav.sync() then return end
+        local p=nav.getPosition(); local unused={}
+        for resource in pairs(state.lockTokens) do
+            if require("transit").canRelease(resource,p) then unused[#unused+1]=resource end
+        end
+        for _,resource in ipairs(unused) do
+            local token=state.lockTokens[resource]
+            if self.held[resource] then self.held[resource].depth=1; self.release(resource)
+            else
+                state.lockTokens[resource]=nil; state.pendingRelease[resource]=token
+                self.send("release",{resource=resource,token=token})
+            end
+        end
+        if #unused>0 then self.save() end
     end
     function self.awaitWalls()
         local request="walls:"..state.task.id

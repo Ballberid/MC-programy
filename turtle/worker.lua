@@ -36,6 +36,7 @@ local function execute()
                 local saved, saveErr = config.save(settings)
                 if not saved then error(saveErr, 0) end
                 assert(transit.configure(job.tunnel, box, job.floor, job.lane))
+                if client.retry or client.recovery then client.releaseUnusedTraffic() end
                 telemetry.configure(settings.telemetry, nav.getPosition)
                 telemetry.setProgress(client.state.progress)
                 telemetry.setContext({ taskId = job.id, jobId = job.jobId })
@@ -81,6 +82,7 @@ local function execute()
                     return require("mining").run(job.a, job.b, nil, client.retry and client.state.progress or nil)
                 end)
                 ok, result, progress = ran and a == true, ran and b or tostring(a), ran and p or nil
+                if not ok then client.releaseUnusedTraffic() end
                 if waitingAtDock and nav.distance(nav.getPosition(),client.state.dock)==0 then
                     -- Also release requests granted just before cancellation,
                     -- whose replies have not reached the waiting coroutine yet.

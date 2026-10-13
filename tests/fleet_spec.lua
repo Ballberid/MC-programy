@@ -907,6 +907,7 @@ test("cancelling startup keeps the worker docked and clears unanswered reservati
             return false,"job_cancelled"
         end,
         clearClaims=function() cleared=cleared+1 end,
+        releaseUnusedTraffic=function() end,
         finish=function(ok,err,p)
             eq(ok,false); eq(err,"job_cancelled"); eq(p.returnedHome,true)
             finished=true; error("test_finished",0)
@@ -1364,4 +1365,50 @@ test("new ad hoc footprints need no saved zones and remain unsaved",function()
     local a,b=require("fleet_zones").prompt(c,"ceiling")
     eq(a.x,10); eq(a.z,20); eq(b.x,14); eq(b.z,26); eq(a.y,63); eq(b.y,63)
     eq(next(c.zones),nil); eq(#answers,0)
+end)
+
+test("traffic retries reuse a single reservation and one release frees it",function()
+    env.configured(); local c=require("fleet_client").new(99,dock())
+    local releases={}
+    rednet.send=function(_,p)
+        if p.kind=="lock" then c.handle(99,{version=1,kind="lock_reply",request=p.request,granted=true})
+        elseif p.kind=="release" then releases[#releases+1]=p.resource end
+    end
+    for _,r in ipairs({"door:0,0,0","tunnel:up:1","tunnel:lane:2"}) do
+        assert(c.acquire(r)); assert(c.acquire(r)); assert(c.acquire(r))
+        eq(c.held[r].depth,1); c.release(r); eq(c.held[r],nil)
+    end
+    eq(#releases,3)
+end)
+
+test("failed traffic releases only GPS-confirmed empty corridors and retains shaft occupancy",function()
+    env.configured(); local c=require("fleet_client").new(99,dock())
+    local t=tunnel(); t.wide=true; t.floors.upper.exit.y=10
+    assert(require("transit").configure(t,nil,"upper"))
+    local nav=require("navigation"); local p={x=-1,y=8,z=-1}
+    nav.sync=function() return true end; nav.getPosition=function() return p end
+    local releases={}; rednet.send=function(_,packet) if packet.kind=="release" then releases[packet.resource]=true end end
+    for _,r in ipairs({"door:0,0,0","door:0,10,0","tunnel:lane:1"}) do
+        c.state.lockTokens[r]="token"; c.held[r]={depth=3,token="token"}
+    end
+    c.releaseUnusedTraffic()
+    eq(releases["door:0,0,0"],true); eq(releases["door:0,10,0"],true)
+    eq(releases["tunnel:lane:1"],nil); assert(c.held["tunnel:lane:1"])
+    p={x=3,y=10,z=1}; c.state.lockTokens["door:0,10,0"]="newtoken"
+    c.releaseUnusedTraffic(); eq(c.state.lockTokens["door:0,10,0"],"newtoken")
+    p={x=5,y=10,z=1}; nav.sync=function() return false,"gps_unavailable" end
+    c.releaseUnusedTraffic(); eq(releases["tunnel:lane:1"],nil)
+    nav.sync=function() return true end; c.releaseUnusedTraffic()
+    eq(releases["tunnel:lane:1"],true); eq(c.state.lockTokens["door:0,10,0"],nil)
+end)
+
+test("bottom doorway rows match near columns on all four shaft sides",function()
+    local layout=require("tunnel_layout")
+    for _,center in ipairs({{x=4,y=10,z=0},{x=-4,y=10,z=0},{x=0,y=10,z=4},{x=0,y=10,z=-4}}) do
+        for index=1,9 do
+            local portal,dx,dz=layout.portal(center,{x=0,z=0},index)
+            local along=center.x~=0 and dx*(center.x>0 and 1 or -1) or dz*(center.z>0 and 1 or -1)
+            eq(portal.y,10-along)
+        end
+    end
 end)

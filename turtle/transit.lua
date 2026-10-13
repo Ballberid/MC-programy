@@ -68,6 +68,36 @@ function transit.estimate(from, target)
     end
     return cost + distance(previous, target) + (#transit.plan(from,target)>0 and 8 or 0)
 end
+-- Release failed/retried traffic only after GPS confirms the turtle is clear.
+function transit.canRelease(resource,p)
+    if not settings or not p or type(resource)~="string" then return false end
+    local function contains(box)
+        for _,axis in ipairs({"x","y","z"}) do
+            if p[axis]<box.min[axis] or p[axis]>box.max[axis] then return false end
+        end
+        return true
+    end
+    local function corridor(exit)
+        if settings.wide then return require("tunnel_layout").corridor(settings,exit) end
+        return {min={x=math.min(settings.x-1,exit.x),y=exit.y,z=math.min(settings.z-1,exit.z)},
+            max={x=math.max(settings.x+1,exit.x),y=exit.y,z=math.max(settings.z+1,exit.z)}}
+    end
+    if resource:match("^door:") then
+        for _,floor in pairs(settings.floors) do
+            if resource=="door:"..settings.x..","..floor.exit.y..","..settings.z then
+                return not contains(corridor(floor.exit))
+            end
+        end
+        return false
+    end
+    if resource=="tunnel:pool" or resource:match("^tunnel:lane:[1-9]$")
+        or resource=="tunnel:up:1" or resource=="tunnel:up:2" or resource=="tunnel:down" then
+        if math.abs(p.x-settings.x)<=1 and math.abs(p.z-settings.z)<=1 then return false end
+        for _,floor in pairs(settings.floors) do if contains(corridor(floor.exit)) then return false end end
+        return true
+    end
+    return false
+end
 function transit.move(target, options, rawMove, acquire, release, position, onEntered, destinationMove)
     local legs = options.maxMoves == 1 and {} or transit.plan(position(), target)
     if #legs == 0 then return (destinationMove or rawMove)(target.x, target.y, target.z, options) end
