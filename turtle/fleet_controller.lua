@@ -29,6 +29,7 @@ function controller.new(settings)
     end
     function self.send(id, kind, extra)
         local p = extra or {}; p.version, p.kind, p.id = 1, kind, os.getComputerID()
+        if id and state.workers[id] then p.registration=state.workers[id].registration end
         if id then rednet.send(id, p, model.protocol) else rednet.broadcast(p, model.protocol) end
     end
     local function updateResult(id,result)
@@ -121,6 +122,33 @@ function controller.new(settings)
             return
         end
         if protocol ~= model.protocol then return end
+        if p.kind=="rebind" then
+            local valid=require("config").isPoint(p.dock) and require("config").isDirection(p.dock.direction)
+                and require("config").isPoint(p.position) and p.status=="idle"
+                and p.dock.x==p.position.x and p.dock.y==p.position.y and p.dock.z==p.position.z
+                and type(p.registration)=="string" and #p.registration<=100 and #p.registration>0
+            if not valid then return end
+            local w=state.workers[sender]
+            if w and w.retiredRegistrations and w.retiredRegistrations[p.registration] then return end
+            if not w or w.registration~=p.registration then
+                -- Explicit local re-docking is authoritative, unlike a late status packet.
+                local retired=w and w.retiredRegistrations or {}
+                if w and w.registration then retired[w.registration]=true end
+                for _,job in pairs(state.jobs) do
+                    local t=job.tasks[sender]
+                    if t and t.status~="complete" then t.status,t.error="cancelled",nil end
+                end
+                for resource,lease in pairs(state.locks) do if lease.owner==sender then state.locks[resource]=nil end end
+                state.pendingControls[sender]=nil
+                state.workers[sender]={dock=store.copy(p.dock),status="idle",received=os.clock(),
+                    registration=p.registration,retiredRegistrations=retired}
+                self.save()
+            end
+            self.send(sender,"rebind_reply",{ok=true})
+            return
+        end
+        local paired=state.workers[sender]
+        if paired and paired.registration and paired.registration~=p.registration then return end
         if p.kind == "status" then
             if type(p.status) ~= "string" or not require("config").isPoint(p.dock) then return end
             if not state.workers[sender] then
@@ -224,6 +252,7 @@ function controller.new(settings)
                 if t and t.id==p.taskId then t.status,t.error="cancelled",nil end
                 if w then
                     w.status,w.error,w.taskId,w.taskType="idle",nil,nil,nil
+                    w.controlError=nil
                     if w.packet then w.packet.progress=nil end
                 end
             elseif w then w.controlError=p.error end

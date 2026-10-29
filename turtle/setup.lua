@@ -108,3 +108,6 @@ if not saved then error("Ulozenie zlyhalo: " .. tostring(reason), 0) end
 nav.configure(c)
 telemetry.log("Setup ulozeny do data/settings.txt")
 print("Existenciu truhiel a trasy over cez test.lua. Setup ich este nenavstivil.")
+if fs.exists("data/worker-state.txt") then
+    print("Fleet ma vlastny ulozeny dok. Po rucnom premiestneni pouzi worker_reset ID_PC, potom worker ID_PC.")
+end

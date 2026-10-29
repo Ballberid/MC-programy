@@ -22,12 +22,17 @@ function client.new(controller, dock)
     function self.save() store.save(path, state); self.lastSaved = os.clock() end
     function self.send(kind, extra)
         local packet = extra or {}; packet.kind, packet.version, packet.id = kind, 1, os.getComputerID()
+        packet.registration=state.registration
         rednet.send(controller, packet, model.protocol)
     end
     function self.status(force)
         local now=os.clock()
         if not force and now-self.lastStatus<1 then return end
         self.lastStatus=now
+        if state.rebindPending then
+            self.send("rebind",{dock=state.dock,position=nav.getPosition(),status="idle"})
+            return
+        end
         if state.status == "running" then
             state.progress = telemetry.getProgress() or state.progress
             if os.clock() - self.lastSaved >= 2 then self.save() end
@@ -154,6 +159,13 @@ function client.new(controller, dock)
     end
     function self.handle(sender, packet)
         if sender ~= controller or type(packet) ~= "table" or packet.version ~= 1 then return end
+        if state.registration and packet.kind~="discover" and packet.registration~=state.registration then return end
+        if packet.kind=="rebind_reply" then
+            if packet.ok then state.rebindPending=nil; self.save(); self.status(true)
+            else state.error=packet.error; self.save() end
+            return
+        end
+        if state.rebindPending and (packet.kind=="assign" or packet.kind=="control") then return end
         if packet.kind == "discover" then self.status()
         elseif (packet.kind == "lock_reply" or packet.kind=="walls_reply") and type(packet.request) == "string" then
             self.replies[packet.request] = packet
@@ -188,11 +200,12 @@ function client.new(controller, dock)
                 if packet.action=="update" then self.updater.report() end
                 self.send("control_ack", { request = packet.request }); return
             end
-            if packet.taskId and (not state.task or state.task.id~=packet.taskId) then return end
+            if packet.taskId and (not state.task or state.task.id~=packet.taskId)
+                and not (packet.action=="reset" and not state.task) then return end
             if packet.action=="update" then
                 self.updater.request(packet)
             elseif packet.action=="reset" then
-                local taskId=state.task and state.task.id
+                local taskId=state.task and state.task.id or packet.taskId
                 local ok,reason=self.reset()
                 local result={request=packet.request,taskId=taskId,ok=ok,error=reason}
                 if packet.request then state.controlResults[packet.request]=store.copy(result) end

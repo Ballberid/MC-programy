@@ -24,7 +24,11 @@ if not c then
 end
 local client = require("fleet_client").new(controller, dock)
 print("Turtle #" .. os.getComputerID() .. " -> riadiaci PC #" .. controller)
-print("Stav: " .. client.state.status .. "; cakam na ulohy.")
+print("Stav: " .. client.state.status)
+print("Ulozeny dok: "..client.state.dock.x..","..client.state.dock.y..","..client.state.dock.z.." / smer "..client.state.dock.direction)
+if client.state.rebindPending then print("Cakam na potvrdenie noveho doku od PC.")
+elseif client.state.task then print("Ulozena uloha zostala zachovana. Rucny presun do noveho doku: worker_reset.")
+else print("Cakam na novu ulohu.") end
 local function execute()
     while true do
         if client.queued then

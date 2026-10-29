@@ -1,6 +1,7 @@
 {
   "version": 1,
   "files": [
+    { "source": "worker_reset.lua", "target": "worker_reset.lua", "roles": ["turtle"] },
     { "source": "work_area.lua", "target": "work_area.lua", "roles": ["turtle", "controller"] },
     { "source": "fleet_zones.lua", "target": "fleet_zones.lua", "roles": ["controller"] },
     { "source": "tunnel_pool.lua", "target": "tunnel_pool.lua", "roles": ["controller"] },

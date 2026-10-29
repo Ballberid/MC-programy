@@ -1412,3 +1412,84 @@ test("bottom doorway rows match near columns on all four shaft sides",function()
         end
     end
 end)
+
+test("idle worker answers reset even when the controller still names a lost assignment",function()
+    env.configured(); env.navReady(); local c=require("fleet_client").new(99,dock())
+    c.handle(99,{version=1,kind="control",action="reset",taskId="lost:old",request="reset-orphan",order=1})
+    local result
+    for _,p in ipairs(world().packets) do if p.kind=="reset_result" then result=p end end
+    assert(result); eq(result.ok,true); eq(result.taskId,"lost:old"); eq(c.state.status,"idle")
+end)
+
+test("manual worker reset takes the actual dock and heading instead of restoring the old dock",function()
+    env.configured(stations()); local store=require("fleet_store")
+    store.save("data/worker-state.txt",{version=1,controller=99,dock=dock(),task=assignment(),status="recovery",
+        seen={["job:1"]=true},lockTokens={["door:0,0,0"]="old"}})
+    world().x,world().y,world().z=40,12,7
+    assert(pcall(loadfile(ROOT.."/turtle/worker_reset.lua"),"99","1"))
+    local s=store.load("data/worker-state.txt")
+    eq(s.dock.x,40); eq(s.dock.y,12); eq(s.dock.z,7); eq(s.dock.direction,1)
+    eq(s.status,"idle"); eq(s.task,nil); eq(s.rebindPending,true); assert(s.registration)
+    eq(require("config").load().home.x,40)
+    eq(store.load("data/worker-before-reset.txt").dock.x,0)
+    local c=require("fleet_client").new(99,require("navigation").getPosition())
+    eq(c.state.dock.x,40); c.status(true)
+    local p=world().packets[#world().packets]; eq(p.kind,"rebind"); eq(p.registration,s.registration)
+    c.handle(99,{version=1,kind="control",action="stop",request="late-old",order=500})
+    eq(c.state.lastControl,nil)
+    c.handle(99,{version=1,kind="assign",registration=s.registration,task=assignment("premature")})
+    eq(c.state.task,nil)
+    c.handle(99,{version=1,kind="rebind_reply",registration=s.registration,ok=true})
+    eq(c.state.rebindPending,nil); eq(world().packets[#world().packets].kind,"status")
+    c.handle(99,{version=1,kind="assign",registration=s.registration,task=assignment("new-work")})
+    eq(c.state.task.id,"new-work"); eq(c.state.status,"assigned"); eq(c.state.dock.x,40)
+end)
+
+test("failed GPS cannot overwrite the worker dock during manual re-docking",function()
+    env.configured(); local store=require("fleet_store")
+    store.save("data/worker-state.txt",{controller=99,dock=dock(),status="recovery",task=assignment()})
+    world().gpsFailAt=1
+    local ok=pcall(loadfile(ROOT.."/turtle/worker_reset.lua"),"99","0")
+    eq(ok,false); eq(store.load("data/worker-state.txt").task.id,"job:1")
+end)
+
+test("controller re-docking cancels old tasks and only that owner's locks then ignores stale packets",function()
+    local c,m=controllerWithWorkers(); local a=assignment()
+    assert(c.start(a.a,a.b,{41},a.stations)); local old=c.state.job.tasks[41]
+    c.state.locks["door:0,0,0"]={owner=41,token="a"}
+    c.state.locks["tunnel:lane:2"]={owner=42,token="b"}
+    c.control("reset",41); assert(c.state.pendingControls[41])
+    local newDock={x=20,y=0,z=0,direction=1}
+    local packet={version=1,id=41,kind="rebind",registration="new-dock-1",dock=newDock,position=newDock,status="idle"}
+    c.handle(41,packet,m.protocol)
+    eq(old.status,"cancelled"); eq(c.state.workers[41].dock.x,20); eq(c.state.workers[41].taskId,nil)
+    eq(c.state.locks["door:0,0,0"],nil); eq(c.state.locks["tunnel:lane:2"].owner,42)
+    eq(c.state.pendingControls[41],nil)
+    c.handle(41,{version=1,id=41,kind="status",dock=dock(),status="running",taskId=old.id},m.protocol)
+    eq(c.state.workers[41].dock.x,20); eq(c.state.workers[41].status,"idle")
+    assert(c.start(a.a,a.b,{41},a.stations)); local fresh=c.state.job.tasks[41]
+    c.handle(41,packet,m.protocol); eq(fresh.status,"assigned"); eq(c.state.workers[41].taskId,fresh.id)
+    c=require("fleet_controller").new(require("fleet_settings").defaults())
+    packet.registration="new-dock-2"; c.handle(41,packet,m.protocol)
+    packet.registration="new-dock-1"; c.handle(41,packet,m.protocol)
+    eq(c.state.workers[41].registration,"new-dock-2")
+end)
+
+test("all manually permuted docks can re-register and accept a fresh common job",function()
+    local c,m=controllerWithWorkers(); local a=assignment()
+    for id=41,43 do c.state.workers[id].dock={x=20+id-41,y=0,z=0,direction=1} end
+    assert(c.start(a.a,a.b,{41,42,43},a.stations)); local old=c.state.job
+    for id=41,43 do
+        c.state.locks["tunnel:lane:"..(id-40)]={owner=id,token="old"..id}
+        local p={x=20+(id-40)%3,y=0,z=0,direction=1}
+        c.handle(id,{version=1,id=id,kind="rebind",registration="new:"..id,dock=p,position=p,status="idle"},m.protocol)
+        eq(old.tasks[id].status,"cancelled"); eq(c.state.workers[id].dock.x,p.x)
+    end
+    eq(next(c.state.locks),nil); eq(#c.available(),3)
+    assert(c.start(a.a,a.b,{41,42,43},a.stations))
+    local docks={}
+    for id=41,43 do
+        local w=c.state.workers[id]
+        eq(w.status,"assigned"); eq(docks[w.dock.x],nil); docks[w.dock.x]=true
+    end
+end)

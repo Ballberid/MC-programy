@@ -390,6 +390,34 @@ Dok a párovanie sa ukladajú do `data/worker-state.txt`. Po reštarte na inom m
 sa dok automaticky nepresunie. `worker` bez argumentov použije uložené ID PC.
 Neprenášaj súbory `data/worker-state.txt` medzi turtle.
 
+### Obnova po ručnom premiestnení alebo poprehadzovaní dokov
+
+`setup` nemení dok uložený workerom. Po rozbití turtle a položení na nové miesto
+použi **worker_reset**, nie opakovaný setup ani obyčajný reset do idle.
+Príkaz zruší starú úlohu tejto turtle a z aktuálnej GPS polohy vytvorí nový dok.
+Je určený na ručnú obnovu v základni, nie na pokračovanie práce zo šachty.
+
+1. Nahraj nový kód na GitHub. Na hlavnom PC ukonči `fleet`, vykonaj
+   `update controller` a znova spusti `fleet`.
+2. Polož každú turtle do jej požadovaného doku a otoč ju do voľnej chodby.
+   Doky musia byť odlišné, mimo šachty, výstupov a obslužných miest truhiel.
+3. Zastav worker cez Ctrl+T. Ak startup vypíše reštart o 10 sekúnd, stlač
+   Ctrl+T znova počas tejto pauzy, aby si zostal v termináli.
+4. Na každej turtle vykonaj `update turtle`, potom `worker_reset 16`.
+   Číslo 16 nahraď ID svojho hlavného PC. Program sa spýta na skutočný smer:
+   `0 sever −Z`, `1 východ +X`, `2 juh +Z`, `3 západ −X`.
+   Môžeš ho uviesť priamo, napríklad `worker_reset 16 1`.
+5. Spusti `reboot` alebo `worker 16`. Worker opakuje požiadavku na nové
+   priradenie, kým ju PC nepotvrdí. PC zruší jeho starý segment, odstráni čakajúce
+   povely a uvoľní iba rezervácie patriace tejto turtle. Ostatné nemení.
+
+PC aj turtle musia byť aktualizované. Staré a oneskorené správy po novom
+priradení nesmú znovu obnoviť pôvodný dok alebo úlohu. Opakované potvrdenie
+toho istého priradenia nezruší novú úlohu. Pred novým spoločným zadaním dokonči
+obnovu všetkých presunutých turtle a over ich stav `idle` na PC.
+Pomenované truhly, poschodia a zóny na hlavnom PC zostávajú zachované.
+Predchádzajúci lokálny stav je zálohovaný v `data/worker-before-reset.txt`.
+
 ## Tablet
 
 ```text
@@ -444,7 +472,8 @@ kontrole, že priechod je voľný a pôvodná turtle už nepokračuje v presune.
 Na uvoľnenie program vyžaduje text `VOLNE`.
 Po návrate všetkých turtle môžeš použiť **9 → 3**, aby boli `idle` a zabudli
 pridelenú úlohu. Reset zachová dok, párovanie, truhly, poschodia a tunel.
-Rozbehnutá turtle alebo turtle mimo doku reset odmietne; najprv použi návrat 7.
+Rozbehnutá turtle alebo turtle mimo doku reset odmietne; najprv použi návrat 8.
+Ak si ju do nového doku položil ručne, použi vyššie uvedený `worker_reset`.
 Reset nie je potrebný na nové zadanie: stavy `complete` a `failed` tiež prijímajú
 novú úlohu, keď daná turtle nedrží rezerváciu ani nečaká na povel.
 Ostatné skupiny môžu ďalej pracovať. Nové zadanie neúspešnej turtle nahradí jej
