@@ -693,6 +693,38 @@ test("low job fuel refills the whole remaining goal before the reserve is exhaus
     assert(W.fuel>=1000 and W.fuel<1080)
 end)
 
+for _,side in ipairs({"front","up","down"}) do
+test("autofilled full fuel chest keeps surplus without failing or overfilling: "..side,function()
+    local c=configured({fuel={x=0,y=0,z=0,direction=1,side=side}})
+    c.fuelSlots={16}; assert(require("config").save(c))
+    local chest={items={{name="minecraft:coal",count=64}},capacity=0}
+    W.chests[side=="front" and "1,0,0" or (side=="up" and "0,1,0" or "0,-1,0")]=chest
+    local method=side=="front" and "suck" or (side=="up" and "suckUp" or "suckDown")
+    local suck=turtle[method]; local collections=0
+    turtle[method]=function(n)
+        local ok=suck(n)
+        if ok then collections=collections+1; chest.items={{name="minecraft:coal",count=64}} end
+        return ok
+    end
+    W.fuel=30; navReady(); turtle.select(5)
+    local stations=require("stations")
+    local ok,err=stations.refuel(1000); assert(ok,err)
+    eq(W.fuel,1070); eq(W.slots[16].count,51); eq(W.selected,5); eq(collections,1)
+    ok,err=stations.refuel(1100); assert(ok,err)
+    eq(W.fuel,1150); eq(W.slots[16].count,50); eq(collections,1)
+    eq(chest.items[1].count,64)
+    eq(W.x,0); eq(W.y,0); eq(W.z,0)
+end)
+end
+
+test("full fuel chest still rejects nonfuel items instead of reporting successful refuelling",function()
+    configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
+    W.chests["1,0,0"]={items={{name="minecraft:cobblestone",count=64}},capacity=0}
+    W.fuel=30; navReady()
+    local ok,err=require("stations").refuel(1000)
+    eq(ok,false); eq(err,"unexpected_fuel_item_cannot_return"); eq(W.fuel,30)
+end)
+
 test("blocked fuel slots cannot masquerade as a successful partial refill",function()
     local c=configured({fuel={x=0,y=0,z=0,direction=1,side="front"}})
     c.fuelSlots={16}; assert(require("config").save(c))

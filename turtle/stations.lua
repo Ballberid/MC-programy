@@ -138,12 +138,12 @@ function stations.refuel(target, options)
                 return false, "fuel_chest_contains_nonfuel"
             end
             fuel.refuel(required, { slot })
-            -- Leave unused newly collected fuel in its source chest. Otherwise
-            -- a mining unload would move the remaining supply into output.
+            -- Return surplus when possible. An automatically refilled source
+            -- may already be full again; retain valid fuel instead of failing
+            -- a successful refill or burning it beyond the requested target.
             local leftover = turtle.getItemCount(slot)
             if leftover > 0 and turtle.refuel(0) then
                 transfer(station.side, false, leftover)
-                if turtle.getItemCount(slot) > 0 then return false, "unused_fuel_cannot_return" end
             end
             if fuel.level()<=before then return false,"fuel_did_not_increase" end
         end

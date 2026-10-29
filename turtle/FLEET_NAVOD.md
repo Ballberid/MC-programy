@@ -333,6 +333,10 @@ Pri priebežnom tankovaní každá turtle počíta zásobu na celý zostávajúc
 segment, servisné presuny vrátane tunela a rezervy, s dvojnásobným odhadom.
 Cieľ obmedzuje kapacita nádrže a dostupné palivo v truhle. Ak má stále dosť
 paliva na pokračovanie a bezpečný návrat, nezačne tankovať iba kvôli tomuto odhadu.
+Ak sa palivová truhla automaticky dopĺňa a po odbere je znovu plná, nemožnosť
+vrátiť prebytočné uhlie nezastaví úlohu. Turtle si ho ponechá v inventári;
+nespaľuje ho navyše iba preto, aby uvoľnila slot. Chybné predmety v palivovej
+truhle alebo skutočný nedostatok paliva sa naďalej hlásia ako chyba.
 
 Servis pri truhlách a prejazd tunelom majú samostatné rezervácie. Pri odchode
 z poschodia s truhlami na pracovné poschodie turtle uvoľní servis po dosiahnutí
